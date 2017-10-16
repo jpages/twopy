@@ -150,6 +150,8 @@ class Function:
         self.generate_instructions()
         self.generate_basic_blocks()
 
+        # Dictionnary of freecells and their values
+        self.closure = {}
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
@@ -412,7 +414,14 @@ class INPLACE_MATRIX_MULTIPLY(Instruction):
     pass
 
 class BINARY_POWER(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        second = interpreter.pop()
+        first = interpreter.pop()
+
+        val = pow(first, second)
+        interpreter.push(val)
 
 class BINARY_MULTIPLY(Instruction):
     def execute(self, interpreter):
@@ -677,7 +686,8 @@ class LOAD_CONST(Instruction):
 
         # If we load a Code Object, disassemble it
         if isinstance(loaded_value, CodeType):
-            dis.dis(loaded_value)
+            if interpreter.args.verbose:
+                dis.dis(loaded_value)
 
 class LOAD_NAME(Instruction):
     def execute(self, interpreter):
@@ -689,7 +699,14 @@ class LOAD_NAME(Instruction):
         interpreter.push(interpreter.global_environment[name])
 
 class BUILD_TUPLE(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        res = []
+        for i in range(0, self.arguments):
+            res.append(interpreter.pop())
+
+        interpreter.push(tuple(res))
 
 class BUILD_LIST(Instruction):
     def execute(self, interpreter):
@@ -1006,28 +1023,40 @@ class MAKE_FUNCTION(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        #TODO
-        if (self.arguments & 1) == 1:
-            # default arguments
-            default = interpreter.pop()
-
-        if (self.arguments & 2) == 1:
-            # keyword only default arguments
-            keyword_only = interpreter.pop()
-
-        if (self.arguments & 4) == 1:
-            # Annotation dictionnary
-            annotations = interpreter.pop()
-
-        if (self.arguments & 8) == 1:
-            # Making a closure, tuple of free variables
-            free_variables = interpreter.pop()
+        interpreter.print_stack()
 
         function_name = interpreter.pop()
         code = interpreter.pop()
 
+        #TODO
+        free_variables = None
+        if (self.arguments & 8) == 8:
+            # Making a closure, tuple of free variables
+            free_variables = interpreter.pop()
+            print("free_variables " + str(free_variables))
+            print("Current function env " + str(interpreter.current_function().environments))
+
+        if (self.arguments & 4) == 4:
+            # Annotation dictionnary
+            annotations = interpreter.pop()
+
+        if (self.arguments & 2) == 2:
+            # keyword only default arguments
+            keyword_only = interpreter.pop()
+
+        if (self.arguments & 1) == 1:
+            # default arguments
+            default = interpreter.pop()
+
         # Generate a new Function Object
         fun = interpreter.generate_function(code, function_name)
+
+        # Fill the closure
+        if free_variables != None:
+            for value in free_variables:
+                for env in reversed(interpreter.current_function().environments):
+                    if value in env:
+                        fun.closure[value] = env[value]
 
         # Push the Function object on the stack
         interpreter.push(fun)
@@ -1063,23 +1092,29 @@ class LOAD_CLOSURE(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
+        # Search the name of the variable
+        varname = None
         if self.arguments < len(interpreter.current_function().cellvars):
-            interpreter.push(interpreter.current_function().cellvars[self.arguments])
+            varname = interpreter.current_function().cellvars[self.arguments]
         else:
             i = self.arguments - len(interpreter.current_function().cellvars)
-            interpreter.push(interpreter.current_function().cellvars[i])
+            varname = interpreter.current_function().cellvars[i]
+
+        interpreter.push(varname)
 
 class LOAD_DEREF(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        cellvar = None
+        varname = None
         if self.arguments < len(interpreter.current_function().cellvars):
-            cellvar = interpreter.current_function().cellvars[self.arguments]
+            varname = interpreter.current_function().cellvars[self.arguments]
         else:
-            cellvar = interpreter.current_function().freevars[self.arguments]
+            varname = interpreter.current_function().freevars[self.arguments]
 
-        interpreter.push(cellvar)
+        # TODO: link closures between them
+        # Get the value in the closure
+        interpreter.push(interpreter.current_function().closure[varname])
 
 class STORE_DEREF(Instruction):
     pass
