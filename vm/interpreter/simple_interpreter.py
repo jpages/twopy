@@ -95,11 +95,19 @@ class SimpleInterpreter:
 
     # Push a value onto the stack
     def push(self, value):
+        if self.args.execution:
+            print("PUSH " + str(value))
+
         self.stack.append(value)
 
     # Pop a value from the stack
     def pop(self):
-        return self.stack.pop()
+        if self.args.execution:
+            res = self.stack.pop()
+            print("POP " + str(res))
+            return res
+        else:
+            return self.stack.pop()
 
 class Function:
     '''

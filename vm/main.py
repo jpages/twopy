@@ -10,9 +10,11 @@ def main():
     parser = argparse.ArgumentParser(description = "TwoPy Virtual Machine")
     parser.add_argument("file", help = "path to a python file")
 
-    # TODO: activate/deactivate a verbose mode
     parser.add_argument("--verbose", "-v", action="store_true",
                         help = "enable verbose output")
+
+    parser.add_argument("--execution", action="store_true",
+                        help="Print each variation of the stack during execution")
 
     args = parser.parse_args()
 
