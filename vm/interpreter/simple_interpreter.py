@@ -7,16 +7,19 @@ import dis;
 # The singleton of the Interpreter
 simple_interpreter_instance = None
 
-def get_interpreter(module):
+def get_interpreter(module, args):
     global simple_interpreter_instance
     if simple_interpreter_instance == None:
-        simple_interpreter_instance = SimpleInterpreter(module)
+        simple_interpreter_instance = SimpleInterpreter(module, args)
 
     return simple_interpreter_instance
 
 class SimpleInterpreter:
-    def __init__(self, module):
+    def __init__(self, module, args):
         self.module = module
+
+        # Command-line arguments for the vm
+        self.args = args
 
         # An identifier incremented for each function, main has 0
         self.global_id_function = 0
@@ -52,7 +55,7 @@ class SimpleInterpreter:
         function = Function(self.global_id_function, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
-    name, dis.get_instructions(code))
+    name, dis.get_instructions(code), self)
 
         self.functions.append(function)
 
@@ -114,10 +117,11 @@ class Function:
     self.cellvars = tuple of names of variables used by child scopes
     self.name = Function name
     self.iterator = Iterator over Instructions
+    self.interpreter = The interpreter instance
     '''
     def __init__(self, id_function, argcount, kwonlyargcount,
                 nlocals, stacksize, consts, names,
-                varnames, freevars, cellvars, name, iterator):
+                varnames, freevars, cellvars, name, iterator, interpreter):
         self.id_function = id_function
         self.argcount = argcount
         self.kwonlyargcount = kwonlyargcount
@@ -130,6 +134,7 @@ class Function:
         self.cellvars = cellvars
         self.name = name
         self.iterator = iterator
+        self.interpreter = interpreter
 
         # Environments are linked for each call
         self.environments = []
@@ -157,7 +162,9 @@ class Function:
                 next_op = temp_instructions[i+1]
 
             size = next_op.offset - op.offset
-            print(str(op) + ", size " + str(size))
+
+            if self.interpreter.args.verbose:
+                print(str(op) + ", size " + str(size))
 
             instruction = dict_instructions[op.opcode](op.offset,
             op.opcode, op.opname, op.arg, op.is_jump_target, size)
@@ -325,7 +332,8 @@ class Instruction:
 
     # Execute this instruction in interpretation mode
     def execute(self, interpreter):
-        print("Execution of : " + str(self.__class__) + " args " + str(self.arguments))
+        if interpreter.args.verbose :
+            print("Execution of : " + str(self.__class__) + " args " + str(self.arguments))
 
 # A particular class which breaks the control flow of a basic block by branching
 class BranchInstruction(Instruction):

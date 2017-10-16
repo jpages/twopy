@@ -11,14 +11,14 @@ def main():
     parser.add_argument("file", help = "path to a python file")
 
     # TODO: activate/deactivate a verbose mode
-    parser.add_argument("--verbose", "-v",
-                        help = "enable verbose output (deactivated for now)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help = "enable verbose output")
 
     args = parser.parse_args()
 
     # Compile to bytecode and get the module
     module = frontend.compiler.compile(args.file)
-    vm = interpreter.simple_interpreter.get_interpreter(module)
+    vm = interpreter.simple_interpreter.get_interpreter(module, args)
 
     vm.execute()
 
