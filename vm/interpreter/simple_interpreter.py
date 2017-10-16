@@ -618,7 +618,13 @@ class SETUP_ANNOTATIONS(Instruction):
     pass
 
 class YIELD_VALUE(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        interpreter.print_stack()
+        quit()
+
+        tos = interpreter.pop()
 
 class POP_BLOCK(Instruction):
     pass
@@ -1034,7 +1040,7 @@ class CALL_FUNCTION(Instruction):
         function = interpreter.pop()
         if not isinstance(function, Function):
             # Special case of a call to a primitive function
-            interpreter.push(function(*args))
+            interpreter.push(function(*reversed(args)))
             return
 
         # Initialize the environment for the function call
