@@ -417,53 +417,81 @@ class BINARY_POWER(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        second = interpreter.pop()
-        first = interpreter.pop()
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
 
-        val = pow(first, second)
+        val = pow(tos1, tos)
         interpreter.push(val)
 
 class BINARY_MULTIPLY(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        second = interpreter.pop()
-        first = interpreter.pop()
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
 
-        val = first * second
+        val = tos1 * tos
         interpreter.push(val)
 
 class BINARY_MODULO(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
+
+        val = tos1 % tos
+        interpreter.push(val)
 
 class BINARY_ADD(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        second = interpreter.pop()
-        first = interpreter.pop()
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
 
-        val = first + second
+        val = tos1 + tos
         interpreter.push(val)
 
 class BINARY_SUBTRACT(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        second = interpreter.pop()
-        first = interpreter.pop()
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
 
-        val = first - second
+        val = tos1 - tos
         interpreter.push(val)
 
 class BINARY_SUBSCR(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
+
+        val = tos1[tos]
+        interpreter.push(val)
 
 class BINARY_FLOOR_DIVIDE(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
+
+        val = tos1 // tos
+        interpreter.push(val)
 
 class BINARY_TRUE_DIVIDE(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        tos1 = interpreter.pop()
+
+        val = tos1 / tos
+        interpreter.push(val)
 
 class INPLACE_FLOOR_DIVIDE(Instruction):
     pass
@@ -1023,8 +1051,6 @@ class MAKE_FUNCTION(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        interpreter.print_stack()
-
         function_name = interpreter.pop()
         code = interpreter.pop()
 
@@ -1033,8 +1059,6 @@ class MAKE_FUNCTION(Instruction):
         if (self.arguments & 8) == 8:
             # Making a closure, tuple of free variables
             free_variables = interpreter.pop()
-            print("free_variables " + str(free_variables))
-            print("Current function env " + str(interpreter.current_function().environments))
 
         if (self.arguments & 4) == 4:
             # Annotation dictionnary
@@ -1135,7 +1159,11 @@ class EXTENDED_ARG(Instruction):
     pass
 
 class LIST_APPEND(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        list.append(interpreter.stack[-self.arguments], tos)
 
 class SET_ADD(Instruction):
     pass
