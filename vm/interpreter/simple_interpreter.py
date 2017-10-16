@@ -85,10 +85,10 @@ class SimpleInterpreter:
 
     # Print the current stack from bottom to top
     def print_stack(self):
-        i = 0
+        i = len(self.stack) -1
         for el in reversed(self.stack):
             print("\t " + str(i) + " " + str(el))
-            i += 1
+            i -= 1
 
     # Push a value onto the stack
     def push(self, value):
@@ -428,8 +428,6 @@ class BINARY_SUBTRACT(Instruction):
         second = interpreter.pop()
         first = interpreter.pop()
 
-        print("First " + str(first))
-        print("second " + str(second))
         val = first - second
         interpreter.push(val)
 
@@ -962,17 +960,9 @@ class CALL_FUNCTION(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        #TODO Parameter annotation objects
-        for i in range(0, (self.arguments >> 16) & 0x7FFF):
-            pass
-
-        #TODO Keywords only parameters
-        for i in range(0, (self.arguments >> 8) & 0xFF):
-            pass
-
         # Default arguments
         args = []
-        for i in range(0, 0xFF & self.arguments):
+        for i in range(0, self.arguments):
             # Pop all arguments of the call and put them in environment
             args.append(interpreter.pop())
 
@@ -1001,19 +991,25 @@ class MAKE_FUNCTION(Instruction):
         super().execute(interpreter)
 
         #TODO
-        for i in range(0, 0xFF & self.arguments):
-            pass
+        if (self.arguments & 1) == 1:
+            # default arguments
+            default = interpreter.pop()
 
-        for i in range(0, (self.arguments >> 8) & 0xFF):
-            pass
+        if (self.arguments & 2) == 1:
+            # keyword only default arguments
+            keyword_only = interpreter.pop()
 
-        for i in range(0, (self.arguments >> 16) & 0x7FFF):
-            pass
+        if (self.arguments & 4) == 1:
+            # Annotation dictionnary
+            annotations = interpreter.pop()
+
+        if (self.arguments & 8) == 1:
+            # Making a closure, tuple of free variables
+            free_variables = interpreter.pop()
 
         function_name = interpreter.pop()
         code = interpreter.pop()
 
-        #TODO: a tuple listing the parameter names for the annotations (only if there are only annotation objects)
         # Generate a new Function Object
         fun = interpreter.generate_function(code, function_name)
 
