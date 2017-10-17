@@ -7,13 +7,13 @@ import dis
 # to make lazy compilation of bytecode files
 
 # Compile a .py source file to bytecode
-def compile(filename):
+def compile(filename, args):
     # We compile to the current version of python
     bytecode_filename = py_compile.compile(filename, optimize = 0)
-    return parse_file(bytecode_filename)
+    return parse_file(bytecode_filename, args)
 
 # Parse a python bytecode file and return the CodeObject
-def parse_file(filename):
+def parse_file(filename, args):
     bytecode_file = open(filename, "rb")
 
     # The header of a bytecode file is 12 bytes long
@@ -25,7 +25,9 @@ def parse_file(filename):
     body = bytecode_file.read()
     co = marshal.loads(body)
 
-    print(dis.dis(co))
+    if args.verbose:
+        print(dis.dis(co))
+
     bytecode_file.close()
     return co
 

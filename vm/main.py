@@ -19,7 +19,7 @@ def main():
     args = parser.parse_args()
 
     # Compile to bytecode and get the module
-    module = frontend.compiler.compile(args.file)
+    module = frontend.compiler.compile(args.file, args)
     vm = interpreter.simple_interpreter.get_interpreter(module, args)
 
     vm.execute()

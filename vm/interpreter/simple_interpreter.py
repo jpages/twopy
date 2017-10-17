@@ -622,9 +622,11 @@ class YIELD_VALUE(Instruction):
         super().execute(interpreter)
 
         interpreter.print_stack()
-        quit()
 
         tos = interpreter.pop()
+        interpreter.push(tos)
+        #TODO
+        quit()
 
 class POP_BLOCK(Instruction):
     pass
@@ -1033,6 +1035,9 @@ class CALL_FUNCTION(Instruction):
             # Pop all arguments of the call and put them in environment
             args.append(interpreter.pop())
 
+        # Put arguments in right order
+        args.reverse()
+
         # Creating an empty environment
         env = {}
 
@@ -1040,7 +1045,7 @@ class CALL_FUNCTION(Instruction):
         function = interpreter.pop()
         if not isinstance(function, Function):
             # Special case of a call to a primitive function
-            interpreter.push(function(*reversed(args)))
+            interpreter.push(function(*args))
             return
 
         # Initialize the environment for the function call
@@ -1093,30 +1098,6 @@ class MAKE_FUNCTION(Instruction):
 
 class BUILD_SLICE(Instruction):
     pass
-
-# TODO: temporary, this instruction is removed in python 3.6
-# MAKE_FUNCTION also handles closures
-class MAKE_CLOSURE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        #TODO: arguments as MAKE_FUNCTION
-
-        function_name = interpreter.pop()
-        code = interpreter.pop()
-        cells = interpreter.pop()
-
-        print("Function name " + str(function_name))
-        print("code " + str(code))
-        print("cells " + str(cells))
-        quit()
-
-        #TODO: a tuple listing the parameter names for the annotations (only if there are only annotation objects)
-        # Generate a new Function Object
-        fun = interpreter.generate_function(code, function_name)
-
-        # Push the Function object on the stack
-        interpreter.push(fun)
 
 class LOAD_CLOSURE(Instruction):
     def execute(self, interpreter):
@@ -1315,7 +1296,6 @@ dict_instructions = {
 131 : CALL_FUNCTION,
 132 : MAKE_FUNCTION,
 133 : BUILD_SLICE,
-134 : MAKE_CLOSURE,
 135 : LOAD_CLOSURE,
 136 : LOAD_DEREF,
 137 : STORE_DEREF,
