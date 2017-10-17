@@ -384,34 +384,34 @@ class ROT_TWO(Instruction):
         interpreter.push(second)
 
 class ROT_THREE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DUP_TOP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DUP_TOP_TWO(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class NOP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class UNARY_POSITIVE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class UNARY_NEGATIVE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class UNARY_NOT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class UNARY_INVERT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_MATRIX_MULTIPLY(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_MATRIX_MULTIPLY(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_POWER(Instruction):
     def execute(self, interpreter):
@@ -494,19 +494,19 @@ class BINARY_TRUE_DIVIDE(Instruction):
         interpreter.push(val)
 
 class INPLACE_FLOOR_DIVIDE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_TRUE_DIVIDE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class GET_AITER(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class GET_ANEXT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BEFORE_ASYNC_WITH(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_ADD(Instruction):
     def execute(self, interpreter):
@@ -518,37 +518,37 @@ class INPLACE_ADD(Instruction):
         interpreter.push(first + second)
 
 class INPLACE_SUBTRACT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_MULTIPLY(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_MODULO(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_SUBSCR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DELETE_SUBSCR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_LSHIFT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_RSHIFT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_AND(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_XOR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BINARY_OR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_POWER(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class GET_ITER(Instruction):
     def execute(self, interpreter):
@@ -559,43 +559,43 @@ class GET_ITER(Instruction):
         interpreter.push(iter(tos))
 
 class GET_YIELD_FROM_ITER(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class PRINT_EXPR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_BUILD_CLASS(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class YIELD_FROM(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class GET_AWAITABLE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_LSHIFT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_RSHIFT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_AND(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_XOR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_OR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BREAK_LOOP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class WITH_CLEANUP_START(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class WITH_CLEANUP_FINISH(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class RETURN_VALUE(BranchInstruction):
     def execute(self, interpreter):
@@ -612,10 +612,10 @@ class RETURN_VALUE(BranchInstruction):
         interpreter.push(tos)
 
 class IMPORT_STAR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class SETUP_ANNOTATIONS(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class YIELD_VALUE(Instruction):
     def execute(self, interpreter):
@@ -629,16 +629,19 @@ class YIELD_VALUE(Instruction):
         quit()
 
 class POP_BLOCK(Instruction):
-    pass
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        # In the current model, this instruction is already handled
 
 class END_FINALLY(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class POP_EXCEPT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class HAVE_ARGUMENT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_NAME(Instruction):
     def execute(self, interpreter):
@@ -648,7 +651,7 @@ class STORE_NAME(Instruction):
         interpreter.global_environment[interpreter.current_function().names[self.arguments]] = tos
 
 class DELETE_NAME(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class UNPACK_SEQUENCE(Instruction):
     def execute(self, interpreter):
@@ -699,19 +702,19 @@ class FOR_ITER(JumpInstruction):
             notjump_block.execute(interpreter)
 
 class UNPACK_EX(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_ATTR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DELETE_ATTR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_GLOBAL(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DELETE_GLOBAL(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_CONST(Instruction):
     def execute(self, interpreter):
@@ -765,10 +768,10 @@ class BUILD_SET(Instruction):
         interpreter.push(res)
 
 class BUILD_MAP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_ATTR(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 def op_lesser(first, second):
     return first < second
@@ -829,10 +832,10 @@ class COMPARE_OP(Instruction):
         interpreter.push(res)
 
 class IMPORT_NAME(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class IMPORT_FROM(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class JUMP_FORWARD(JumpInstruction):
 
@@ -983,7 +986,7 @@ class LOAD_GLOBAL(Instruction):
         interpreter.push(interpreter.global_environment[name])
 
 class CONTINUE_LOOP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class SETUP_LOOP(Instruction):
     def execute(self, interpreter):
@@ -992,10 +995,10 @@ class SETUP_LOOP(Instruction):
         # For now, do nothing, the end of the loop wild discard the block
 
 class SETUP_EXCEPT(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class SETUP_FINALLY(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_FAST(Instruction):
     def execute(self, interpreter):
@@ -1017,13 +1020,13 @@ class STORE_FAST(Instruction):
         interpreter.current_function().environments[-1][varname] = value
 
 class DELETE_FAST(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_ANNOTATION(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class RAISE_VARARGS(BranchInstruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class CALL_FUNCTION(Instruction):
     def execute(self, interpreter):
@@ -1045,6 +1048,10 @@ class CALL_FUNCTION(Instruction):
         function = interpreter.pop()
         if not isinstance(function, Function):
             # Special case of a call to a primitive function
+
+            if function.__qualname__ == "print":
+                print("print function" + str(args))
+
             interpreter.push(function(*args))
             return
 
@@ -1097,7 +1104,7 @@ class MAKE_FUNCTION(Instruction):
         interpreter.push(fun)
 
 class BUILD_SLICE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_CLOSURE(Instruction):
     def execute(self, interpreter):
@@ -1128,22 +1135,22 @@ class LOAD_DEREF(Instruction):
         interpreter.push(interpreter.current_function().closure[varname])
 
 class STORE_DEREF(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class DELETE_DEREF(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class CALL_FUNCTION_KW(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class CALL_FUNCTION_EX(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class SETUP_WITH(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class EXTENDED_ARG(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LIST_APPEND(Instruction):
     def execute(self, interpreter):
@@ -1153,49 +1160,49 @@ class LIST_APPEND(Instruction):
         list.append(interpreter.stack[-self.arguments], tos)
 
 class SET_ADD(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class MAP_ADD(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_CLASSDEREF(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_LIST_UNPACK(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_MAP_UNPACK(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_MAP_UNPACK_WITH_CALL(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_TUPLE_UNPACK(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_SET_UNPACK(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class SETUP_ASYNC_WITH(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class FORMAT_VALUE(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_CONST_KEY_MAP(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_STRING(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class BUILD_TUPLE_UNPACK_WITH_CALL(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_METHOD(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 class CALL_METHOD(Instruction):
-    pass
+    def execute(self, interpreter): print("NYI " + str(self))
 
 # Dictionnary between instruction classes and opcode numbers
 dict_instructions = {
