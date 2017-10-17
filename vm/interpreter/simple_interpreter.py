@@ -521,7 +521,13 @@ class INPLACE_SUBTRACT(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
 class INPLACE_MULTIPLY(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        second = interpreter.pop()
+        first = interpreter.pop()
+
+        interpreter.push(first * second)
 
 class INPLACE_MODULO(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
