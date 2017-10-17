@@ -745,6 +745,7 @@ class BUILD_TUPLE(Instruction):
         for i in range(0, self.arguments):
             res.append(interpreter.pop())
 
+        res.reverse()
         interpreter.push(tuple(res))
 
 class BUILD_LIST(Instruction):
@@ -754,6 +755,7 @@ class BUILD_LIST(Instruction):
         res = []
         for i in range(0, self.arguments):
             res.append(interpreter.pop())
+        res.reverse()
 
         interpreter.push(res)
 
@@ -1048,10 +1050,6 @@ class CALL_FUNCTION(Instruction):
         function = interpreter.pop()
         if not isinstance(function, Function):
             # Special case of a call to a primitive function
-
-            if function.__qualname__ == "print":
-                print("print function" + str(args))
-
             interpreter.push(function(*args))
             return
 
