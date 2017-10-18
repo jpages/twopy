@@ -4,3 +4,5 @@ total = sum(numbers)
 product = 1
 for i in numbers:
     product *= i
+
+print(product)
