@@ -3,9 +3,25 @@ import py_compile
 import marshal
 import dis
 
-#TODO: properly implement the norm https://www.python.org/dev/peps/pep-3147/
-# to make lazy compilation of bytecode files
+import imp
+import os
 
+# Norm for bytecode compilation https://www.python.org/dev/peps/pep-3147/
+
+# Parse a python bytecode file from an import and return the CodeObject
+def compile_import(filename, args):
+    # Construct the path of the bytecode file
+    head, tail = os.path.split(filename)
+    bytecode_file = os.path.join(head, "__pycache__", os.path.splitext(tail)[0]+"."+imp.get_tag()+".pyc")
+
+    # If we find a cached version of the source
+    if os.path.isfile(bytecode_file):
+        return parse_file(bytecode_file, args)
+    else:
+        # We must compile it
+        return compile(filename, args)
+
+# TODO: implement the same behavior as compile_import
 # Compile a .py source file to bytecode
 def compile(filename, args):
     # We compile to the current version of python
@@ -30,17 +46,3 @@ def parse_file(filename, args):
 
     bytecode_file.close()
     return co
-
-
-def disassemble_file(dir, file, version):
-    os.system('%s -m py_compile "%s"' % (version, dir + file))
-    module = unwind.disassemble(dir + file + 'c')
-    print(module)
-
-    return module
-
-    # Separate directory and file name
-    dirname, filename = os.path.split(args.file)
-    dirname = dirname + "/"
-
-    module = disassemble_file(dirname, filename, version)

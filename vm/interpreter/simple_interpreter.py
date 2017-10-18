@@ -1,8 +1,8 @@
 # An interpreter-only virtual machine
 
-from types import *;
-
-import dis;
+from types import *
+import dis
+import frontend
 
 # The singleton of the Interpreter
 simple_interpreter_instance = None
@@ -779,7 +779,13 @@ class BUILD_MAP(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_ATTR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        tos = interpreter.pop()
+        print(interpreter.current_function().names)
+        # getattr(TOS, co_names[namei])
+        quit()
 
 def op_lesser(first, second):
     return first < second
@@ -840,7 +846,19 @@ class COMPARE_OP(Instruction):
         interpreter.push(res)
 
 class IMPORT_NAME(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        module_name = interpreter.current_function().names[self.arguments]
+        from_list = interpreter.pop()
+        level = interpreter.pop()
+
+        # Import the module and get its path
+        module = __import__(module_name, fromlist=from_list, level=level)
+
+        # Decompile the code
+        co = frontend.compiler.compile_import(module.__file__, interpreter.args)
+        interpreter.push(co)
 
 class IMPORT_FROM(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))

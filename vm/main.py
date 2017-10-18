@@ -1,7 +1,7 @@
 #!/usr/bin/python3.6
 
-import frontend;
-import interpreter;
+import frontend
+import interpreter
 
 import argparse;
 
