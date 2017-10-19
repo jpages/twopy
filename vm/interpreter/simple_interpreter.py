@@ -2,21 +2,27 @@
 
 from types import *
 import dis
+import importlib
+
 import frontend
 
 # The singleton of the Interpreter
 simple_interpreter_instance = None
 
-def get_interpreter(module, args):
+def get_interpreter(module, subdirectory, args):
     global simple_interpreter_instance
     if simple_interpreter_instance == None:
-        simple_interpreter_instance = SimpleInterpreter(module, args)
+        simple_interpreter_instance = SimpleInterpreter(module, subdirectory, args)
 
     return simple_interpreter_instance
 
 class SimpleInterpreter:
-    def __init__(self, module, args):
+    def __init__(self, module, subdirectory, args):
+        # The main module
         self.module = module
+
+        # The directory of the executed file
+        self.subdirectory = subdirectory
 
         # Command-line arguments for the vm
         self.args = args
@@ -783,9 +789,12 @@ class LOAD_ATTR(Instruction):
         super().execute(interpreter)
 
         tos = interpreter.pop()
-        print(interpreter.current_function().names)
-        # getattr(TOS, co_names[namei])
-        quit()
+        name = interpreter.current_function().names[self.arguments]
+
+        attr = getattr(tos, name)
+        interpreter.push(attr)
+
+        # print("Attr " + str(attr))
 
 def op_lesser(first, second):
     return first < second
@@ -853,12 +862,16 @@ class IMPORT_NAME(Instruction):
         from_list = interpreter.pop()
         level = interpreter.pop()
 
-        # Import the module and get its path
-        module = __import__(module_name, fromlist=from_list, level=level)
+        print("module_name " +str(module_name))
 
+        # Add the subdirectory to the path to import
+        module_name = interpreter.subdirectory + "." + module_name
+        module = importlib.import_module(module_name)
+        print("Module found " + str(module))
+        
         # Decompile the code
         co = frontend.compiler.compile_import(module.__file__, interpreter.args)
-        interpreter.push(co)
+        interpreter.push(module)
 
 class IMPORT_FROM(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -1163,7 +1176,47 @@ class DELETE_DEREF(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
 class CALL_FUNCTION_KW(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        # TOS is a tuple for keywords
+        keywords_tuple = interpreter.pop()
+        print("keywords tuple " + str(keywords_tuple))
+        print(len(keywords_tuple))
+
+        # Creating an empty environment
+        env = {}
+
+        for element in keywords_tuple:
+            env[element] = interpreter.pop()
+
+        print("env with keywords " + str(env))
+
+        # Default arguments
+        args = []
+        for i in range(0, self.arguments - len(keywords_tuple)):
+            # Pop all arguments of the call and put them in environment
+            args.append(interpreter.pop())
+
+        # Put positionnal arguments in right order
+        args.reverse()
+
+        # TOS is now the function to call
+        function = interpreter.pop()
+        if not isinstance(function, Function):
+            # Special case of a call to a primitive function
+            interpreter.push(function(*args))
+            return
+
+        # Initialize the environment for the function call
+        for i in range(0, len(args)):
+            env[function.varnames[i]] = args[i]
+
+        function.environments.append(env)
+        interpreter.environments.append(env)
+
+        # Make the call
+        function.execute(interpreter)
 
 class CALL_FUNCTION_EX(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))

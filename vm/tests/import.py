@@ -1,3 +1,3 @@
-import os
+import fib
 
-os.chdir("/home")
+print(fib.fib(10))

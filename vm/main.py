@@ -4,6 +4,7 @@ import frontend
 import interpreter
 
 import argparse;
+import os.path
 
 def main():
     # Argument parser
@@ -20,7 +21,10 @@ def main():
 
     # Compile to bytecode and get the module
     module = frontend.compiler.compile(args.file, args)
-    vm = interpreter.simple_interpreter.get_interpreter(module, args)
+
+    # Get the subdirectory of the executed file
+    head, tail = os.path.split(args.file)
+    vm = interpreter.simple_interpreter.get_interpreter(module, head, args)
 
     vm.execute()
 
