@@ -794,7 +794,7 @@ class LOAD_ATTR(Instruction):
         attr = getattr(tos, name)
         interpreter.push(attr)
 
-        # print("Attr " + str(attr))
+        # TODO: if TOS is a module object make a special case
 
 def op_lesser(first, second):
     return first < second
@@ -866,11 +866,18 @@ class IMPORT_NAME(Instruction):
 
         # Add the subdirectory to the path to import
         module_name = interpreter.subdirectory + "." + module_name
-        module = importlib.import_module(module_name)
-        print("Module found " + str(module))
-        
-        # Decompile the code
+
+        # Find the module file
+        spec = importlib.util.find_spec(module_name)
+
+        # Create a module without executing it
+        module = importlib.util.module_from_spec(spec)
+
+        # Now we need to execute this module, start by compile it
         co = frontend.compiler.compile_import(module.__file__, interpreter.args)
+
+        #TODO: execute this module after its compilation
+
         interpreter.push(module)
 
 class IMPORT_FROM(Instruction):
