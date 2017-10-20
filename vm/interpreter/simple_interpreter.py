@@ -115,6 +115,26 @@ class SimpleInterpreter:
         else:
             return self.stack.pop()
 
+
+class Module:
+    pass
+    '''
+    Represent a python module, contain code
+    self.pythonmodule = The corresponding python Module
+    self.code = Code Object of the module
+    '''
+    def __init__(self, pythonmodule, code):
+        self.pythonmodule = pythonmodule
+        self.code = code
+
+        # All functions defined in this module
+        self.functions = []
+
+    # Add a new compiled function to the module
+    def add_function(self, function):
+        #TODO:
+        pass
+
 class Function:
     '''
     Represent a function
@@ -791,10 +811,16 @@ class LOAD_ATTR(Instruction):
         tos = interpreter.pop()
         name = interpreter.current_function().names[self.arguments]
 
-        attr = getattr(tos, name)
-        interpreter.push(attr)
-
-        # TODO: if TOS is a module object make a special case
+        if isinstance(tos, ModuleType):
+            # Special case for a Module
+            print("name = " + str(name))
+            print("tos = " + str(tos))
+            print(self)
+            quit()
+        else:
+            # Access to an attribute
+            attr = getattr(tos, name)
+            interpreter.push(attr)
 
 def op_lesser(first, second):
     return first < second
@@ -862,8 +888,6 @@ class IMPORT_NAME(Instruction):
         from_list = interpreter.pop()
         level = interpreter.pop()
 
-        print("module_name " +str(module_name))
-
         # Add the subdirectory to the path to import
         module_name = interpreter.subdirectory + "." + module_name
 
@@ -873,10 +897,17 @@ class IMPORT_NAME(Instruction):
         # Create a module without executing it
         module = importlib.util.module_from_spec(spec)
 
-        # Now we need to execute this module, start by compile it
+        # Now we need to execute this module, start by compiling it
         co = frontend.compiler.compile_import(module.__file__, interpreter.args)
 
-        #TODO: execute this module after its compilation
+        # Execute this module after its compilation
+        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments])
+
+        env = {}
+        fun.environments.append(env)
+        interpreter.environments.append(env)
+
+        fun.execute(interpreter)
 
         interpreter.push(module)
 
