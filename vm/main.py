@@ -19,12 +19,12 @@ def main():
 
     args = parser.parse_args()
 
-    # Compile to bytecode and get the module
-    module = frontend.compiler.compile(args.file, args)
+    # Compile to bytecode and get the main CodeObject
+    maincode = frontend.compiler.compile(args.file, args)
 
     # Get the subdirectory of the executed file
     head, tail = os.path.split(args.file)
-    vm = interpreter.simple_interpreter.get_interpreter(module, head, args)
+    vm = interpreter.simple_interpreter.get_interpreter(maincode, head, args)
 
     vm.execute()
 

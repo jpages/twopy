@@ -9,17 +9,22 @@ import frontend
 # The singleton of the Interpreter
 simple_interpreter_instance = None
 
-def get_interpreter(module, subdirectory, args):
+def get_interpreter(maincode, subdirectory, args):
     global simple_interpreter_instance
     if simple_interpreter_instance == None:
-        simple_interpreter_instance = SimpleInterpreter(module, subdirectory, args)
+        simple_interpreter_instance = SimpleInterpreter(maincode, subdirectory, args)
 
     return simple_interpreter_instance
 
 class SimpleInterpreter:
-    def __init__(self, module, subdirectory, args):
-        # The main module
-        self.module = module
+    def __init__(self, maincode, subdirectory, args):
+        # The main CodeObject
+        self.maincode = maincode
+        self.mainmodule = Module(maincode)
+
+        # All loaded modules
+        self.modules = []
+        self.modules.append(self.mainmodule)
 
         # The directory of the executed file
         self.subdirectory = subdirectory
@@ -51,17 +56,19 @@ class SimpleInterpreter:
 
     def precompile(self):
         # Generate the main function and recursively other functions in module
-        self.generate_function(self.module, "main")
+        self.generate_function(self.maincode, "main", self.mainmodule)
 
         # TODO: use identifiers instead of names to call functions
 
     # code : the CodeObject of this function
-    def generate_function(self, code, name):
+    # name : Function name
+    # module : the Module instance
+    def generate_function(self, code, name, module):
 
         function = Function(self.global_id_function, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
-    name, dis.get_instructions(code), self)
+    name, dis.get_instructions(code), self, module)
 
         self.functions.append(function)
 
@@ -120,20 +127,26 @@ class Module:
     pass
     '''
     Represent a python module, contain code
-    self.pythonmodule = The corresponding python Module
     self.code = Code Object of the module
     '''
-    def __init__(self, pythonmodule, code):
-        self.pythonmodule = pythonmodule
+    def __init__(self, code):
         self.code = code
 
         # All functions defined in this module
         self.functions = []
 
+        # The corresponding python Module
+        self.pythonmodule = None
+
     # Add a new compiled function to the module
     def add_function(self, function):
-        #TODO:
-        pass
+        self.functions.append(function)
+
+    def lookup(self, name):
+        for fun in self.functions:
+            if fun.name == name:
+                return fun
+        return None
 
 class Function:
     '''
@@ -152,10 +165,11 @@ class Function:
     self.name = Function name
     self.iterator = Iterator over Instructions
     self.interpreter = The interpreter instance
+    self.module = The Module instance in which this function was defined
     '''
     def __init__(self, id_function, argcount, kwonlyargcount,
-                nlocals, stacksize, consts, names,
-                varnames, freevars, cellvars, name, iterator, interpreter):
+                nlocals, stacksize, consts, names, varnames, freevars,
+                cellvars, name, iterator, interpreter, module):
         self.id_function = id_function
         self.argcount = argcount
         self.kwonlyargcount = kwonlyargcount
@@ -169,6 +183,7 @@ class Function:
         self.name = name
         self.iterator = iterator
         self.interpreter = interpreter
+        self.module = module
 
         # Environments are linked for each call
         self.environments = []
@@ -178,6 +193,9 @@ class Function:
 
         # Dictionnary of freecells and their values
         self.closure = {}
+
+        # Add the current function to the module
+        module.add_function(self)
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
@@ -811,12 +829,11 @@ class LOAD_ATTR(Instruction):
         tos = interpreter.pop()
         name = interpreter.current_function().names[self.arguments]
 
-        if isinstance(tos, ModuleType):
+        # Lookup a name in a python module object
+        if isinstance(tos, Module):
             # Special case for a Module
-            print("name = " + str(name))
-            print("tos = " + str(tos))
-            print(self)
-            quit()
+            fun = tos.lookup(name)
+            interpreter.push(fun)
         else:
             # Access to an attribute
             attr = getattr(tos, name)
@@ -895,19 +912,16 @@ class IMPORT_NAME(Instruction):
         spec = importlib.util.find_spec(module_name)
 
         # Create a module without executing it
-        module = importlib.util.module_from_spec(spec)
+        pythonmodule = importlib.util.module_from_spec(spec)
 
         # Now we need to execute this module, start by compiling it
-        co = frontend.compiler.compile_import(module.__file__, interpreter.args)
+        co = frontend.compiler.compile_import(pythonmodule.__file__, interpreter.args)
 
-        # Execute this module after its compilation
-        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments])
+        module = Module(co)
+        interpreter.modules.append(module)
 
-        env = {}
-        fun.environments.append(env)
-        interpreter.environments.append(env)
-
-        fun.execute(interpreter)
+        # Generate a function for the module
+        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments], module)
 
         interpreter.push(module)
 
@@ -1130,7 +1144,8 @@ class CALL_FUNCTION(Instruction):
 
         # Initialize the environment for the function call
         for i in range(0, len(args)):
-            env[function.varnames[i]] = args[i]
+            if not len(function.varnames) == 0:
+                env[function.varnames[i]] = args[i]
 
         function.environments.append(env)
         interpreter.environments.append(env)
@@ -1164,7 +1179,8 @@ class MAKE_FUNCTION(Instruction):
             default = interpreter.pop()
 
         # Generate a new Function Object
-        fun = interpreter.generate_function(code, function_name)
+        # TODO: check the module of the function
+        fun = interpreter.generate_function(code, function_name, interpreter.modules[-1])
 
         # Fill the closure
         if free_variables != None:
