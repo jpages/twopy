@@ -146,7 +146,8 @@ class Module:
         for fun in self.functions:
             if fun.name == name:
                 return fun
-        return None
+
+        assert "Function not found"
 
 class Function:
     '''
@@ -698,7 +699,7 @@ class STORE_NAME(Instruction):
         super().execute(interpreter)
 
         tos = interpreter.pop()
-        interpreter.global_environment[interpreter.current_function().names[self.arguments]] = tos
+        interpreter.current_function().environments[-1][interpreter.current_function().names[self.arguments]] = tos
 
 class DELETE_NAME(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -784,8 +785,12 @@ class LOAD_NAME(Instruction):
 
         name = str(interpreter.current_function().names[self.arguments])
 
-        # Lookup in the global environment
-        interpreter.push(interpreter.global_environment[name])
+        # try to find the name in local environments
+        if name in interpreter.current_function().environments[-1]:
+            interpreter.push(interpreter.current_function().environments[-1][name])
+        else:
+            # Lookup in the global environment
+            interpreter.push(interpreter.global_environment[name])
 
 class BUILD_TUPLE(Instruction):
     def execute(self, interpreter):
@@ -834,6 +839,9 @@ class LOAD_ATTR(Instruction):
             # Special case for a Module
             fun = tos.lookup(name)
             interpreter.push(fun)
+
+            #TODO: optimizing
+            interpreter.global_environment[name] = fun
         else:
             # Access to an attribute
             attr = getattr(tos, name)
@@ -922,6 +930,12 @@ class IMPORT_NAME(Instruction):
 
         # Generate a function for the module
         fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments], module)
+
+        env = {}
+        interpreter.environments.append(env)
+        fun.environments.append(env)
+
+        fun.execute(interpreter)
 
         interpreter.push(module)
 
@@ -1074,7 +1088,14 @@ class LOAD_GLOBAL(Instruction):
         name = interpreter.current_function().names[self.arguments]
 
         # Lookup in the global environment
-        interpreter.push(interpreter.global_environment[name])
+        if name in interpreter.global_environment:
+            interpreter.push(interpreter.global_environment[name])
+        else:
+            # FIXME: find a better solution than this
+            for env in reversed(interpreter.environments):
+                if name in env:
+                    interpreter.push(env[name])
+                    return
 
 class CONTINUE_LOOP(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
