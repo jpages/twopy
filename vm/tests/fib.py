@@ -21,4 +21,5 @@ print(fact(5))
 fact(5)
 
 print(fib(100))
+print(fib(10))
 print(fibR(10))

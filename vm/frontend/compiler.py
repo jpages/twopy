@@ -14,6 +14,8 @@ def compile_import(filename, args):
     head, tail = os.path.split(filename)
     bytecode_file = os.path.join(head, "__pycache__", os.path.splitext(tail)[0]+"."+imp.get_tag()+".pyc")
 
+    # FIXME: test the timestamp of files to check if recompilation is needed
+
     # If we find a cached version of the source
     if os.path.isfile(bytecode_file):
         return parse_file(bytecode_file, args)

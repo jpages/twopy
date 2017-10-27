@@ -56,19 +56,20 @@ class SimpleInterpreter:
 
     def precompile(self):
         # Generate the main function and recursively other functions in module
-        self.generate_function(self.maincode, "main", self.mainmodule)
+        self.generate_function(self.maincode, "main", self.mainmodule, True)
 
         # TODO: use identifiers instead of names to call functions
 
     # code : the CodeObject of this function
     # name : Function name
     # module : the Module instance
-    def generate_function(self, code, name, module):
+    # is_main : true if the function is top-level of a module
+    def generate_function(self, code, name, module, is_main):
 
         function = Function(self.global_id_function, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
-    name, dis.get_instructions(code), self, module)
+    name, dis.get_instructions(code), self, module, is_main)
 
         self.functions.append(function)
 
@@ -142,9 +143,10 @@ class Module:
     def add_function(self, function):
         self.functions.append(function)
 
-    def lookup(self, name):
+    def lookup(self, name, is_main):
         for fun in self.functions:
-            if fun.name == name:
+            # We are not looking for top-level functions
+            if fun.name == name and not fun.is_main:
                 return fun
 
         assert "Function not found"
@@ -167,10 +169,11 @@ class Function:
     self.iterator = Iterator over Instructions
     self.interpreter = The interpreter instance
     self.module = The Module instance in which this function was defined
+    self.is_main = True if the function is top-level of a module
     '''
     def __init__(self, id_function, argcount, kwonlyargcount,
                 nlocals, stacksize, consts, names, varnames, freevars,
-                cellvars, name, iterator, interpreter, module):
+                cellvars, name, iterator, interpreter, module, is_main):
         self.id_function = id_function
         self.argcount = argcount
         self.kwonlyargcount = kwonlyargcount
@@ -185,6 +188,7 @@ class Function:
         self.iterator = iterator
         self.interpreter = interpreter
         self.module = module
+        self.is_main = is_main
 
         # Environments are linked for each call
         self.environments = []
@@ -704,10 +708,6 @@ class STORE_NAME(Instruction):
         super().execute(interpreter)
 
         tos = interpreter.pop()
-        print("\n STORE_NAME "+ interpreter.current_function().names[self.arguments] + " in " + str(interpreter.current_function()))
-        print(interpreter.current_function().names)
-
-        print("store " + str(tos) + " as " + interpreter.current_function().names[self.arguments])
         interpreter.current_function().environments[-1][interpreter.current_function().names[self.arguments]] = tos
 
 class DELETE_NAME(Instruction):
@@ -794,9 +794,6 @@ class LOAD_NAME(Instruction):
 
         name = str(interpreter.current_function().names[self.arguments])
 
-        print("\n LOAD_NAME " + name + " in " + str(interpreter.current_function()))
-        print("env = " + str(interpreter.current_function().environments))
-
         # try to find the name in local environments
         if name in interpreter.current_function().environments[-1]:
             interpreter.push(interpreter.current_function().environments[-1][name])
@@ -849,11 +846,8 @@ class LOAD_ATTR(Instruction):
         # Lookup a name in a python module object
         if isinstance(tos, Module):
             # Special case for a Module
-            fun = tos.lookup(name)
+            fun = tos.lookup(name, False)
             interpreter.push(fun)
-
-            #TODO: optimizing
-            interpreter.global_environment[name] = fun
         else:
             # Access to an attribute
             attr = getattr(tos, name)
@@ -941,7 +935,7 @@ class IMPORT_NAME(Instruction):
         interpreter.modules.append(module)
 
         # Generate a function for the module
-        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments], module)
+        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments], module, True)
 
         env = {}
         interpreter.environments.append(env)
@@ -1103,11 +1097,8 @@ class LOAD_GLOBAL(Instruction):
         if name in interpreter.global_environment:
             interpreter.push(interpreter.global_environment[name])
         else:
-            # FIXME: find a better solution than this
-            for env in reversed(interpreter.environments):
-                if name in env:
-                    interpreter.push(env[name])
-                    return
+            # Lookup in its module to find a name
+            interpreter.push(self.function.module.lookup(name, False))
 
 class CONTINUE_LOOP(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -1213,7 +1204,7 @@ class MAKE_FUNCTION(Instruction):
 
         # Generate a new Function Object
         # TODO: check the module of the function
-        fun = interpreter.generate_function(code, function_name, interpreter.modules[-1])
+        fun = interpreter.generate_function(code, function_name, interpreter.modules[-1], False)
 
         # Fill the closure
         if free_variables != None:

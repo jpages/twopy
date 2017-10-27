@@ -1,3 +1,3 @@
 import fib
 
-print(fib.fib(10))
+print(fib.fibR(10))
