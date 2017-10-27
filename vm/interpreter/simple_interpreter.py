@@ -224,6 +224,8 @@ class Function:
             instruction = dict_instructions[op.opcode](op.offset,
             op.opcode, op.opname, op.arg, op.is_jump_target, size)
 
+            instruction.function = self
+
             self.all_instructions.append(instruction)
 
     # Generate basic blocks in the function
@@ -369,6 +371,9 @@ class Instruction:
         # The basic block containing this instruction
         self.block = None
 
+        # The function of this Instruction
+        self.function = None
+
     def __repr__(self):
         s = str(self.__class__) + ", offset = " + str(self.offset)
         s += ", opcode = " + str(self.opcode_number)
@@ -388,7 +393,7 @@ class Instruction:
     # Execute this instruction in interpretation mode
     def execute(self, interpreter):
         if interpreter.args.verbose :
-            print("Execution of : " + str(self.__class__) + " args " + str(self.arguments))
+            print("Execution of : " + str(self.__class__) + " args " + str(self.arguments) + " in " + str(self.function))
 
 # A particular class which breaks the control flow of a basic block by branching
 class BranchInstruction(Instruction):
@@ -699,6 +704,10 @@ class STORE_NAME(Instruction):
         super().execute(interpreter)
 
         tos = interpreter.pop()
+        print("\n STORE_NAME "+ interpreter.current_function().names[self.arguments] + " in " + str(interpreter.current_function()))
+        print(interpreter.current_function().names)
+
+        print("store " + str(tos) + " as " + interpreter.current_function().names[self.arguments])
         interpreter.current_function().environments[-1][interpreter.current_function().names[self.arguments]] = tos
 
 class DELETE_NAME(Instruction):
@@ -784,6 +793,9 @@ class LOAD_NAME(Instruction):
         super().execute(interpreter)
 
         name = str(interpreter.current_function().names[self.arguments])
+
+        print("\n LOAD_NAME " + name + " in " + str(interpreter.current_function()))
+        print("env = " + str(interpreter.current_function().environments))
 
         # try to find the name in local environments
         if name in interpreter.current_function().environments[-1]:
