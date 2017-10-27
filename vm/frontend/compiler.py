@@ -5,6 +5,7 @@ import dis
 
 import imp
 import os
+import struct
 
 # Norm for bytecode compilation https://www.python.org/dev/peps/pep-3147/
 
@@ -12,16 +13,29 @@ import os
 def compile_import(filename, args):
     # Construct the path of the bytecode file
     head, tail = os.path.split(filename)
-    bytecode_file = os.path.join(head, "__pycache__", os.path.splitext(tail)[0]+"."+imp.get_tag()+".pyc")
+    bytecode_path = os.path.join(head, "__pycache__", os.path.splitext(tail)[0]+"."+imp.get_tag()+".pyc")
 
     # FIXME: test the timestamp of files to check if recompilation is needed
 
     # If we find a cached version of the source
-    if os.path.isfile(bytecode_file):
-        return parse_file(bytecode_file, args)
-    else:
-        # We must compile it
-        return compile(filename, args)
+    if os.path.isfile(bytecode_path):
+        # Now check if we need to recompile it
+        bytecode_file = open(bytecode_path, "rb")
+
+        # Extract only magic and timestamp
+        magic, timestamp = struct.unpack('=II', bytecode_file.read(8))
+
+        # Get the time of the python source file
+        source_time = os.path.getmtime(filename)
+        diff = source_time - timestamp
+        bytecode_file.close()
+
+        # If the python file and bytecode file have the same timestamp
+        if diff < 1:
+            return parse_file(bytecode_path, args)
+
+    # Otherwise, we must compile it
+    return compile(filename, args)
 
 # TODO: implement the same behavior as compile_import
 # Compile a .py source file to bytecode
