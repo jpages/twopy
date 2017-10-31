@@ -100,6 +100,20 @@ class SimpleInterpreter:
     def current_function(self):
         return self.functions_called[-1]
 
+
+    ''' Generate a new class and return it
+        func = main function of the class
+        name = class name
+        bases = direct superclasses
+        metaclass = The metaclass
+    '''
+    def make_class(self, func, name, *bases, metaclass=None, **kwds):
+        print("First  = " + str(func.__class__))
+        print("Second  = " + str(name))
+        print("Third  = " + str(bases))
+
+        return MClass(func, name, bases, metaclass, kwds)
+
     # Print the current stack from bottom to top
     def print_stack(self):
         i = len(self.stack) -1
@@ -110,7 +124,7 @@ class SimpleInterpreter:
     # Push a value onto the stack
     def push(self, value):
         if self.args.execution:
-            print("PUSH " + str(value))
+            print("PUSH " + str(value) + str(value.__class__))
 
         self.stack.append(value)
 
@@ -118,7 +132,7 @@ class SimpleInterpreter:
     def pop(self):
         if self.args.execution:
             res = self.stack.pop()
-            print("POP " + str(res))
+            print("POP " + str(res) + str(res.__class__))
             return res
         else:
             return self.stack.pop()
@@ -150,6 +164,39 @@ class Module:
                 return fun
 
         assert "Function not found"
+
+# The class of python classes
+class MClass:
+
+    def __init__(self, mainfunc, name, *superclasses, metaclass=None, **kwds):
+        self.mainfunction = mainfunc
+        self.name = name
+        self.superclasses = superclasses
+        self.metaclass = metaclass
+        self.kwds = kwds
+
+        # All instances of this class, beware of memory here
+        self.instances = []
+
+        #TODO: should contain all methods
+
+    # Create a return a new Instance of this class
+    def new_instance(self, *attrs):
+        mobject = MObject(self, attrs)
+        self.instances.append(mobject)
+
+        return mobject
+
+# An instance of a MClass
+class MObject:
+    def __init__(self, mclass, *attrs):
+        self.mclass = mclass
+
+        # TODO: better implementation of attributes
+        self.attributes = {}
+
+        for value in attrs:
+            print(" Value " + str(value))
 
 class Function:
     '''
@@ -625,7 +672,11 @@ class PRINT_EXPR(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
 class LOAD_BUILD_CLASS(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        # Push the function which will make the class
+        interpreter.push(interpreter.make_class)
 
 class YIELD_FROM(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -1143,6 +1194,7 @@ class STORE_ANNOTATION(Instruction):
 class RAISE_VARARGS(BranchInstruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
+#TODO: factorize with other call functions
 class CALL_FUNCTION(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
@@ -1161,7 +1213,13 @@ class CALL_FUNCTION(Instruction):
 
         # TOS is now the function to call
         function = interpreter.pop()
-        if not isinstance(function, Function):
+        if isinstance(function, MClass):
+            # We have to make a new instance of a class
+            interpreter.push(function.new_instance(args))
+
+            interpreter.print_stack()
+            return
+        elif not isinstance(function, Function):
             # Special case of a call to a primitive function
             interpreter.push(function(*args))
             return
