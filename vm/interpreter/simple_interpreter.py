@@ -20,7 +20,7 @@ class SimpleInterpreter:
     def __init__(self, maincode, subdirectory, args):
         # The main CodeObject
         self.maincode = maincode
-        self.mainmodule = Module(maincode)
+        self.mainmodule = MModule(maincode)
 
         # All loaded modules
         self.modules = []
@@ -108,11 +108,7 @@ class SimpleInterpreter:
         metaclass = The metaclass
     '''
     def make_class(self, func, name, *bases, metaclass=None, **kwds):
-        print("First  = " + str(func.__class__))
-        print("Second  = " + str(name))
-        print("Third  = " + str(bases))
-
-        return MClass(func, name, bases, metaclass, kwds)
+        return MClass(self, func, name, bases, metaclass, kwds)
 
     # Print the current stack from bottom to top
     def print_stack(self):
@@ -138,7 +134,7 @@ class SimpleInterpreter:
             return self.stack.pop()
 
 
-class Module:
+class MModule:
     pass
     '''
     Represent a python module, contain code
@@ -168,7 +164,7 @@ class Module:
 # The class of python classes
 class MClass:
 
-    def __init__(self, mainfunc, name, *superclasses, metaclass=None, **kwds):
+    def __init__(self, interpreter, mainfunc, name, *superclasses, metaclass=None, **kwds):
         self.mainfunction = mainfunc
         self.name = name
         self.superclasses = superclasses
@@ -180,9 +176,20 @@ class MClass:
 
         #TODO: should contain all methods
 
+        # Now execute this class and fill the environment
+        env = {}
+        env["__name__"] = name
+
+        mainfunc.environments.append(env)
+        interpreter.environments.append(env)
+
+        # Make the call
+        mainfunc.execute(interpreter)
+
     # Create a return a new Instance of this class
     def new_instance(self, *attrs):
         mobject = MObject(self, attrs)
+
         self.instances.append(mobject)
 
         return mobject
@@ -195,8 +202,10 @@ class MObject:
         # TODO: better implementation of attributes
         self.attributes = {}
 
-        for value in attrs:
-            print(" Value " + str(value))
+    # Return the value of the attribute in parameter
+    def get_attribute():
+        print("Get an attribute from " + str(self))
+        pass
 
 class Function:
     '''
@@ -895,7 +904,7 @@ class LOAD_ATTR(Instruction):
         name = interpreter.current_function().names[self.arguments]
 
         # Lookup a name in a python module object
-        if isinstance(tos, Module):
+        if isinstance(tos, MModule):
             # Special case for a Module
             fun = tos.lookup(name, False)
             interpreter.push(fun)
@@ -982,7 +991,7 @@ class IMPORT_NAME(Instruction):
         # Now we need to execute this module, start by compiling it
         co = frontend.compiler.compile_import(pythonmodule.__file__, interpreter.args)
 
-        module = Module(co)
+        module = MModule(co)
         interpreter.modules.append(module)
 
         # Generate a function for the module
@@ -1216,8 +1225,6 @@ class CALL_FUNCTION(Instruction):
         if isinstance(function, MClass):
             # We have to make a new instance of a class
             interpreter.push(function.new_instance(args))
-
-            interpreter.print_stack()
             return
         elif not isinstance(function, Function):
             # Special case of a call to a primitive function

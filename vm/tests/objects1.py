@@ -10,6 +10,8 @@ class Dog(Animal):
     def add_trick(self, trick):
         self.tricks.append(trick)
 
+    print("test")
+
 d = Dog('Fido')
 e = Dog('Buddy')
 
