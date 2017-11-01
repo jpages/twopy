@@ -171,14 +171,19 @@ class MClass:
         self.metaclass = metaclass
         self.kwds = kwds
 
+        self.interpreter = interpreter
+
         # All instances of this class, beware of memory here
         self.instances = []
 
-        #TODO: should contain all methods
+        # For now, implement methods with a simple dictionnary between name and functions
+        self.methods = {}
 
         # Now execute this class and fill the environment
         env = {}
         env["__name__"] = name
+
+        mainfunc.as_class(self)
 
         mainfunc.environments.append(env)
         interpreter.environments.append(env)
@@ -186,11 +191,32 @@ class MClass:
         # Make the call
         mainfunc.execute(interpreter)
 
+    # Add an attribute "tos" named "name" to this class
+    def add_attribute(self, name, attr):
+        # We are adding a method to the class
+        if isinstance(attr, Function):
+            self.methods[name] = attr
+        else:
+            # TODO: maybe do something here
+            pass
+
     # Create a return a new Instance of this class
     def new_instance(self, *attrs):
         mobject = MObject(self, attrs)
 
         self.instances.append(mobject)
+
+        print("Generating a new instance of " + str(self))
+        print("Functions = " + str(self.methods))
+
+        # Now we need to call the constructor of the class for this object
+        env = {}
+        self.mainfunction.environments.append(env)
+        self.interpreter.environments.append(env)
+
+        # Get and execute the constructor
+        init = self.methods["__init__"]
+        init.execute(self.interpreter)
 
         return mobject
 
@@ -202,10 +228,10 @@ class MObject:
         # TODO: better implementation of attributes
         self.attributes = {}
 
-    # Return the value of the attribute in parameter
-    def get_attribute():
-        print("Get an attribute from " + str(self))
-        pass
+    # Return the property corresponding to the name in parameter
+    def get_property(self, name):
+        # Look in the class for a method
+        return self.mclass.methods[name]
 
 class Function:
     '''
@@ -257,6 +283,9 @@ class Function:
 
         # Add the current function to the module
         module.add_function(self)
+
+        # Indicate if this Function is a Class
+        self.is_class = False
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
@@ -349,6 +378,12 @@ class Function:
                 old_block.add_instruction(jump)
 
                 jump.block.link_to(old_block)
+
+    # If called, this Function is the main one of the class in parameter
+    def as_class(self, mclass):
+        self.mclass = mclass
+
+        self.is_class = True
 
     # Print the current Function and its basic blocks
     def __repr__(self):
@@ -768,7 +803,14 @@ class STORE_NAME(Instruction):
         super().execute(interpreter)
 
         tos = interpreter.pop()
-        interpreter.current_function().environments[-1][interpreter.current_function().names[self.arguments]] = tos
+        name = interpreter.current_function().names[self.arguments]
+
+        # If tos is the main function of a class, we are in fact
+        # adding a property to this class here, special treatment
+        if interpreter.current_function().is_class:
+            interpreter.current_function().mclass.add_attribute(name, tos)
+
+        interpreter.current_function().environments[-1][name] = tos
 
 class DELETE_NAME(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -853,6 +895,7 @@ class LOAD_NAME(Instruction):
         super().execute(interpreter)
 
         name = str(interpreter.current_function().names[self.arguments])
+        print("LOAD_NAME " + name)
 
         # try to find the name in local environments
         if name in interpreter.current_function().environments[-1]:
@@ -908,8 +951,12 @@ class LOAD_ATTR(Instruction):
             # Special case for a Module
             fun = tos.lookup(name, False)
             interpreter.push(fun)
-        else:
+        elif isinstance(tos, MObject):
             # Access to an attribute
+            res = tos.get_property(name)
+            interpreter.push(res)
+        else:
+             # Access to an attribute
             attr = getattr(tos, name)
             interpreter.push(attr)
 
