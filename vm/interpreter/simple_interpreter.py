@@ -206,16 +206,25 @@ class MClass:
 
         self.instances.append(mobject)
 
-        print("Generating a new instance of " + str(self))
-        print("Functions = " + str(self.methods))
-
         # Now we need to call the constructor of the class for this object
-        env = {}
-        self.mainfunction.environments.append(env)
-        self.interpreter.environments.append(env)
-
         # Get and execute the constructor
         init = self.methods["__init__"]
+        env = {}
+
+        # Construct environment for the call
+        init.environments.append(env)
+        self.interpreter.environments.append(env)
+
+        # adding self to arguments of the constructor
+        args = []
+        args.append(mobject)
+        for el in attrs: args.append(el)
+
+        # Fill the environment
+        for i in range(0, len(args)):
+            env[init.varnames[i]] = args[i]
+
+        # Call the initializer
         init.execute(self.interpreter)
 
         return mobject
@@ -867,7 +876,12 @@ class UNPACK_EX(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
 class STORE_ATTR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        # TODO
+        interpreter.print_stack()
+        quit()
 
 class DELETE_ATTR(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
