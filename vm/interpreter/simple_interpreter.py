@@ -227,6 +227,9 @@ class MClass:
         # Call the initializer
         init.execute(self.interpreter)
 
+        # Remove the None value on the top of stack
+        self.interpreter.pop()
+
         return mobject
 
 # An instance of a MClass
@@ -240,7 +243,14 @@ class MObject:
     # Return the property corresponding to the name in parameter
     def get_property(self, name):
         # Look in the class for a method
-        return self.mclass.methods[name]
+        if name in self.mclass.methods:
+            return self.mclass.methods[name]
+        else:
+            return self.attributes[name]
+
+    # Set the value for the attribute named "name"
+    def set_attribute(self, name, value):
+        self.attributes[name] = value
 
 class Function:
     '''
@@ -295,6 +305,10 @@ class Function:
 
         # Indicate if this Function is a Class
         self.is_class = False
+
+        # If this value is set, then it's a method and receiver will be used as
+        # self
+        self.receiver = None
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
@@ -879,9 +893,14 @@ class STORE_ATTR(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
-        # TODO
-        interpreter.print_stack()
-        quit()
+        # Get the attribute and the value and set it
+        obj = interpreter.pop()
+        value = interpreter.pop()
+        name = interpreter.current_function().names[self.arguments]
+
+        obj.set_attribute(name, value)
+
+        interpreter.push(value)
 
 class DELETE_ATTR(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
@@ -909,7 +928,6 @@ class LOAD_NAME(Instruction):
         super().execute(interpreter)
 
         name = str(interpreter.current_function().names[self.arguments])
-        print("LOAD_NAME " + name)
 
         # try to find the name in local environments
         if name in interpreter.current_function().environments[-1]:
@@ -966,8 +984,15 @@ class LOAD_ATTR(Instruction):
             fun = tos.lookup(name, False)
             interpreter.push(fun)
         elif isinstance(tos, MObject):
-            # Access to an attribute
+            # Access to an attribute of the model
             res = tos.get_property(name)
+
+            # Two cases here, we accessed to a method or an attribute value
+            if isinstance(res, Function):
+                # If it's a function, we will make a method called later
+                # Set the object at the receiver of the method for later
+                res.receiver = tos
+
             interpreter.push(res)
         else:
              # Access to an attribute
@@ -1287,18 +1312,26 @@ class CALL_FUNCTION(Instruction):
             # We have to make a new instance of a class
             interpreter.push(function.new_instance(args))
             return
-        elif not isinstance(function, Function):
+        elif isinstance(function, BuiltinFunctionType) or isinstance(function, MethodType):
             # Special case of a call to a primitive function
             interpreter.push(function(*args))
             return
+        else:
+            args_call = len(args)
+            args_function = function.argcount
+
+            if args_call < args_function:
+                # We are doing a method call here, add self parameter
+                # this parameter must be setted before
+                args.insert(0, function.receiver)
+
+        function.environments.append(env)
+        interpreter.environments.append(env)
 
         # Initialize the environment for the function call
         for i in range(0, len(args)):
             if not len(function.varnames) == 0:
                 env[function.varnames[i]] = args[i]
-
-        function.environments.append(env)
-        interpreter.environments.append(env)
 
         # Make the call
         function.execute(interpreter)
