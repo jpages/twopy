@@ -1312,11 +1312,7 @@ class CALL_FUNCTION(Instruction):
             # We have to make a new instance of a class
             interpreter.push(function.new_instance(args))
             return
-        elif isinstance(function, BuiltinFunctionType) or isinstance(function, MethodType):
-            # Special case of a call to a primitive function
-            interpreter.push(function(*args))
-            return
-        else:
+        elif isinstance(function, Function):
             args_call = len(args)
             args_function = function.argcount
 
@@ -1324,6 +1320,10 @@ class CALL_FUNCTION(Instruction):
                 # We are doing a method call here, add self parameter
                 # this parameter must be setted before
                 args.insert(0, function.receiver)
+        else:
+            # Special case of a call to a primitive function
+            interpreter.push(function(*args))
+            return
 
         function.environments.append(env)
         interpreter.environments.append(env)
@@ -1510,12 +1510,6 @@ class BUILD_STRING(Instruction):
 class BUILD_TUPLE_UNPACK_WITH_CALL(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
-class LOAD_METHOD(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class CALL_METHOD(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
 # Dictionnary between instruction classes and opcode numbers
 dict_instructions = {
 1 : POP_TOP,
@@ -1637,8 +1631,6 @@ dict_instructions = {
 156 : BUILD_CONST_KEY_MAP,
 157 : BUILD_STRING,
 158 : BUILD_TUPLE_UNPACK_WITH_CALL,
-160 : LOAD_METHOD,
-161 : CALL_METHOD,
 }
 
 # Dictionnary between names and primitive functions
