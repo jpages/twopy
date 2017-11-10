@@ -795,20 +795,23 @@ class IMPORT_STAR(Instruction):
 class SETUP_ANNOTATIONS(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
-class YIELD_VALUE(Instruction):
+class YIELD_VALUE(BranchInstruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
         interpreter.print_stack()
-
+        #TODO
         tos = interpreter.pop()
 
         print("TOS of a YIELD " + str(tos))
         print("Class of TOS " + str(tos.__class__))
+        print("Instructions in block " + str(self.block.instructions))
+
+        interpreter.current_function().environments.pop()
+        interpreter.environments.pop()
+        interpreter.functions_called.pop()
 
         interpreter.push(tos)
-        #TODO
-        quit()
 
 class POP_BLOCK(Instruction):
     def execute(self, interpreter):
