@@ -802,6 +802,10 @@ class YIELD_VALUE(Instruction):
         interpreter.print_stack()
 
         tos = interpreter.pop()
+
+        print("TOS of a YIELD " + str(tos))
+        print("Class of TOS " + str(tos.__class__))
+
         interpreter.push(tos)
         #TODO
         quit()
@@ -832,6 +836,11 @@ class STORE_NAME(Instruction):
         # adding a property to this class here, special treatment
         if interpreter.current_function().is_class:
             interpreter.current_function().mclass.add_attribute(name, tos)
+
+        # # If we are in the top level of the program
+        if self.function.is_main and self.function.name == "main":
+            # also make a global store
+            interpreter.global_environment[name] = tos
 
         interpreter.current_function().environments[-1][name] = tos
 
@@ -1396,15 +1405,22 @@ class LOAD_DEREF(Instruction):
     def execute(self, interpreter):
         super().execute(interpreter)
 
+        # TODO: Flat representation of closures
         varname = None
         if self.arguments < len(interpreter.current_function().cellvars):
             varname = interpreter.current_function().cellvars[self.arguments]
         else:
             varname = interpreter.current_function().freevars[self.arguments]
 
-        # TODO: link closures between them
-        # Get the value in the closure
-        interpreter.push(interpreter.current_function().closure[varname])
+        if varname not in interpreter.current_function().closure:
+            # Lookup in environment
+            for env in reversed(interpreter.current_function().environments):
+                if varname in env:
+                    interpreter.push(env[varname])
+                    return
+        else:
+            # Get the value in the closure
+            interpreter.push(interpreter.current_function().closure[varname])
 
 class STORE_DEREF(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
