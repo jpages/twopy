@@ -17,6 +17,9 @@ def main():
     parser.add_argument("--execution", action="store_true",
                         help="Print each variation of the stack during execution")
 
+    parser.add_argument("--jit", action="store_true",
+                        help="JIT compilation of the code")
+
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject
