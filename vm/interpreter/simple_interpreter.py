@@ -5,6 +5,7 @@ import dis
 import importlib
 
 import frontend
+import jit
 
 # The singleton of the Interpreter
 simple_interpreter_instance = None
@@ -309,6 +310,10 @@ class Function:
         # If this value is set, then it's a method and receiver will be used as
         # self
         self.receiver = None
+
+        # TODO: move this elsewhere
+        if interpreter.args.jit:
+            jit.compiler.compile(self)
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
