@@ -32,22 +32,31 @@ def compile_function(function):
     for i in range(len(arguments)):
         arguments_registers.append(asm.GeneralPurposeRegister32())
 
-    # Now we must load arguments into registers
-    for i in range(len(arguments_registers)):
+    # Mapping between variables names and memory
+    allocations = {}
+
+    # Arguments should be on the stack
+    for i in range(function.argcount):
         instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
+        allocations[function.varnames[i]] = arguments_registers[i]
         code.add_instruction(instruction)
 
+    print("Allocations of arguments " + str(allocations))
+
     # TODO: visit for each instruction
-    compile_instructions(code, function)
+    compile_instructions(code, function, allocations)
 
     # TODO: just a test
     if len(arguments_registers) != 0:
         print("Peachy compiled function "+ str(code))
-        python_function = code.finalize(asm.abi.detect()) #.encode().load()
-        print(python_function)
+        # python_function = code.finalize(asm.abi.detect()).encode().load()
+        # print(python_function)
 
 # Compile all instructions to binary code
-def compile_instructions(code, function):
+# code : the asm.Function object
+# function : The SimpleInterpreter.Function object
+# environment : Mapping betweens variables names and their allocations
+def compile_instructions(code, function, environment):
 
     for instruction in function.start_basic_block.instructions:
         # big dispatch for all instructions
