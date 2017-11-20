@@ -12,17 +12,17 @@ import interpreter.simple_interpreter
 
 # Compile the function  in parameter to binary code
 # return the code instance
-def compile_function(function):
+def compile_function(function, inter):
     print("Compilation of function " + str(function))
 
-    # TODO: for now all parameter are 32 bits integers
+    # TODO: for now all parameter are 64 bits integers
     arguments = []
     for i in range(function.argcount):
         name = "arg" + str(i)
-        arguments.append(peachpy.Argument(peachpy.int32_t, name=name))
+        arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
 
     # TODO: handle the return type for procedures
-    code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int32_t)
+    code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int64_t)
 
     # Set the active function of peachpy
     peachpy.common.function.active_function = code
@@ -30,7 +30,7 @@ def compile_function(function):
     # Create registers for each argument
     arguments_registers = []
     for i in range(len(arguments)):
-        arguments_registers.append(asm.GeneralPurposeRegister32())
+        arguments_registers.append(asm.GeneralPurposeRegister64())
 
     # Mapping between variables names and memory
     allocations = {}
@@ -44,7 +44,7 @@ def compile_function(function):
     print("Allocations of arguments " + str(allocations))
 
     # TODO: visit for each instruction
-    compile_instructions(code, function, allocations)
+    compile_instructions(code, function, allocations, inter)
 
     # TODO: just a test
     if len(arguments_registers) != 0:
@@ -56,7 +56,8 @@ def compile_function(function):
 # code : the asm.Function object
 # function : The SimpleInterpreter.Function object
 # environment : Mapping betweens variables names and their allocations
-def compile_instructions(code, function, environment):
+# inter : SimpleInterpreter running instance
+def compile_instructions(code, function, environment, inter):
 
     for instruction in function.start_basic_block.instructions:
         # big dispatch for all instructions
@@ -197,7 +198,13 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.DELETE_GLOBAL):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
-            print("Instruction not compiled " + str(instruction))
+            print("Instruction compiled " + str(instruction))
+
+            # We need to perform an allocation here
+            value = function.consts[instruction.arguments]
+            print("Need to allocate the value " + str(value))
+            allocate(value, code, environment, function)
+
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
@@ -211,7 +218,24 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
-            print("Instruction not compiled " + str(instruction))
+            print("Instruction compiled " + str(instruction))
+
+            # Put both operand into registers
+            second_register = asm.GeneralPurposeRegister64()
+            first_register = asm.GeneralPurposeRegister64()
+
+            code.add_instruction(asm.POP(second_register))
+            code.add_instruction(asm.POP(first_register))
+
+
+            # code.add_instruction(asm.POP(asm.GeneralPurposeRegister64()))
+            # Perform the test and push the result on the stack
+            # res = interpreter.simple_interpreter.compare_functions[instruction.arguments](first, second)
+
+            # Put the result on the stack
+            # interpreter.push(res)
+
+
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
@@ -239,7 +263,12 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
-            print("Instruction not compiled " + str(instruction))
+            print("Instruction compiled " + str(instruction))
+
+            # Load the value and put it onto the stack
+            varname = function.varnames[instruction.arguments]
+            code.add_instruction(asm.PUSH(environment[varname]))
+
         elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
@@ -298,3 +327,16 @@ def compile_instructions(code, function, environment):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
             print("Instruction not compiled " + str(instruction))
+
+# Allocate a value and update the environment, this function create an instruction to store the value
+# value : the value to allocate
+# code : asm.Function instance
+# environment : mapping between memory and variable names
+# function : interpreter.Function instance
+def allocate(value, code, environment, function):
+    # Depending of the type of the value, do different things
+    if isinstance(value, int):
+        # Put the integer value on the stack
+        code.add_instruction(asm.PUSH(value))
+
+    #TODO: handle other types

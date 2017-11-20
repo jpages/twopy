@@ -313,7 +313,7 @@ class Function:
 
         # TODO: move this elsewhere
         if interpreter.args.jit:
-            jit.compiler.compile_function(self)
+            jit.compiler.compile_function(self, interpreter)
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
