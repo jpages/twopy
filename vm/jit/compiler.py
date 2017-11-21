@@ -30,7 +30,8 @@ def compile_function(function, inter):
     # Create registers for each argument
     arguments_registers = []
     for i in range(len(arguments)):
-        arguments_registers.append(asm.GeneralPurposeRegister64())
+        arguments_registers.append(asm.rax)
+        #arguments_registers.append(asm.GeneralPurposeRegister64())
 
     # Mapping between variables names and memory
     allocations = {}
@@ -44,22 +45,27 @@ def compile_function(function, inter):
     print("Allocations of arguments " + str(allocations))
 
     # TODO: visit for each instruction
-    compile_instructions(code, function, allocations, inter)
+    compile_instructions(code, function, allocations)
 
     # TODO: just a test
     if len(arguments_registers) != 0:
         print("Peachy compiled function "+ str(code))
-        # python_function = code.finalize(asm.abi.detect()).encode().load()
-        # print(python_function)
+        #print(code.finalize(asm.abi.detect()).encode().load())
+        #print(python_function)
+        python_function = code.finalize(asm.abi.detect()).encode().load()
+        print(python_function(5))
 
 # Compile all instructions to binary code
 # code : the asm.Function object
 # function : The SimpleInterpreter.Function object
-# environment : Mapping betweens variables names and their allocations
-# inter : SimpleInterpreter running instance
-def compile_instructions(code, function, environment, inter):
+# environment : Mapping between variables names and their allocations
+def compile_instructions(code, function, environment):
 
-    for instruction in function.start_basic_block.instructions:
+    block = function.start_basic_block
+    for i in range(len(block.instructions)):
+
+        instruction = block.instructions[i]
+
         # big dispatch for all instructions
         if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
             print("Instruction not compiled " + str(instruction))
@@ -220,22 +226,20 @@ def compile_instructions(code, function, environment, inter):
         elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
             print("Instruction compiled " + str(instruction))
 
-            # Put both operand into registers
-            second_register = asm.GeneralPurposeRegister64()
-            first_register = asm.GeneralPurposeRegister64()
+            # COMPARE_OP can't be the last instruction of the block
+            next_instruction = block.instructions[i+1]
 
-            code.add_instruction(asm.POP(second_register))
-            code.add_instruction(asm.POP(first_register))
-
-
-            # code.add_instruction(asm.POP(asm.GeneralPurposeRegister64()))
-            # Perform the test and push the result on the stack
-            # res = interpreter.simple_interpreter.compare_functions[instruction.arguments](first, second)
-
-            # Put the result on the stack
-            # interpreter.push(res)
-
-
+            if isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
+                compile_cmp_JUMP_IF_FALSE_OR_POP(code, instruction)
+            elif isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
+                compile_cmp_JUMP_IF_TRUE_OR_POP(code, instruction)
+            elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
+                compile_cmp_POP_JUMP_IF_FALSE(code, instruction)
+            elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
+                compile_cmp_POP_JUMP_IF_TRUE(code, instruction)
+            else:
+                # General case, we need to put the value on the stack
+                compile_cmp(instruction)
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
@@ -337,6 +341,27 @@ def allocate(value, code, environment, function):
     # Depending of the type of the value, do different things
     if isinstance(value, int):
         # Put the integer value on the stack
-        code.add_instruction(asm.PUSH(value))
+        code.add_instruction(asm.PUSH(peachpy.Constant.uint64(value)))
 
     #TODO: handle other types
+
+# Functions used to compile a comparison then a jump after (a if)
+# code : The asm.Function instance
+# instruction : Current python Bytecode instruction
+def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
+    compile_cmp_beginning(code)
+
+    # Now
+    code.add_instruction(asm.RETURN(asm.rax))
+
+
+def compile_cmp_beginning(code):
+    # Put both operand into registers
+    second_register = asm.rax
+    first_register = asm.rbx
+    code.add_instruction(asm.POP(second_register))
+    code.add_instruction(asm.POP(first_register))
+    code.add_instruction(asm.CMP(second_register, first_register))
+
+
+
