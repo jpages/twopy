@@ -442,6 +442,7 @@ class BasicBlock:
         self.instructions = []
 
     def add_instruction(self, instruction):
+        # type: (object) -> object
         self.instructions.append(instruction)
         instruction.block = self
 
@@ -1055,10 +1056,6 @@ def op_exception_match(first, second):
 def op_bad(first, second):
     print("NYI")
     quit()
-
-# Compare operators
-compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
-'not in', 'is', 'is not', 'exception match', 'BAD')
 
 compare_functions = (op_lesser, op_lesser_eq, op_eq, op_noteq, op_greater,
 op_greater_eq, op_in, op_notin, op_is, op_notis, op_exception_match, op_bad)

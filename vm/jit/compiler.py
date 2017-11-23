@@ -345,14 +345,37 @@ def allocate(value, code, environment, function):
 
     #TODO: handle other types
 
+# Compare operators
+compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
+'not in', 'is', 'is not', 'exception match', 'BAD')
+
 # Functions used to compile a comparison then a jump after (a if)
 # code : The asm.Function instance
 # instruction : Current python Bytecode instruction
 def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
     compile_cmp_beginning(code)
 
+    # not first < second -> first >= second
+    if instruction.arguments == 0:
+        true_label = asm.Label("true_block")
+        false_label = asm.Label("false_block")
+
+        # TODO: Jump to a stub here
+        code.add_instruction(asm.JGE(true_label))
+        code.add_instruction(asm.JMP(false_label))
+
+        code.add_instruction(asm.LABEL(true_label))
+        code.add_instruction(asm.LABEL(false_label))
+
+    elif instruction.arguments == 1:
+        pass
+    else:
+        pass
+
     # Now
     code.add_instruction(asm.RETURN(asm.rax))
+
+    print("Compare operator : " + str(compare_operators[instruction.arguments]))
 
 
 def compile_cmp_beginning(code):
