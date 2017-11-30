@@ -44,16 +44,15 @@ def compile_function(function, inter):
 
     print("Allocations of arguments " + str(allocations))
 
-    # TODO: visit for each instruction
+    # Visit for each instruction
     compile_instructions(code, function, allocations)
 
     # TODO: just a test
     if len(arguments_registers) != 0:
-        print("Peachy compiled function "+ str(code))
-        #print(code.finalize(asm.abi.detect()).encode().load())
-        #print(python_function)
+        print("Peachy compiled function " + str(code))
         python_function = code.finalize(asm.abi.detect()).encode().load()
         print(python_function(5))
+
 
 # Compile all instructions to binary code
 # code : the asm.Function object
@@ -65,7 +64,6 @@ def compile_instructions(code, function, environment):
     for i in range(len(block.instructions)):
 
         instruction = block.instructions[i]
-
         # big dispatch for all instructions
         if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
             print("Instruction not compiled " + str(instruction))
@@ -170,7 +168,7 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-            print("Instruction not compiled " + str(instruction))
+            code.add_instruction(asm.RETURN())
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
@@ -332,6 +330,9 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
             print("Instruction not compiled " + str(instruction))
 
+    # We just add a return instruction for now to execute the code
+    code.add_instruction(asm.RETURN())
+
 # Allocate a value and update the environment, this function create an instruction to store the value
 # value : the value to allocate
 # code : asm.Function instance
@@ -367,16 +368,14 @@ def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
         code.add_instruction(asm.LABEL(true_label))
         code.add_instruction(asm.LABEL(false_label))
 
+        asm.PUSH(5)
     elif instruction.arguments == 1:
         pass
     else:
         pass
 
-    # Now
-    code.add_instruction(asm.RETURN(asm.rax))
-
-    print("Compare operator : " + str(compare_operators[instruction.arguments]))
-
+def test_function(val):
+    print(val)
 
 def compile_cmp_beginning(code):
     # Put both operand into registers
