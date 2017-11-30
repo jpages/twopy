@@ -34,15 +34,20 @@ def main():
     ffi = cffi.FFI()
 
     # C Header
-    ffi.cdef(""" 
+    ffi.cdef("""
         int foo(int a);
         int stub_function(int id_stub);
+        
+        // Python function callback
+        void (*python_callback_stub)(int stub_id);
     """)
 
     # C Sources
     ffi.set_source("stub_module", """
         #include <stdio.h>
         
+        static void (*python_callback_stub)(int stub_id);
+         
         int foo(int a)
         {
             printf("a = %d\\n", a);
@@ -53,6 +58,7 @@ def main():
         
         int stub_function(int id_stub)
         {
+            python_callback_stub(id_stub);
             return id_stub;
         }
     """)
@@ -62,6 +68,13 @@ def main():
 
     # Import of the generated python module
     from stub_module import ffi, lib
+
+    # Test of a callback function which is called from C
+    @ffi.callback("void(int)")
+    def python_callback_stub(stub_id):
+        print("Stub id from C " +str(stub_id))
+
+    lib.python_callback_stub = python_callback_stub
 
     print("Call to foo : " + str(lib.foo(10)))
     print("Address of foo : " + str(ffi.addressof(lib, "foo")))
@@ -80,7 +93,7 @@ def main():
         #asm.MOV(asm.r15, loaded_function.loader.code_address)
 
         # Call to a C FFI function with one parameter
-        asm.MOV(asm.r15, int(ffi.cast("intptr_t", ffi.addressof(lib, "foo"))))
+        asm.MOV(asm.r15, int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function"))))
         asm.MOV(asm.rdi, reg_id)
 
         # If a second parameter is needed
