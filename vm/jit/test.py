@@ -30,27 +30,6 @@ def main():
 
     print(loaded_function(2, 4))
 
-    # Calling an assembly function from an assembly function
-    id_stub = peachpy.Argument(peachpy.int64_t)
-    with asm.Function("stub", (id_stub,), peachpy.int64_t) as stub_function:
-
-        reg_id = asm.GeneralPurposeRegister64()
-        asm.LOAD.ARGUMENT(reg_id, id_stub)
-
-        # Calling convention of x86_64 on linux platforms
-        # TODO: don't use hard-code register for the address
-        asm.MOV(asm.r15, loaded_function.loader.code_address)
-        asm.MOV(asm.rdi, 10)
-        asm.MOV(asm.rsi, 5)
-
-        asm.CALL(asm.r15)
-
-        asm.RETURN()
-
-    stub_compiled_function = stub_function.finalize(asm.abi.detect()).encode().load()
-    print(stub_compiled_function(5))
-
-
     # Source code of C functions
     ffi = cffi.FFI()
 
@@ -85,5 +64,33 @@ def main():
     from stub_module import ffi, lib
 
     print("Call to foo : " + str(lib.foo(10)))
+    print("Address of foo : " + str(ffi.addressof(lib, "foo")))
+
+    # Calling an assembly function from an assembly function
+    id_stub = peachpy.Argument(peachpy.int64_t)
+    with asm.Function("stub", (id_stub,), peachpy.int64_t) as stub_function:
+
+        reg_id = asm.GeneralPurposeRegister64()
+        asm.LOAD.ARGUMENT(reg_id, id_stub)
+
+        # Calling convention of x86_64 on linux platforms
+        # TODO: don't use hard-code register for the address
+
+        # Call to another compiled peachpy function
+        #asm.MOV(asm.r15, loaded_function.loader.code_address)
+
+        # Call to a C FFI function with one parameter
+        asm.MOV(asm.r15, int(ffi.cast("intptr_t", ffi.addressof(lib, "foo"))))
+        asm.MOV(asm.rdi, reg_id)
+
+        # If a second parameter is needed
+        #asm.MOV(asm.rsi, 5)
+
+        asm.CALL(asm.r15)
+
+        asm.RETURN()
+
+    stub_compiled_function = stub_function.finalize(asm.abi.detect()).encode().load()
+    print(stub_compiled_function(10))
 
 main()
