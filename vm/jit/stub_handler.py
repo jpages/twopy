@@ -9,10 +9,10 @@ ffi = cffi.FFI()
 
 # Define the stub_function and the callback for python
 ffi.cdef("""
-        int stub_function(int id_stub);
+        uint64_t stub_function(uint64_t id_stub);
 
         // Python function callback
-        void (*python_callback_stub)(int stub_id);
+        void (*python_callback_stub)(uint64_t stub_id);
     """)
 
 # C Sources
@@ -20,11 +20,11 @@ ffi.set_source("stub_module", """
         #include <stdio.h>
         
         // Function called to handle the compilation of 
-        static void (*python_callback_stub)(int stub_id);
+        static void (*python_callback_stub)(uint64_t stub_id);
 
-        int stub_function(int id_stub)
+        uint64_t stub_function(uint64_t id_stub)
         {
-            //python_callback_stub(id_stub);
+            python_callback_stub(id_stub);
             return id_stub;
         }
     """)
@@ -34,8 +34,6 @@ ffi.compile()
 
 # Import of the generated python module
 from stub_module import ffi, lib
-
-print("Call to a C function " + str(lib.stub_function(10)))
 
 # Compile a call to a stub with an identifier
 # code : The peachpy.Function
@@ -61,7 +59,7 @@ def compile_stub(code, stub_id):
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
-@ffi.callback("void(int)")
+@ffi.callback("void(uint64_t)")
 def python_callback_stub(stub_id):
     print("Stub id from C " + str(stub_id))
 
