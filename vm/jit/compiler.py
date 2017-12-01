@@ -8,12 +8,12 @@ import peachpy
 import peachpy.x86_64 as asm
 from peachpy.common.function import active_function
 
+from . import stub_handler
 import interpreter.simple_interpreter
 
 # Compile the function  in parameter to binary code
 # return the code instance
 def compile_function(function, inter):
-    print("Compilation of function " + str(function))
 
     # TODO: for now all parameter are 64 bits integers
     arguments = []
@@ -42,8 +42,6 @@ def compile_function(function, inter):
         allocations[function.varnames[i]] = arguments_registers[i]
         code.add_instruction(instruction)
 
-    print("Allocations of arguments " + str(allocations))
-
     # Visit for each instruction
     compile_instructions(code, function, allocations)
 
@@ -51,7 +49,7 @@ def compile_function(function, inter):
     if len(arguments_registers) != 0:
         print("Peachy compiled function " + str(code))
         python_function = code.finalize(asm.abi.detect()).encode().load()
-        print(python_function(5))
+        print("Call to the function with the parameter 5 : " + str(python_function(5)))
 
 
 # Compile all instructions to binary code
@@ -61,6 +59,7 @@ def compile_function(function, inter):
 def compile_instructions(code, function, environment):
 
     block = function.start_basic_block
+    print(id(block))
     for i in range(len(block.instructions)):
 
         instruction = block.instructions[i]
@@ -366,16 +365,17 @@ def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
         code.add_instruction(asm.JMP(false_label))
 
         code.add_instruction(asm.LABEL(true_label))
-        code.add_instruction(asm.LABEL(false_label))
+        stub_handler.compile_stub(code, id(instruction.block))
 
+        code.add_instruction(asm.LABEL(false_label))
+        stub_handler.compile_stub(code, id(instruction.block)+1)
+
+        # TODO: call compile_stub two times here
         asm.PUSH(5)
     elif instruction.arguments == 1:
         pass
     else:
         pass
-
-def test_function(val):
-    print(val)
 
 def compile_cmp_beginning(code):
     # Put both operand into registers
