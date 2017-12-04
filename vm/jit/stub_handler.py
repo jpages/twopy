@@ -9,7 +9,7 @@ ffi = cffi.FFI()
 
 # Define the stub_function and the callback for python
 ffi.cdef("""
-        uint64_t stub_function(uint64_t id_stub);
+        uint64_t stub_function(uint64_t id_stub, int* rsp);
 
         // Python function callback
         void (*python_callback_stub)(uint64_t stub_id);
@@ -22,9 +22,12 @@ ffi.set_source("stub_module", """
         // Function called to handle the compilation of 
         static void (*python_callback_stub)(uint64_t stub_id);
 
-        uint64_t stub_function(uint64_t id_stub)
+        uint64_t stub_function(uint64_t id_stub, int* rsp)
         {
+            printf("RSP %ld\\n", *rsp);
+
             python_callback_stub(id_stub);
+            
             return id_stub;
         }
     """)
@@ -48,10 +51,15 @@ def compile_stub(code, stub_id):
     # Calling convention of x86_64 for Unix platforms here
     code.add_instruction(asm.MOV(asm.rdi, stub_id))
 
+    # Now we store the stack pointer to patch it later
+    code.add_instruction(asm.MOV(asm.rsi, asm.registers.rsp))
+
     reg_id = asm.r15
 
     function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function")))
     code.add_instruction(asm.MOV(reg_id, function_address))
+
+
     code.add_instruction(asm.CALL(reg_id))
 
     #TODO: update the global dictionnary

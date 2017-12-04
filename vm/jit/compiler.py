@@ -356,8 +356,8 @@ def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
     compile_cmp_beginning(code)
 
     # not first < second -> first >= second
+    true_label = asm.Label("true_block")
     if instruction.arguments == 0:
-        true_label = asm.Label("true_block")
         false_label = asm.Label("false_block")
 
         # TODO: Jump to a stub here
