@@ -59,7 +59,6 @@ def compile_function(function, inter):
 def compile_instructions(code, function, environment):
 
     block = function.start_basic_block
-    print(id(block))
     for i in range(len(block.instructions)):
 
         instruction = block.instructions[i]
@@ -227,13 +226,13 @@ def compile_instructions(code, function, environment):
             next_instruction = block.instructions[i+1]
 
             if isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
-                compile_cmp_JUMP_IF_FALSE_OR_POP(code, instruction)
+                compile_cmp_JUMP_IF_FALSE_OR_POP(code, instruction, next_instruction)
             elif isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
-                compile_cmp_JUMP_IF_TRUE_OR_POP(code, instruction)
+                compile_cmp_JUMP_IF_TRUE_OR_POP(code, instruction, next_instruction)
             elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
-                compile_cmp_POP_JUMP_IF_FALSE(code, instruction)
+                compile_cmp_POP_JUMP_IF_FALSE(code, instruction, next_instruction)
             elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
-                compile_cmp_POP_JUMP_IF_TRUE(code, instruction)
+                compile_cmp_POP_JUMP_IF_TRUE(code, instruction, next_instruction)
             else:
                 # General case, we need to put the value on the stack
                 compile_cmp(instruction)
@@ -349,10 +348,14 @@ def allocate(value, code, environment, function):
 compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
 'not in', 'is', 'is not', 'exception match', 'BAD')
 
+# Dictionary between stub ids and blocks to compile
+stub_dictionary = {}
+
 # Functions used to compile a comparison then a jump after (a if)
 # code : The asm.Function instance
 # instruction : Current python Bytecode instruction
-def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
+# next_instruction : The following instruction
+def compile_cmp_POP_JUMP_IF_FALSE(code, instruction, next_instruction):
     compile_cmp_beginning(code)
 
     # not first < second -> first >= second
@@ -360,18 +363,38 @@ def compile_cmp_POP_JUMP_IF_FALSE(code, instruction):
     if instruction.arguments == 0:
         false_label = asm.Label("false_block")
 
-        # TODO: Jump to a stub here
+        # Jump to stubs
         code.add_instruction(asm.JGE(true_label))
         code.add_instruction(asm.JMP(false_label))
 
-        code.add_instruction(asm.LABEL(true_label))
-        stub_handler.compile_stub(code, id(instruction.block))
-
-        code.add_instruction(asm.LABEL(false_label))
-        stub_handler.compile_stub(code, id(instruction.block)+1)
-
         # TODO: call compile_stub two times here
         asm.PUSH(5)
+
+        # Get the two following blocks
+        jump_block = None
+        notjump_block = None
+
+        # Locate the target of the jump in next basic blocks, TODO: ensure this is correct
+        for block in instruction.block.next:
+            # If we need to make the jump
+            if block.instructions[0].offset != instruction.arguments:
+                jump_block = block
+            else:
+                # Continue the execution in the second block
+                notjump_block = block
+
+        code.add_instruction(asm.LABEL(true_label))
+        stub_handler.compile_stub(code, id(jump_block))
+
+        stub_dictionary[id(jump_block)] = jump_block
+
+        print("Jump_block = " + str(jump_block))
+        print("Notjump_block = " + str(notjump_block))
+
+        code.add_instruction(asm.LABEL(false_label))
+        stub_handler.compile_stub(code, id(notjump_block))
+
+        stub_dictionary[notjump_block] = notjump_block
     elif instruction.arguments == 1:
         pass
     else:

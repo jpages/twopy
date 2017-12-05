@@ -59,11 +59,7 @@ def compile_stub(code, stub_id):
     function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function")))
     code.add_instruction(asm.MOV(reg_id, function_address))
 
-
     code.add_instruction(asm.CALL(reg_id))
-
-    #TODO: update the global dictionnary
-
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
