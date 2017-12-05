@@ -3,6 +3,8 @@
 import cffi
 import peachpy.x86_64 as asm
 
+from . import compiler
+
 
 # Use the CFFI to define C functions which are callable from assembly
 ffi = cffi.FFI()
@@ -65,7 +67,10 @@ def compile_stub(code, stub_id):
 # stub_id : The identifier of the basic block to compile
 @ffi.callback("void(uint64_t)")
 def python_callback_stub(stub_id):
-    print("Stub id from C " + str(stub_id))
 
+    print("Stub id from C " + str(stub_id))
+    # We must now trigger the compilation of the corresponding block
+
+    print(compiler.stub_dictionary[stub_id])
 
 lib.python_callback_stub = python_callback_stub

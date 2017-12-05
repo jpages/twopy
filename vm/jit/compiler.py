@@ -204,7 +204,6 @@ def compile_instructions(code, function, environment):
 
             # We need to perform an allocation here
             value = function.consts[instruction.arguments]
-            print("Need to allocate the value " + str(value))
             allocate(value, code, environment, function)
 
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
@@ -374,27 +373,25 @@ def compile_cmp_POP_JUMP_IF_FALSE(code, instruction, next_instruction):
         jump_block = None
         notjump_block = None
 
-        # Locate the target of the jump in next basic blocks, TODO: ensure this is correct
+        # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset != instruction.arguments:
+            if block.instructions[0].offset == next_instruction.arguments:
                 jump_block = block
             else:
                 # Continue the execution in the second block
                 notjump_block = block
 
+        # Compile a stub for each branch
         code.add_instruction(asm.LABEL(true_label))
         stub_handler.compile_stub(code, id(jump_block))
-
         stub_dictionary[id(jump_block)] = jump_block
 
-        print("Jump_block = " + str(jump_block))
-        print("Notjump_block = " + str(notjump_block))
-
+        # And update the dictionary of ids and blocks
         code.add_instruction(asm.LABEL(false_label))
         stub_handler.compile_stub(code, id(notjump_block))
+        stub_dictionary[id(notjump_block)] = notjump_block
 
-        stub_dictionary[notjump_block] = notjump_block
     elif instruction.arguments == 1:
         pass
     else:
