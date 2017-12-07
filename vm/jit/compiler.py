@@ -21,8 +21,10 @@ class JITCompiler:
         self.stub_handler = stub_handler.StubHandler(self)
         stub_handler.jitcompiler_instance = self
 
-        # Dictionary between interpreter model and peachpy compiled function
-        self.dict_functions = {}
+        # Dictionary between interpreter model and code handler
+        self.dict_function_allocator = {}
+
+        # Mapping between functions and their code
         self.dict_compiled_functions = {}
 
         # Dictionary between stub ids and blocks to compile
@@ -32,6 +34,11 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
 
+        allocator = Allocator(function)
+        self.dict_function_allocator[function] = allocator
+
+        allocator.arguments_loading()
+
         # TODO: for now all parameter are 64 bits integers
         arguments = []
         for i in range(function.argcount):
@@ -39,27 +46,22 @@ class JITCompiler:
             arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
 
         # TODO: handle the return type for procedures
-        code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int64_t)
-
-        self.dict_functions[function] = code
-
-        # Set the active function of peachpy
-        peachpy.common.function.active_function = code
-
-        # Create registers for each argument
-        arguments_registers = []
-        for i in range(len(arguments)):
-            arguments_registers.append(asm.rax)
-            #arguments_registers.append(asm.GeneralPurposeRegister64())
-
-        # Mapping between variables names and memory
-        function.allocations = {}
-
-        # Arguments should be on the stack
-        for i in range(function.argcount):
-            instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
-            function.allocations[function.varnames[i]] = arguments_registers[i]
-            code.add_instruction(instruction)
+        # code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int64_t)
+        #
+        # # Create registers for each argument
+        # arguments_registers = []
+        # for i in range(len(arguments)):
+        #     arguments_registers.append(asm.rax)
+        #     #arguments_registers.append(asm.GeneralPurposeRegister64())
+        #
+        # # Mapping between variables names and memory
+        # function.allocations = {}
+        #
+        # # Arguments should be on the stack
+        # for i in range(function.argcount):
+        #     instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
+        #     function.allocations[function.varnames[i]] = arguments_registers[i]
+        #     code.add_instruction(instruction)
 
         # Start the compilation of the first basic block
         self.compile_instructions(code, function.start_basic_block, function.allocations)
@@ -437,3 +439,20 @@ class JITCompiler:
         code.add_instruction(asm.POP(first_register))
         code.add_instruction(asm.CMP(second_register, first_register))
 
+
+# Allocate and handle the compilation of a function
+class Allocator:
+    def __init__(self, function):
+        self.function = function
+
+        # # Mapping between variables names and memory
+        function.allocations = {}
+
+        #TODO: allocate a big area to compile the code of this function
+
+    # Compile the loading of arguments
+    def arguments_loading(self):
+        for i in range(function.argcount):
+            pass
+            #name = "arg" + str(i)
+            #arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
