@@ -18,6 +18,9 @@ class JITCompiler:
     def __init__(self, simpleinterpreter):
         self.interpreter = simpleinterpreter
 
+        self.stub_handler = stub_handler.StubHandler(self)
+        stub_handler.jitcompiler_instance = self
+
         # Dictionary between interpreter model and peachpy compiled function
         self.dict_functions = {}
         self.dict_compiled_functions = {}
@@ -413,12 +416,12 @@ class JITCompiler:
 
             # Compile a stub for each branch
             code.add_instruction(asm.LABEL(true_label))
-            stub_handler.compile_stub(code, id(jump_block))
+            self.stub_handler.compile_stub(code, id(jump_block))
             self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
             code.add_instruction(asm.LABEL(false_label))
-            stub_handler.compile_stub(code, id(notjump_block))
+            self.stub_handler.compile_stub(code, id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
 
         elif instruction.arguments == 1:
