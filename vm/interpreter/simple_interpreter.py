@@ -47,6 +47,9 @@ class SimpleInterpreter:
 
         self.functions_called = []
 
+        # The Jit compiler instance, will be set by the launcher
+        self.jitcompiler = None
+
     # Iterate over opcodes and execute the code
     def execute(self):
         # Precompile the code by generating proper instructions and basic blocks
@@ -313,7 +316,7 @@ class Function:
 
         # TODO: move this elsewhere
         if interpreter.args.jit:
-            jit.compiler.compile_function(self, interpreter)
+            interpreter.jitcompiler.compile_function(self, interpreter)
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks

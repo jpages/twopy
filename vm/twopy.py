@@ -2,6 +2,7 @@
 
 import frontend
 import interpreter
+import jit
 
 import argparse;
 import os.path
@@ -27,8 +28,12 @@ def main():
 
     # Get the subdirectory of the executed file
     head, tail = os.path.split(args.file)
-    vm = interpreter.simple_interpreter.get_interpreter(maincode, head, args)
+    inter = interpreter.simple_interpreter.get_interpreter(maincode, head, args)
 
-    vm.execute()
+    if args.jit:
+        jitcompiler = jit.compiler.JITCompiler(inter)
+        inter.jitcompiler = jitcompiler
+
+    inter.execute()
 
 main()
