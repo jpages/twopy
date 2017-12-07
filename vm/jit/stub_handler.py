@@ -12,9 +12,10 @@ ffi = cffi.FFI()
 # Define the stub_function and the callback for python
 ffi.cdef("""
         uint64_t stub_function(uint64_t id_stub, int* rsp);
+        void patch_rsp(int* rsp, char* code);
 
         // Python function callback
-        void (*python_callback_stub)(uint64_t stub_id);
+        void (*python_callback_stub)(uint64_t stub_id, int* rsp);
     """)
 
 # C Sources
@@ -22,15 +23,29 @@ ffi.set_source("stub_module", """
         #include <stdio.h>
         
         // Function called to handle the compilation of 
-        static void (*python_callback_stub)(uint64_t stub_id);
+        static int* (*python_callback_stub)(uint64_t stub_id, int* rsp);
 
         uint64_t stub_function(uint64_t id_stub, int* rsp)
         {
             printf("RSP %ld\\n", *rsp);
 
-            python_callback_stub(id_stub);
-            
+            python_callback_stub(id_stub, rsp);
+
             return id_stub;
+        }
+        
+        void patch_rsp(int* rsp, char* code)
+        {
+            printf("RSP %ld\\n", *rsp);
+            printf("Code %ld\\n", *code);
+            
+            printf("Code adress %p\\n", code);
+            printf("RSP adress %p\\n", rsp);
+            *rsp = code;
+
+            printf("RSP adress %ld\\n", *rsp);
+
+            printf("COUCOU\\n");
         }
     """)
 
@@ -65,12 +80,16 @@ def compile_stub(code, stub_id):
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
-@ffi.callback("void(uint64_t)")
-def python_callback_stub(stub_id):
+@ffi.callback("void(uint64_t, int*)")
+def python_callback_stub(stub_id, rsp):
 
-    print("Stub id from C " + str(stub_id))
     # We must now trigger the compilation of the corresponding block
+    block = compiler.stub_dictionary[stub_id]
 
-    print(compiler.stub_dictionary[stub_id])
+    peachpy_function = compiler.dict_functions[block.function]
+    array = compiler.compile_instructions(peachpy_function, block, block.function.allocations)
+
+    c_buffer = ffi.from_buffer(array)
+    lib.patch_rsp(rsp, c_buffer)
 
 lib.python_callback_stub = python_callback_stub

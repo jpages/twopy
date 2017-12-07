@@ -11,6 +11,11 @@ from peachpy.common.function import active_function
 from . import stub_handler
 import interpreter.simple_interpreter
 
+
+# Dictionary between interpreter model and peachpy compiled function
+dict_functions = {}
+dict_compiled_functions = {}
+
 # Compile the function  in parameter to binary code
 # return the code instance
 def compile_function(function, inter):
@@ -24,6 +29,8 @@ def compile_function(function, inter):
     # TODO: handle the return type for procedures
     code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int64_t)
 
+    dict_functions[function] = code
+
     # Set the active function of peachpy
     peachpy.common.function.active_function = code
 
@@ -34,31 +41,49 @@ def compile_function(function, inter):
         #arguments_registers.append(asm.GeneralPurposeRegister64())
 
     # Mapping between variables names and memory
-    allocations = {}
+    function.allocations = {}
 
     # Arguments should be on the stack
     for i in range(function.argcount):
         instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
-        allocations[function.varnames[i]] = arguments_registers[i]
+        function.allocations[function.varnames[i]] = arguments_registers[i]
         code.add_instruction(instruction)
 
-    # Visit for each instruction
-    compile_instructions(code, function, allocations)
+    # Start the compilation of the first basic block
+    compile_instructions(code, function.start_basic_block, function.allocations)
 
     # TODO: just a test
     if len(arguments_registers) != 0:
         print("Peachy compiled function " + str(code))
         python_function = code.finalize(asm.abi.detect()).encode().load()
+        dict_compiled_functions[function] = python_function
+        print(python_function.loader.code_address)
         print("Call to the function with the parameter 5 : " + str(python_function(5)))
-
 
 # Compile all instructions to binary code
 # code : the asm.Function object
-# function : The SimpleInterpreter.Function object
+# block : The BasicBlock to compile
 # environment : Mapping between variables names and their allocations
-def compile_instructions(code, function, environment):
+def compile_instructions(code, block, environment):
 
-    block = function.start_basic_block
+    if block != block.function.start_basic_block:
+        array = asm.PUSH(1).encode()
+        array = array + asm.RETURN().encode()
+
+        python_function = dict_compiled_functions[block.function]
+
+        python_function.code_segment = python_function.code_segment + array
+
+        # Recreate a loader
+        print("On passe")
+        # TODO: just a test
+        return array
+        #code_segment = dict_compiled_functions[block.function].code_segment
+        #code_segment = code_segment + ins
+        #dict_compiled_functions[block.function].code_segment = code_segment
+
+        #dict_compiled_functions[block.function].loader = peachpy.loader.Loader(len(code_segment))
+
     for i in range(len(block.instructions)):
 
         instruction = block.instructions[i]
@@ -203,9 +228,10 @@ def compile_instructions(code, function, environment):
             print("Instruction compiled " + str(instruction))
 
             # We need to perform an allocation here
-            value = function.consts[instruction.arguments]
-            allocate(value, code, environment, function)
+            value = block.function.consts[instruction.arguments]
+            allocate(value, code, environment, block.function)
 
+            print("The value is now allocated")
         elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
@@ -235,6 +261,9 @@ def compile_instructions(code, function, environment):
             else:
                 # General case, we need to put the value on the stack
                 compile_cmp(instruction)
+
+            # We already compiled the next instruction which is a branch, the block is fully compiled now
+            return
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
             print("Instruction not compiled " + str(instruction))
         elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
@@ -265,7 +294,7 @@ def compile_instructions(code, function, environment):
             print("Instruction compiled " + str(instruction))
 
             # Load the value and put it onto the stack
-            varname = function.varnames[instruction.arguments]
+            varname = block.function.varnames[instruction.arguments]
             code.add_instruction(asm.PUSH(environment[varname]))
 
         elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
@@ -327,8 +356,14 @@ def compile_instructions(code, function, environment):
         elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
             print("Instruction not compiled " + str(instruction))
 
-    # We just add a return instruction for now to execute the code
-    code.add_instruction(asm.RETURN())
+    # Replace the old function by the new one
+    if block != block.function.start_basic_block:
+        print("ET ICI")
+        tt = code.finalize(asm.abi.detect())
+        print("Ça marche")
+
+        python_function = code.finalize(asm.abi.detect()).encode().load()
+
 
 # Allocate a value and update the environment, this function create an instruction to store the value
 # value : the value to allocate
@@ -337,9 +372,10 @@ def compile_instructions(code, function, environment):
 # function : interpreter.Function instance
 def allocate(value, code, environment, function):
     # Depending of the type of the value, do different things
+
     if isinstance(value, int):
         # Put the integer value on the stack
-        code.add_instruction(asm.PUSH(peachpy.Constant.uint64(value)))
+        code.add_instruction(asm.PUSH(value))
 
     #TODO: handle other types
 

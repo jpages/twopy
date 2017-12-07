@@ -348,7 +348,7 @@ class Function:
     # Generate basic blocks in the function
     def generate_basic_blocks(self):
         # The entry point of the function
-        self.start_basic_block = BasicBlock()
+        self.start_basic_block = BasicBlock(self)
 
         # Association between jump instruction and their target
         jumps = {}
@@ -362,7 +362,7 @@ class Function:
 
             if instruction.is_branch():
                 # Finish the current block and create a new one
-                new_block = BasicBlock()
+                new_block = BasicBlock(self)
                 current.link_to(new_block)
                 current = new_block
 
@@ -380,7 +380,7 @@ class Function:
                 jump = jumps[instruction.offset]
                 old_block = instruction.block
 
-                new_block = BasicBlock()
+                new_block = BasicBlock(self)
                 for next_block in instruction.block.next:
                     new_block.link_to(next_block)
 
@@ -432,11 +432,13 @@ class BasicBlock:
         Represent a basic block : a sequence of instructions without a jump
         until the end. Basic blocks are link together and form a graph
 
+        self.function = The function
         self.previous = previous basic blocks
         self.next = next basic blocks
         instructions = the list of instructions in order
     '''
-    def __init__(self):
+    def __init__(self, fun):
+        self.function = fun
         self.previous = set()
         self.next = set()
         self.instructions = []
