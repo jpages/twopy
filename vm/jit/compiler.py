@@ -21,9 +21,6 @@ class JITCompiler:
         self.stub_handler = stub_handler.StubHandler(self)
         stub_handler.jitcompiler_instance = self
 
-        # Dictionary between interpreter model and code handler
-        self.dict_function_allocator = {}
-
         # Mapping between functions and their code
         self.dict_compiled_functions = {}
 
@@ -35,36 +32,12 @@ class JITCompiler:
     def compile_function(self, function, inter):
 
         allocator = Allocator(function)
-        self.dict_function_allocator[function] = allocator
+        function.allocator = allocator
 
         allocator.arguments_loading()
 
-        # TODO: for now all parameter are 64 bits integers
-        arguments = []
-        for i in range(function.argcount):
-            name = "arg" + str(i)
-            arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
-
-        # TODO: handle the return type for procedures
-        # code = asm.Function("asm_"+function.name, tuple(arguments), peachpy.int64_t)
-        #
-        # # Create registers for each argument
-        # arguments_registers = []
-        # for i in range(len(arguments)):
-        #     arguments_registers.append(asm.rax)
-        #     #arguments_registers.append(asm.GeneralPurposeRegister64())
-        #
-        # # Mapping between variables names and memory
-        # function.allocations = {}
-        #
-        # # Arguments should be on the stack
-        # for i in range(function.argcount):
-        #     instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
-        #     function.allocations[function.varnames[i]] = arguments_registers[i]
-        #     code.add_instruction(instruction)
-
         # Start the compilation of the first basic block
-        self.compile_instructions(code, function.start_basic_block, function.allocations)
+        self.compile_instructions(function, function.start_basic_block)
 
         # TODO: just a test
         if len(arguments_registers) != 0:
@@ -75,23 +48,9 @@ class JITCompiler:
             print("Call to the function with the parameter 5 : " + str(python_function(5)))
 
     # Compile all instructions to binary code
-    # code : the asm.Function object
+    # function : the simple_interpreter.Function object
     # block : The BasicBlock to compile
-    # environment : Mapping between variables names and their allocations
-    def compile_instructions(self, code, block, environment):
-
-        if block != block.function.start_basic_block:
-            array = asm.PUSH(1).encode()
-            array = array + asm.RETURN().encode()
-
-            python_function = self.dict_compiled_functions[block.function]
-
-            python_function.code_segment = python_function.code_segment + array
-
-            # Recreate a loader
-            print("On passe")
-            # TODO: just a test
-            return array
+    def compile_instructions(self, function, block):
 
         for i in range(len(block.instructions)):
 
@@ -238,7 +197,7 @@ class JITCompiler:
 
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
-                self.allocate(value, code, environment, block.function)
+                block.function.allocator.allocate_const(value)
 
                 print("The value is now allocated")
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
@@ -365,21 +324,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
                 print("Instruction not compiled " + str(instruction))
 
-
-    # Allocate a value and update the environment, this function create an instruction to store the value
-    # value : the value to allocate
-    # code : asm.Function instance
-    # environment : mapping between memory and variable names
-    # function : interpreter.Function instance
-    def allocate(self, value, code, environment, function):
-        # Depending of the type of the value, do different things
-
-        if isinstance(value, int):
-            # Put the integer value on the stack
-            code.add_instruction(asm.PUSH(value))
-
-        #TODO: handle other types
-
     # Compare operators
     compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
     'not in', 'is', 'is not', 'exception match', 'BAD')
@@ -446,13 +390,42 @@ class Allocator:
         self.function = function
 
         # # Mapping between variables names and memory
-        function.allocations = {}
+        self.function.allocations = {}
 
-        #TODO: allocate a big area to compile the code of this function
+        # Where the code is allocated
+        self.code_section = bytearray(100)
 
-    # Compile the loading of arguments
+    # Compile the loading of arguments of the function
     def arguments_loading(self):
-        for i in range(function.argcount):
-            pass
-            #name = "arg" + str(i)
-            #arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
+
+        # FIXME: for now all parameters are 64 bits integers
+        arguments = []
+        for i in range(self.function.argcount):
+            name = "arg" + str(i)
+            arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
+
+        # Create registers for each argument
+        arguments_registers = []
+        for i in range(len(arguments)):
+            arguments_registers.append(asm.GeneralPurposeRegister64())
+
+        # Mapping between variables names and memory
+        self.function.allocations = {}
+
+        # Arguments should be on the stack
+        for i in range(self.function.argcount):
+            instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
+            self.function.allocations[function.varnames[i]] = arguments_registers[i]
+
+            print("Argument loading" +str(instruction.encode()))
+
+    # Allocate a value and update the environment, this function create an instruction to store the value
+    # value : the value to allocate
+    def allocate_const(self, value):
+        # Depending of the type of the value, do different things
+
+        if isinstance(value, int):
+            # Put the integer value on the stack
+            code.add_instruction(asm.PUSH(value))
+
+            # TODO: handle other types
