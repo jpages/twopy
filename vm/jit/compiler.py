@@ -3,6 +3,10 @@ This module contains the JIT compiler
 '''
 
 import peachpy
+import sys
+
+import ctypes
+import mmap
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
@@ -39,13 +43,12 @@ class JITCompiler:
         # Start the compilation of the first basic block
         self.compile_instructions(function, function.start_basic_block)
 
+        # Load the function
+        allocator.load()
+
         # TODO: just a test
-        if len(arguments_registers) != 0:
-            print("Peachy compiled function " + str(code))
-            python_function = code.finalize(asm.abi.detect()).encode().load()
-            self.dict_compiled_functions[function] = python_function
-            print(python_function.loader.code_address)
-            print("Call to the function with the parameter 5 : " + str(python_function(5)))
+        if function.name != "main":
+            print("Call to the function with the parameter 5 : " + str(allocator(5)))
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -397,11 +400,22 @@ class Allocator:
         # Where the code is allocated
         self.code_section = bytearray(100)
 
+        # Where data are allocated
+        self.data_section = bytearray(100)
+
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
 
+        # Future code address when loaded
+        self.code_address = None
+
+        # Future data address when loaded
+        self.data_address = None
+
+
     # Compile the loading of arguments of the function
     def arguments_loading(self):
+        # TODO: Load all parameters from the stack
 
         # FIXME: for now all parameters are 64 bits integers
         arguments = []
@@ -412,7 +426,8 @@ class Allocator:
         # Create registers for each argument
         arguments_registers = []
         for i in range(len(arguments)):
-            arguments_registers.append(asm.GeneralPurposeRegister64())
+            #arguments_registers.append(asm.GeneralPurposeRegister64())
+            arguments_registers.append(asm.rax)
 
         # Mapping between variables names and memory
         self.function.allocations = {}
@@ -444,3 +459,87 @@ class Allocator:
         for val in encoded:
             self.code_section[self.code_offset] = val
             self.code_offset = self.code_offset + 1
+
+    # Make the code executable
+    def load(self):
+        self.code_size = len(self.code_section)
+        self.data_size = len(self.data_section)
+
+        osname = sys.platform.lower()
+
+        # For now, just support Unix platforms
+        if osname == "darwin" or osname.startswith("linux"):
+
+            # Get the C library
+            if osname == "darwin":
+                libc = ctypes.cdll.LoadLibrary("libc.dylib")
+            else:
+                libc = ctypes.cdll.LoadLibrary("libc.so.6")
+
+            # void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset)
+            mmap_function = libc.mmap
+            mmap_function.restype = ctypes.c_void_p
+            mmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t,
+                                     ctypes.c_int, ctypes.c_int,
+                                     ctypes.c_int, ctypes.c_size_t]
+
+            # int munmap(void* addr, size_t len)
+            munmap_function = libc.munmap
+            munmap_function.restype = ctypes.c_int
+            munmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t]
+
+            def munmap(address, size):
+                munmap_result = munmap_function(ctypes.c_void_p(address), size)
+                assert munmap_result == 0
+
+            # Allocate code segment
+            code_address = mmap_function(None, self.code_size,
+                                         mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+                                         mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                         -1, 0)
+            if code_address == -1:
+                raise OSError("Failed to allocate memory for code segment")
+            self.code_address = code_address
+
+            if self.data_size > 0:
+                # Allocate data segment
+                data_address = mmap_function(None, self.data_size,
+                                             mmap.PROT_READ | mmap.PROT_WRITE,
+                                             mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                             -1, 0)
+                if data_address == -1:
+                    raise OSError("Failed to allocate memory for data segment")
+                self.data_address = data_address
+
+            print("Code address " + str(self.code_address))
+
+            # Copy the code to this location
+            self.relocation()
+
+        # Create a pointer to be able to call this function directly in python
+        self.create_function_pointer()
+
+    # Relocate the code and data to the newly areas
+    def relocation(self):
+        ctypes.memmove(self.code_address,
+                       ctypes.c_char_p(bytes(self.code_section)),
+                       len(self.code_section))
+
+        ctypes.c_char_p
+        ctypes.memmove(self.data_address,
+                       ctypes.c_char_p(bytes(self.data_section)),
+                       len(self.data_section))
+
+
+    # Create a pointer to the compiled function
+    def create_function_pointer(self):
+        # TODO: Adapt types to the correct ones
+        #result_type = None if function.result_type is None else function.result_type.as_ctypes_type
+        #argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
+
+        self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
+        self.function_pointer = self.function_type(self.code_address)
+
+    # Call the compiled function
+    def __call__(self, *args):
+        return self.function_pointer(*args)
