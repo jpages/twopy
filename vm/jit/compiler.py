@@ -48,9 +48,11 @@ class JITCompiler:
             print("Call to the function with the parameter 5 : " + str(python_function(5)))
 
     # Compile all instructions to binary code
-    # function : the simple_interpreter.Function object
+    # mfunction : the simple_interpreter.Function object
     # block : The BasicBlock to compile
-    def compile_instructions(self, function, block):
+    def compile_instructions(self, mfunction, block):
+
+        allocator = mfunction.allocator
 
         for i in range(len(block.instructions)):
 
@@ -159,7 +161,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-                code.add_instruction(asm.RETURN())
+                allocator.encode(asm.RETURN())
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
@@ -263,7 +265,7 @@ class JITCompiler:
 
                 # Load the value and put it onto the stack
                 varname = block.function.varnames[instruction.arguments]
-                code.add_instruction(asm.PUSH(environment[varname]))
+                allocator.encode(asm.PUSH(mfunction.allocations[varname]))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 print("Instruction not compiled " + str(instruction))
@@ -395,6 +397,9 @@ class Allocator:
         # Where the code is allocated
         self.code_section = bytearray(100)
 
+        # The offset in code_section where the code can be allocated
+        self.code_offset = 0
+
     # Compile the loading of arguments of the function
     def arguments_loading(self):
 
@@ -417,7 +422,7 @@ class Allocator:
             instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
             self.function.allocations[function.varnames[i]] = arguments_registers[i]
 
-            print("Argument loading" +str(instruction.encode()))
+            self.encode(instruction)
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # value : the value to allocate
@@ -426,6 +431,16 @@ class Allocator:
 
         if isinstance(value, int):
             # Put the integer value on the stack
-            code.add_instruction(asm.PUSH(value))
+            self.encode(asm.PUSH(value))
 
             # TODO: handle other types
+
+    # Encode and store in memory one instruction
+    # instruction = the asm.Instruction to encode
+    def encode(self, instruction):
+        encoded = instruction.encode()
+
+        # Store each byte in memory and update code_offset
+        for val in encoded:
+            self.code_section[self.code_offset] = val
+            self.code_offset = self.code_offset + 1
