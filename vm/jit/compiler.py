@@ -224,13 +224,13 @@ class JITCompiler:
                 next_instruction = block.instructions[i+1]
 
                 if isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
-                    self.compile_cmp_JUMP_IF_FALSE_OR_POP(code, instruction, next_instruction)
+                    self.compile_cmp_JUMP_IF_FALSE_OR_POP(mfunction, instruction, next_instruction)
                 elif isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
-                    self.compile_cmp_JUMP_IF_TRUE_OR_POP(code, instruction, next_instruction)
+                    self.compile_cmp_JUMP_IF_TRUE_OR_POP(mfunction, instruction, next_instruction)
                 elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
-                    self.compile_cmp_POP_JUMP_IF_FALSE(code, instruction, next_instruction)
+                    self.compile_cmp_POP_JUMP_IF_FALSE(mfunction, instruction, next_instruction)
                 elif isinstance(next_instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
-                    self.compile_cmp_POP_JUMP_IF_TRUE(code, instruction, next_instruction)
+                    self.compile_cmp_POP_JUMP_IF_TRUE(mfunction, instruction, next_instruction)
                 else:
                     # General case, we need to put the value on the stack
                     self.compile_cmp(instruction)
@@ -334,23 +334,25 @@ class JITCompiler:
     'not in', 'is', 'is not', 'exception match', 'BAD')
 
     # Functions used to compile a comparison then a jump after (a if)
-    # code : The asm.Function instance
+    # mfunction : Current compiled function
     # instruction : Current python Bytecode instruction
     # next_instruction : The following instruction
-    def compile_cmp_POP_JUMP_IF_FALSE(self, code, instruction, next_instruction):
-        self.compile_cmp_beginning(code)
+    def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction):
+        self.compile_cmp_beginning(mfunction)
 
         # not first < second -> first >= second
         true_label = asm.Label("true_block")
         if instruction.arguments == 0:
             false_label = asm.Label("false_block")
 
+            # The stubs must be compiled before the jumps
+
             # Jump to stubs
-            code.add_instruction(asm.JGE(true_label))
-            code.add_instruction(asm.JMP(false_label))
+            mfunction.allocator.encode(asm.JGE(true_label))
+            mfunction.allocator.encode(asm.JMP(false_label))
 
             # TODO: call compile_stub two times here
-            asm.PUSH(5)
+            mfunction.allocator.encode(asm.PUSH(5))
 
             # Get the two following blocks
             jump_block = None
@@ -366,13 +368,13 @@ class JITCompiler:
                     notjump_block = block
 
             # Compile a stub for each branch
-            code.add_instruction(asm.LABEL(true_label))
-            self.stub_handler.compile_stub(code, id(jump_block))
+            mfunction.allocator.encode(asm.LABEL(true_label))
+            self.stub_handler.compile_stub(mfunction, id(jump_block))
             self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
-            code.add_instruction(asm.LABEL(false_label))
-            self.stub_handler.compile_stub(code, id(notjump_block))
+            mfunction.allocator.encode(asm.LABEL(false_label))
+            self.stub_handler.compile_stub(mfunction, id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
 
         elif instruction.arguments == 1:
@@ -380,13 +382,13 @@ class JITCompiler:
         else:
             pass
 
-    def compile_cmp_beginning(self, code):
+    def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
         second_register = asm.rax
         first_register = asm.rbx
-        code.add_instruction(asm.POP(second_register))
-        code.add_instruction(asm.POP(first_register))
-        code.add_instruction(asm.CMP(second_register, first_register))
+        mfunction.allocator.encode(asm.POP(second_register))
+        mfunction.allocator.encode(asm.POP(first_register))
+        mfunction.allocator.encode(asm.CMP(second_register, first_register))
 
 
 # Allocate and handle the compilation of a function
@@ -415,18 +417,11 @@ class Allocator:
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
-        # TODO: Load all parameters from the stack
-
         # FIXME: for now all parameters are 64 bits integers
-        arguments = []
-        for i in range(self.function.argcount):
-            name = "arg" + str(i)
-            arguments.append(peachpy.Argument(peachpy.int64_t, name=name))
-
         # Create registers for each argument
         arguments_registers = []
-        for i in range(len(arguments)):
-            #arguments_registers.append(asm.GeneralPurposeRegister64())
+        for i in range(self.function.argcount):
+            # Make a proper register allocation
             arguments_registers.append(asm.rax)
 
         # Mapping between variables names and memory
@@ -434,9 +429,10 @@ class Allocator:
 
         # Arguments should be on the stack
         for i in range(self.function.argcount):
-            instruction = asm.LOAD.ARGUMENT(arguments_registers[i], arguments[i])
-            self.function.allocations[function.varnames[i]] = arguments_registers[i]
+            # Put each argument into a register
+            instruction = asm.POP(arguments_registers[i])
 
+            self.function.allocations[self.function.varnames[i]] = arguments_registers[i]
             self.encode(instruction)
 
     # Allocate a value and update the environment, this function create an instruction to store the value

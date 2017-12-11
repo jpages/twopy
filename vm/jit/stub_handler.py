@@ -71,7 +71,7 @@ class StubHandler:
         stubhandler_instance = self
 
     # Compile a call to a stub with an identifier
-    # code : The peachpy.Function
+    # mfunction: The simple_interpreter.Function
     # stub_id : The id the identifier of the block
     def compile_stub(self, code, stub_id):
 
