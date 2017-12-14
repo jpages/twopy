@@ -35,10 +35,11 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
 
-        allocator = Allocator(function)
+        allocator = Allocator(function, self)
         function.allocator = allocator
 
-        allocator.arguments_loading()
+        # FIXME
+        #allocator.arguments_loading()
 
         # Start the compilation of the first basic block
         self.compile_instructions(function, function.start_basic_block)
@@ -55,7 +56,12 @@ class JITCompiler:
     # block : The BasicBlock to compile
     def compile_instructions(self, mfunction, block):
 
+        #Just a test
         allocator = mfunction.allocator
+        allocator.encode(asm.MOV(asm.rax, asm.rdi))
+        allocator.encode(asm.ADD(asm.rax, 4))
+        allocator.encode(asm.RET())
+        return
 
         for i in range(len(block.instructions)):
 
@@ -164,7 +170,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-                allocator.encode(asm.RETURN())
+                allocator.encode(asm.RET())
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
@@ -341,18 +347,11 @@ class JITCompiler:
         self.compile_cmp_beginning(mfunction)
 
         # not first < second -> first >= second
-        true_label = asm.Label("true_block")
         if instruction.arguments == 0:
+            true_label = asm.Label("true_block")
             false_label = asm.Label("false_block")
 
             # The stubs must be compiled before the jumps
-
-            # Jump to stubs
-            mfunction.allocator.encode(asm.JGE(true_label))
-            mfunction.allocator.encode(asm.JMP(false_label))
-
-            # TODO: call compile_stub two times here
-            mfunction.allocator.encode(asm.PUSH(5))
 
             # Get the two following blocks
             jump_block = None
@@ -368,14 +367,22 @@ class JITCompiler:
                     notjump_block = block
 
             # Compile a stub for each branch
-            mfunction.allocator.encode(asm.LABEL(true_label))
-            self.stub_handler.compile_stub(mfunction, id(jump_block))
+            address_true = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
             self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
-            mfunction.allocator.encode(asm.LABEL(false_label))
-            self.stub_handler.compile_stub(mfunction, id(notjump_block))
+            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label), id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
+
+            # TODO: test
+            mfunction.allocator.encode(asm.RETURN())
+
+            # Jump to stubs
+            # TODO: correct jump here
+            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(4)))
+
+            mfunction.allocator.encode(asm.MOV(asm.r15, address_false))
+            mfunction.allocator.encode(asm.JMP(asm.r15))
 
         elif instruction.arguments == 1:
             pass
@@ -393,20 +400,24 @@ class JITCompiler:
 
 # Allocate and handle the compilation of a function
 class Allocator:
-    def __init__(self, function):
-        self.function = function
+    def __init__(self, mfunction, jitcompiler):
+        self.function = mfunction
+        self.jitcompiler = jitcompiler
 
         # # Mapping between variables names and memory
         self.function.allocations = {}
 
         # Where the code is allocated
-        self.code_section = bytearray(100)
+        self.code_section = bytearray(200)
 
         # Where data are allocated
         self.data_section = bytearray(100)
 
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
+
+        # The stub pointer is in the end of the code section
+        self.stub_offset = 100
 
         # Future code address when loaded
         self.code_address = None
@@ -455,6 +466,27 @@ class Allocator:
         for val in encoded:
             self.code_section[self.code_offset] = val
             self.code_offset = self.code_offset + 1
+
+    # Compile a stub in a special area of the code section
+    # mstub_handler : StubHandler instance
+    # mfunction : current function
+    # stub_label : the asm Label Instruction
+    # id_block : id to put in the stub
+    def compile_stub(self, mstub_handler, mfunction, stub_label, id_block):
+        return mstub_handler.compile_stub(mfunction, stub_label, id(id_block))
+
+    # Encode one instruction for a stub, will be put in a special section of code
+    # Return the address of the beginning of the instruction in the bytearray
+    def encode_stub(self, instruction):
+        encoded = instruction.encode()
+
+        stub_offset_beginning = self.stub_offset
+        # Now, put the instruction in the end of the code section
+        for val in encoded:
+            self.code_section[self.stub_offset] = val
+            self.stub_offset = self.stub_offset + 1
+
+        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), stub_offset_beginning)
 
     # Make the code executable
     def load(self):
@@ -507,8 +539,6 @@ class Allocator:
                     raise OSError("Failed to allocate memory for data segment")
                 self.data_address = data_address
 
-            print("Code address " + str(self.code_address))
-
             # Copy the code to this location
             self.relocation()
 
@@ -517,13 +547,14 @@ class Allocator:
 
     # Relocate the code and data to the newly areas
     def relocation(self):
+
         ctypes.memmove(self.code_address,
-                       ctypes.c_char_p(bytes(self.code_section)),
+                       bytes(self.code_section),
                        len(self.code_section))
 
         ctypes.c_char_p
         ctypes.memmove(self.data_address,
-                       ctypes.c_char_p(bytes(self.data_section)),
+                       bytes(self.data_section),
                        len(self.data_section))
 
 
@@ -534,8 +565,14 @@ class Allocator:
         #argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
 
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
+        #self.function_pointer = ctypes.cast(self.code_address, self.function_type)
         self.function_pointer = self.function_type(self.code_address)
 
     # Call the compiled function
     def __call__(self, *args):
+        print("Try to call the generated function")
+        print("Function_pointer " + str(self.function_pointer))
+        print("self.code_address " + str(self.code_address))
+
+        #stub_handler.lib.execute_compiled_code(self.code_address)
         return self.function_pointer(*args)

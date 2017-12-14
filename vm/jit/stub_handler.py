@@ -16,6 +16,9 @@ ffi.cdef("""
 
         // Python function callback
         void (*python_callback_stub)(uint64_t stub_id, int* rsp);
+        
+        // Get the address of an element in a bytearray
+        uint64_t get_address(char* bytearray, int index);
     """)
 
 # C Sources
@@ -36,16 +39,14 @@ ffi.set_source("stub_module", """
 
         void patch_rsp(int* rsp, char* code)
         {
-            printf("RSP %ld\\n", *rsp);
-            printf("Code %ld\\n", *code);
-
-            printf("Code adress %p\\n", code);
-            printf("RSP adress %p\\n", rsp);
             *rsp = code;
 
-            printf("RSP adress %ld\\n", *rsp);
-
-            printf("COUCOU\\n");
+            printf("RSP address %ld\\n", *rsp);
+        }
+        
+        uint64_t get_address(char* bytearray, int index)
+        {
+            return (uint64_t)&bytearray[index];
         }
     """)
 
@@ -72,27 +73,34 @@ class StubHandler:
 
     # Compile a call to a stub with an identifier
     # mfunction: The simple_interpreter.Function
+    # stub_label : Label of the stub
     # stub_id : The id the identifier of the block
-    def compile_stub(self, code, stub_id):
+    def compile_stub(self, mfunction, stub_label, stub_id):
 
         stub_label = asm.Label("Stub_label_"+str(stub_id))
 
-        code.add_instruction(asm.JMP(stub_label))
-        code.add_instruction(asm.LABEL(stub_label))
+        # The rest is inside the stub section
+        address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
+
+
+        # The jump is in the code section
+        mfunction.allocator.encode(asm.MOV(asm.r15, address))
+        mfunction.allocator.encode(asm.JMP(asm.r15))
 
         # Calling convention of x86_64 for Unix platforms here
-        code.add_instruction(asm.MOV(asm.rdi, stub_id))
+        mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
 
         # Now we store the stack pointer to patch it later
-        code.add_instruction(asm.MOV(asm.rsi, asm.registers.rsp))
+        mfunction.allocator.encode_stub(asm.MOV(asm.rsi, asm.registers.rsp))
 
         reg_id = asm.r15
 
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function")))
-        code.add_instruction(asm.MOV(reg_id, function_address))
+        mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
 
-        code.add_instruction(asm.CALL(reg_id))
+        mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
+        return address
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
