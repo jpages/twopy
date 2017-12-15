@@ -5,6 +5,9 @@ This module contains the JIT compiler
 import peachpy
 import sys
 
+# ASM disassembly
+import capstone
+
 import ctypes
 import mmap
 
@@ -39,13 +42,10 @@ class JITCompiler:
         function.allocator = allocator
 
         # FIXME
-        #allocator.arguments_loading()
+        allocator.arguments_loading()
 
         # Start the compilation of the first basic block
         self.compile_instructions(function, function.start_basic_block)
-
-        # Load the function
-        allocator.load()
 
         # TODO: just a test
         if function.name != "main":
@@ -58,10 +58,6 @@ class JITCompiler:
 
         #Just a test
         allocator = mfunction.allocator
-        allocator.encode(asm.MOV(asm.rax, asm.rdi))
-        allocator.encode(asm.ADD(asm.rax, 4))
-        allocator.encode(asm.RET())
-        return
 
         for i in range(len(block.instructions)):
 
@@ -366,6 +362,9 @@ class JITCompiler:
                     # Continue the execution in the second block
                     notjump_block = block
 
+            old_stub_offset = mfunction.allocator.stub_offset
+            old_code_offset = mfunction.allocator.code_offset
+
             # Compile a stub for each branch
             address_true = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
             self.stub_dictionary[id(jump_block)] = jump_block
@@ -374,13 +373,15 @@ class JITCompiler:
             address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label), id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
 
-            # TODO: test
-            mfunction.allocator.encode(asm.RETURN())
-
             # Jump to stubs
-            # TODO: correct jump here
-            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(4)))
 
+            # TODO: correct jump here
+            offset = old_stub_offset - old_code_offset
+            print("Offset of the code " + str(offset))
+            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(87)))
+
+            # For now, jump to the newly compiled stub,
+            # This code will be patch later
             mfunction.allocator.encode(asm.MOV(asm.r15, address_false))
             mfunction.allocator.encode(asm.JMP(asm.r15))
 
@@ -407,11 +408,11 @@ class Allocator:
         # # Mapping between variables names and memory
         self.function.allocations = {}
 
-        # Where the code is allocated
-        self.code_section = bytearray(200)
+        # Size of the code section
+        self.code_size = 200
 
-        # Where data are allocated
-        self.data_section = bytearray(100)
+        # Size of the data section
+        self.data_size = 100
 
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
@@ -419,15 +420,24 @@ class Allocator:
         # The stub pointer is in the end of the code section
         self.stub_offset = 100
 
-        # Future code address when loaded
+        # Future code and data sections, will be allocated in C
+        self.code_section = None
+        self.data_section = None
+
+        # Future code address
         self.code_address = None
 
-        # Future data address when loaded
+        # Future data address
         self.data_address = None
 
+        # Allocate the code segment in C
+        self.allocate_code_segment()
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
+
+        self.encode(asm.PUSH(5))
+
         # FIXME: for now all parameters are 64 bits integers
         # Create registers for each argument
         arguments_registers = []
@@ -464,7 +474,7 @@ class Allocator:
 
         # Store each byte in memory and update code_offset
         for val in encoded:
-            self.code_section[self.code_offset] = val
+            self.code_section[self.code_offset] = val.to_bytes(1, 'big')
             self.code_offset = self.code_offset + 1
 
     # Compile a stub in a special area of the code section
@@ -483,16 +493,13 @@ class Allocator:
         stub_offset_beginning = self.stub_offset
         # Now, put the instruction in the end of the code section
         for val in encoded:
-            self.code_section[self.stub_offset] = val
+            self.code_section[self.stub_offset] = val.to_bytes(1, 'big')
             self.stub_offset = self.stub_offset + 1
 
         return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), stub_offset_beginning)
 
-    # Make the code executable
-    def load(self):
-        self.code_size = len(self.code_section)
-        self.data_size = len(self.data_section)
-
+    # Allocate an executable segment of code
+    def allocate_code_segment(self):
         osname = sys.platform.lower()
 
         # For now, just support Unix platforms
@@ -525,6 +532,7 @@ class Allocator:
                                          mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
                                          mmap.MAP_ANON | mmap.MAP_PRIVATE,
                                          -1, 0)
+
             if code_address == -1:
                 raise OSError("Failed to allocate memory for code segment")
             self.code_address = code_address
@@ -539,24 +547,21 @@ class Allocator:
                     raise OSError("Failed to allocate memory for data segment")
                 self.data_address = data_address
 
-            # Copy the code to this location
-            self.relocation()
+            # Create manipulable python arrays for these two sections
+            self.python_arrays()
+
 
         # Create a pointer to be able to call this function directly in python
         self.create_function_pointer()
 
-    # Relocate the code and data to the newly areas
-    def relocation(self):
+    # Create python array interface from C allocated arrays
+    def python_arrays(self):
 
-        ctypes.memmove(self.code_address,
-                       bytes(self.code_section),
-                       len(self.code_section))
+        addr = stub_handler.ffi.cast("char*", self.code_address)
+        self.code_section = stub_handler.ffi.buffer(addr, self.code_size)
 
-        ctypes.c_char_p
-        ctypes.memmove(self.data_address,
-                       bytes(self.data_section),
-                       len(self.data_section))
-
+        addr = stub_handler.ffi.cast("char*", self.data_address)
+        self.data_section = stub_handler.ffi.buffer(addr, self.data_size)
 
     # Create a pointer to the compiled function
     def create_function_pointer(self):
@@ -565,14 +570,22 @@ class Allocator:
         #argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
 
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
-        #self.function_pointer = ctypes.cast(self.code_address, self.function_type)
         self.function_pointer = self.function_type(self.code_address)
 
     # Call the compiled function
     def __call__(self, *args):
-        print("Try to call the generated function")
-        print("Function_pointer " + str(self.function_pointer))
-        print("self.code_address " + str(self.code_address))
 
-        #stub_handler.lib.execute_compiled_code(self.code_address)
+        # Print the asm code
+        self.disassemble_asm()
+
+        # Make the actual call
         return self.function_pointer(*args)
+
+    # Disassemble the compiled assembly code
+    def disassemble_asm(self):
+
+        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        for i in md.disasm(bytes(self.code_section), self.code_address):
+            pass
+            print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+

@@ -79,13 +79,8 @@ class StubHandler:
 
         stub_label = asm.Label("Stub_label_"+str(stub_id))
 
-        # The rest is inside the stub section
+        # The call to that will be compiled after the stub compilation is over
         address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
-
-
-        # The jump is in the code section
-        mfunction.allocator.encode(asm.MOV(asm.r15, address))
-        mfunction.allocator.encode(asm.JMP(asm.r15))
 
         # Calling convention of x86_64 for Unix platforms here
         mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
