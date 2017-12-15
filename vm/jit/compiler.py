@@ -56,8 +56,9 @@ class JITCompiler:
     # block : The BasicBlock to compile
     def compile_instructions(self, mfunction, block):
 
-        #Just a test
         allocator = mfunction.allocator
+
+        print(block.instructions)
 
         for i in range(len(block.instructions)):
 
@@ -166,6 +167,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
+                print("Instruction compiled " + str(instruction))
                 allocator.encode(asm.RET())
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
                 print("Instruction not compiled " + str(instruction))
@@ -366,19 +368,16 @@ class JITCompiler:
             old_code_offset = mfunction.allocator.code_offset
 
             # Compile a stub for each branch
-            address_true = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
+            mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
             self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
             address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label), id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
 
-            # Jump to stubs
-
-            # TODO: correct jump here
+            # Compute the offset to the stub, by adding the size of the JGE instruction
             offset = old_stub_offset - old_code_offset
-            print("Offset of the code " + str(offset))
-            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(87)))
+            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(offset-2)))
 
             # For now, jump to the newly compiled stub,
             # This code will be patch later
@@ -483,7 +482,7 @@ class Allocator:
     # stub_label : the asm Label Instruction
     # id_block : id to put in the stub
     def compile_stub(self, mstub_handler, mfunction, stub_label, id_block):
-        return mstub_handler.compile_stub(mfunction, stub_label, id(id_block))
+        return mstub_handler.compile_stub(mfunction, stub_label, id_block)
 
     # Encode one instruction for a stub, will be put in a special section of code
     # Return the address of the beginning of the instruction in the bytearray

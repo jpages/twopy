@@ -105,8 +105,8 @@ def python_callback_stub(stub_id, rsp):
     # We must now trigger the compilation of the corresponding block
     block = jitcompiler_instance.stub_dictionary[stub_id]
 
-    peachpy_function = jitcompiler_instance.dict_functions[block.function]
-    array = jitcompiler_instance.compile_instructions(peachpy_function, block, block.function.allocations)
+
+    array = jitcompiler_instance.compile_instructions(block.function, block)
 
     c_buffer = ffi.from_buffer(array)
     lib.patch_rsp(rsp, c_buffer)
