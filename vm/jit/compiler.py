@@ -50,6 +50,7 @@ class JITCompiler:
         # TODO: just a test
         if function.name != "main":
             print("Call to the function with the parameter 5 : " + str(allocator(5)))
+            print("after the call")
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -58,9 +59,16 @@ class JITCompiler:
 
         allocator = mfunction.allocator
 
+        # Offset of the first instruction compiled in the block
+        return_offset = 0
+
         print(block.instructions)
 
         for i in range(len(block.instructions)):
+
+            # If its the first instruction of the block, save its offset
+            if i == 0:
+                return_offset = allocator.code_offset
 
             instruction = block.instructions[i]
             # big dispatch for all instructions
@@ -117,7 +125,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_ADD):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_SUBTRACT):
-                print("Instruction not compiled " + str(instruction))
+                print("I0x7f3de4431017nstruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MULTIPLY):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MODULO):
@@ -168,6 +176,18 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
+
+                # Pop the current TOS (the value)
+                allocator.encode(asm.POP(asm.rax))
+
+                # Pop the return address
+                allocator.encode(asm.POP(asm.rbx))
+
+                # Swap these two
+                allocator.encode(asm.PUSH(asm.rax))
+                allocator.encode(asm.PUSH(asm.rbx))
+
+                # Finally return
                 allocator.encode(asm.RET())
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
                 print("Instruction not compiled " + str(instruction))
@@ -332,6 +352,8 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
                 print("Instruction not compiled " + str(instruction))
+
+        return return_offset
 
     # Compare operators
     compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
@@ -586,5 +608,5 @@ class Allocator:
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
-            print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+            print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 

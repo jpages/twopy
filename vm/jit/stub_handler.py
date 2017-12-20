@@ -11,11 +11,11 @@ ffi = cffi.FFI()
 
 # Define the stub_function and the callback for python
 ffi.cdef("""
-        uint64_t stub_function(uint64_t id_stub, int* rsp);
-        void patch_rsp(int* rsp, char* code);
+        // The function called by the assembly jited code
+        void stub_function(uint64_t id_stub, uint64_t* rsp);
 
         // Python function callback
-        void (*python_callback_stub)(uint64_t stub_id, int* rsp);
+        uint64_t* (*python_callback_stub)(uint64_t stub_id, uint64_t* rsp);
         
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
@@ -26,22 +26,15 @@ ffi.set_source("stub_module", """
         #include <stdio.h>
 
         // Function called to handle the compilation of 
-        static int* (*python_callback_stub)(uint64_t stub_id, int* rsp);
+        static uint64_t* (*python_callback_stub)(uint64_t stub_id, uint64_t* rsp);
 
-        uint64_t stub_function(uint64_t id_stub, int* rsp)
+        void stub_function(uint64_t id_stub, uint64_t* rsp_value)
         {
-            printf("RSP %ld\\n", *rsp);
-
-            python_callback_stub(id_stub, rsp);
-
-            return id_stub;
-        }
-
-        void patch_rsp(int* rsp, char* code)
-        {
-            *rsp = code;
-
-            printf("RSP address %ld\\n", *rsp);
+            uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
+            printf("Want to jump on %ld\\n", rsp_address_patched);
+        
+            // Patch the return address to jump on the newly compiled block
+            rsp_value[-1] = rsp_address_patched;
         }
         
         uint64_t get_address(char* bytearray, int index)
@@ -99,17 +92,23 @@ class StubHandler:
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
-@ffi.callback("void(uint64_t, int*)")
+@ffi.callback("uint64_t*(uint64_t, uint64_t*)")
 def python_callback_stub(stub_id, rsp):
 
     # We must now trigger the compilation of the corresponding block
     block = jitcompiler_instance.stub_dictionary[stub_id]
 
+    # Get the offset of the first instruction compiled in the block
+    first_offset = jitcompiler_instance.compile_instructions(block.function, block)
 
-    array = jitcompiler_instance.compile_instructions(block.function, block)
+    # TODO: disassemble asm here to test
+    block.function.allocator.disassemble_asm()
 
-    c_buffer = ffi.from_buffer(array)
-    lib.patch_rsp(rsp, c_buffer)
+    # The new value of the RSP
+    c_buffer = ffi.from_buffer(block.function.allocator.code_section)
+    rsp_address_patched = lib.get_address(c_buffer, first_offset)
+
+    return ffi.cast("uint64_t*", rsp_address_patched)
 
 
 lib.python_callback_stub = python_callback_stub
