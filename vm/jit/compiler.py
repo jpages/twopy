@@ -37,18 +37,26 @@ class JITCompiler:
     # Compile the function  in parameter to binary code
     # return the code instance
     def compile_function(self, function, inter):
+        # TODO: just a test, just compile fact function for now
+        if function.name == "fact":
+            print("Instructions in fact ")
+            for i in function.all_instructions:
+                print("\t " + str(i))
 
-        allocator = Allocator(function, self)
-        function.allocator = allocator
+            allocator = Allocator(function, self)
+            function.allocator = allocator
 
-        # FIXME
-        allocator.arguments_loading()
+            # FIXME
+            allocator.arguments_loading()
 
-        # Start the compilation of the first basic block
-        self.compile_instructions(function, function.start_basic_block)
+            # Start the compilation of the first basic block
+            self.compile_instructions(function, function.start_basic_block)
 
-        # TODO: just a test
-        if function.name != "main":
+            # Associate this function with its address
+            self.dict_compiled_functions[function] = allocator.code_address
+
+            print("Dict_compiled_functions " + str(self.dict_compiled_functions))
+
             print("Call to the function with the parameter 5 : " + str(allocator(5)))
             print("after the call")
 
@@ -105,7 +113,16 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                # Pop two values inside registers
+                allocator.encode(asm.POP(asm.rax))
+                allocator.encode(asm.POP(asm.rbx))
+
+                # Make the sub and push the results
+                allocator.encode(asm.SUB(asm.rbx, asm.rax))
+                allocator.encode(asm.PUSH(asm.rbx))
+
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
@@ -278,7 +295,22 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_GLOBAL):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                name = mfunction.names[instruction.arguments]
+
+                element = None
+                # Lookup in the global environment
+                if name in self.interpreter.global_environment:
+                    element = self.interpreter.global_environment[name]
+                else:
+                    # Lookup in its module to find a name
+                    element = mfunction.module.lookup(name, False)
+
+                # Assume we have a function here for now
+                allocator.encode(asm.MOV(asm.rax, self.dict_compiled_functions[element]))
+                allocator.encode(asm.PUSH(asm.rax))
+
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_LOOP):
@@ -380,7 +412,7 @@ class JITCompiler:
             # Locate the target of the jump in next basic blocks
             for block in instruction.block.next:
                 # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.arguments:
+                if block.instructions[0].offset != next_instruction.arguments:
                     jump_block = block
                 else:
                     # Continue the execution in the second block
@@ -454,17 +486,18 @@ class Allocator:
         # Allocate the code segment in C
         self.allocate_code_segment()
 
+        # For now, just push 5
+        self.encode(asm.PUSH(5))
+
     # Compile the loading of arguments of the function
     def arguments_loading(self):
-
-        self.encode(asm.PUSH(5))
 
         # FIXME: for now all parameters are 64 bits integers
         # Create registers for each argument
         arguments_registers = []
         for i in range(self.function.argcount):
             # Make a proper register allocation
-            arguments_registers.append(asm.rax)
+            arguments_registers.append(asm.GeneralPurposeRegister64(i+10))
 
         # Mapping between variables names and memory
         self.function.allocations = {}
