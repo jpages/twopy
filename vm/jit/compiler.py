@@ -53,7 +53,7 @@ class JITCompiler:
             self.compile_instructions(function, function.start_basic_block)
 
             # Associate this function with its address
-            self.dict_compiled_functions[function] = allocator.code_address
+            self.dict_compiled_functions[function] = allocator.code_address + 2
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
@@ -67,10 +67,12 @@ class JITCompiler:
 
         allocator = mfunction.allocator
 
+        # Do not compile an already compiled block
+        if block.compiled:
+            return block.first_offset
+
         # Offset of the first instruction compiled in the block
         return_offset = 0
-
-        print(block.instructions)
 
         for i in range(len(block.instructions)):
 
@@ -107,7 +109,16 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_POWER):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                # Pop two values inside registers
+                allocator.encode(asm.POP(asm.rax))
+                allocator.encode(asm.POP(asm.rbx))
+
+                # Make the sub and push the results
+                allocator.encode(asm.IMUL(asm.rbx, asm.rax))
+                allocator.encode(asm.PUSH(asm.rbx))
+
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
@@ -142,7 +153,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_ADD):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_SUBTRACT):
-                print("I0x7f3de4431017nstruction not compiled " + str(instruction))
+                print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MULTIPLY):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MODULO):
@@ -308,6 +319,7 @@ class JITCompiler:
                     element = mfunction.module.lookup(name, False)
 
                 # Assume we have a function here for now
+                print("Make a call to " + str(self.dict_compiled_functions[element]))
                 allocator.encode(asm.MOV(asm.rax, self.dict_compiled_functions[element]))
                 allocator.encode(asm.PUSH(asm.rax))
 
@@ -335,7 +347,20 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                # Number of arguments to depop
+                for i in range(0, instruction.arguments):
+                    allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
+
+                # Now call the function
+                allocator.encode(asm.POP(asm.rax))
+
+                for i in range(0, instruction.arguments):
+                    allocator.encode(asm.PUSH(asm.GeneralPurposeRegister64(i+10)))
+
+                allocator.encode(asm.CALL(asm.rax))
+
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
@@ -384,6 +409,9 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
                 print("Instruction not compiled " + str(instruction))
+
+        block.compiled = True
+        block.first_offset = return_offset
 
         return return_offset
 

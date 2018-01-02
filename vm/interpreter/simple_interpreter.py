@@ -446,6 +446,9 @@ class BasicBlock:
         self.next = set()
         self.instructions = []
 
+        # Used for the JIT
+        self.compiled = False
+
     def add_instruction(self, instruction):
         # type: (object) -> object
         self.instructions.append(instruction)
