@@ -495,6 +495,9 @@ class Allocator:
         # Size of the data section
         self.data_size = 100
 
+        # The next free zone in the data section
+        self.data_offset = 0
+
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
 

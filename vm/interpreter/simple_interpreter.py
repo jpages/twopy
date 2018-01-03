@@ -1340,7 +1340,7 @@ class CALL_FUNCTION(Instruction):
 
             if args_call < args_function:
                 # We are doing a method call here, add self parameter
-                # this parameter must be setted before
+                # this parameter must be set before
                 args.insert(0, function.receiver)
         else:
             # Special case of a call to a primitive function
