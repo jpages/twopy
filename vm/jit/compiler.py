@@ -18,9 +18,9 @@ from peachpy.common.function import active_function
 from . import stub_handler
 import interpreter.simple_interpreter
 
+
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
-
     # For now keep a SimpleInterpreter instance
     def __init__(self, simpleinterpreter):
         self.interpreter = simpleinterpreter
@@ -274,7 +274,7 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 # COMPARE_OP can't be the last instruction of the block
-                next_instruction = block.instructions[i+1]
+                next_instruction = block.instructions[i + 1]
 
                 if isinstance(next_instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
                     self.compile_cmp_JUMP_IF_FALSE_OR_POP(mfunction, instruction, next_instruction)
@@ -351,14 +351,14 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 # Number of arguments to depop
-                #for i in range(0, instruction.arguments):
-                    #allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
+                # for i in range(0, instruction.arguments):
+                # allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
 
                 # Now call the function
                 allocator.encode(asm.POP(asm.rax))
 
                 for i in range(0, instruction.arguments):
-                    allocator.encode(asm.PUSH(asm.GeneralPurposeRegister64(i+10)))
+                    allocator.encode(asm.PUSH(asm.GeneralPurposeRegister64(i + 10)))
 
                 allocator.encode(asm.CALL(asm.rax))
 
@@ -418,7 +418,7 @@ class JITCompiler:
 
     # Compare operators
     compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
-    'not in', 'is', 'is not', 'exception match', 'BAD')
+                         'not in', 'is', 'is not', 'exception match', 'BAD')
 
     # Functions used to compile a comparison then a jump after (a if)
     # mfunction : Current compiled function
@@ -455,12 +455,13 @@ class JITCompiler:
             self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
-            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label), id(notjump_block))
+            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label),
+                                                             id(notjump_block))
             self.stub_dictionary[id(notjump_block)] = notjump_block
 
             # Compute the offset to the stub, by adding the size of the JGE instruction
             offset = old_stub_offset - old_code_offset
-            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(offset-2)))
+            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(offset - 2)))
 
             # For now, jump to the newly compiled stub,
             # This code will be patch later
@@ -529,7 +530,7 @@ class Allocator:
         arguments_registers = []
         for i in range(self.function.argcount):
             # Make a proper register allocation
-            arguments_registers.append(asm.GeneralPurposeRegister64(i+10))
+            arguments_registers.append(asm.GeneralPurposeRegister64(i + 10))
 
         # Mapping between variables names and memory
         self.function.allocations = {}
@@ -636,7 +637,6 @@ class Allocator:
             # Create manipulable python arrays for these two sections
             self.python_arrays()
 
-
         # Create a pointer to be able to call this function directly in python
         self.create_function_pointer()
 
@@ -652,8 +652,8 @@ class Allocator:
     # Create a pointer to the compiled function
     def create_function_pointer(self):
         # TODO: Adapt types to the correct ones
-        #result_type = None if function.result_type is None else function.result_type.as_ctypes_type
-        #argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
+        # result_type = None if function.result_type is None else function.result_type.as_ctypes_type
+        # argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
 
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
         self.function_pointer = self.function_type(self.code_address)
@@ -674,4 +674,3 @@ class Allocator:
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
             print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-

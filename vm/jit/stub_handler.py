@@ -17,8 +17,6 @@ ffi.cdef("""
         // Python function callback
         extern "Python" uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
         
-       extern "Python" uint64_t test_callback(uint64_t i);
-    
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
     """)
@@ -30,20 +28,16 @@ ffi.set_source("stub_module", """
         // Function called to handle the compilation of 
         static uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
         
-       static uint64_t test_callback(uint64_t i);
-
         void stub_function(uint64_t id_stub, uint64_t* rsp_value)
         {   
-            printf("Un test \\n");
-            test_callback(5);
-            //uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
-            //printf("Want to jump on %ld\\n", rsp_address_patched);
+            uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
+            printf("Want to jump on %ld\\n", rsp_address_patched);
         
             for(int i=0; i!=-10; i--)
                 printf("\\t stack[%d] = %ld\\n", i, rsp_value[i]);
 
             // Patch the return address to jump on the newly compiled block
-            //rsp_value[-1] = rsp_address_patched;
+            rsp_value[-1] = rsp_address_patched;
         }
         
         uint64_t get_address(char* bytearray, int index)
@@ -119,8 +113,3 @@ def python_callback_stub(stub_id, rsp):
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
 
     return ffi.cast("uint64_t*", rsp_address_patched)
-
-@ffi.def_extern()
-def test_callback(i):
-    print(i)
-    return i
