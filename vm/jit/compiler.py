@@ -69,6 +69,7 @@ class JITCompiler:
 
         # Do not compile an already compiled block
         if block.compiled:
+            quit()
             return block.first_offset
 
         # Offset of the first instruction compiled in the block
@@ -350,8 +351,8 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 # Number of arguments to depop
-                for i in range(0, instruction.arguments):
-                    allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
+                #for i in range(0, instruction.arguments):
+                    #allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
 
                 # Now call the function
                 allocator.encode(asm.POP(asm.rax))
