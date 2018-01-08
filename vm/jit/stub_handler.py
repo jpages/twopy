@@ -15,8 +15,10 @@ ffi.cdef("""
         void stub_function(uint64_t id_stub, uint64_t* rsp);
 
         // Python function callback
-        uint64_t* (*python_callback_stub)(uint64_t stub_id, uint64_t* rsp);
+        extern "Python" uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
         
+       extern "Python" uint64_t test_callback(uint64_t i);
+    
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
     """)
@@ -26,18 +28,22 @@ ffi.set_source("stub_module", """
         #include <stdio.h>
 
         // Function called to handle the compilation of 
-        static uint64_t* (*python_callback_stub)(uint64_t stub_id, uint64_t* rsp);
+        static uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
+        
+       static uint64_t test_callback(uint64_t i);
 
         void stub_function(uint64_t id_stub, uint64_t* rsp_value)
-        {
-            uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
-            printf("Want to jump on %ld\\n", rsp_address_patched);
+        {   
+            printf("Un test \\n");
+            test_callback(5);
+            //uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
+            //printf("Want to jump on %ld\\n", rsp_address_patched);
         
             for(int i=0; i!=-10; i--)
                 printf("\\t stack[%d] = %ld\\n", i, rsp_value[i]);
 
             // Patch the return address to jump on the newly compiled block
-            rsp_value[-1] = rsp_address_patched;
+            //rsp_value[-1] = rsp_address_patched;
         }
         
         uint64_t get_address(char* bytearray, int index)
@@ -95,9 +101,10 @@ class StubHandler:
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
-@ffi.callback("uint64_t*(uint64_t, uint64_t*)")
+@ffi.def_extern()
 def python_callback_stub(stub_id, rsp):
 
+    print("Callback executed")
     # We must now trigger the compilation of the corresponding block
     block = jitcompiler_instance.stub_dictionary[stub_id]
 
@@ -113,5 +120,7 @@ def python_callback_stub(stub_id, rsp):
 
     return ffi.cast("uint64_t*", rsp_address_patched)
 
-
-lib.python_callback_stub = python_callback_stub
+@ffi.def_extern()
+def test_callback(i):
+    print(i)
+    return i
