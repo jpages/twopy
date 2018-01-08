@@ -53,6 +53,7 @@ class JITCompiler:
             self.compile_instructions(function, function.start_basic_block)
 
             # Associate this function with its address
+            # FIXME: for now, don't execute the part of arguments loading a second time
             self.dict_compiled_functions[function] = allocator.code_address + 2
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
@@ -69,7 +70,6 @@ class JITCompiler:
 
         # Do not compile an already compiled block
         if block.compiled:
-            quit()
             return block.first_offset
 
         # Offset of the first instruction compiled in the block
@@ -123,7 +123,14 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                allocator.encode(asm.POP(asm.rax))
+                allocator.encode(asm.POP(asm.rbx))
+
+                # Make the sub and push the results
+                allocator.encode(asm.ADD(asm.rbx, asm.rax))
+                allocator.encode(asm.PUSH(asm.rbx))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
                 print("Instruction compiled " + str(instruction))
 

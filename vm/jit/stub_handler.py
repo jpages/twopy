@@ -33,11 +33,11 @@ ffi.set_source("stub_module", """
             uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
             printf("Want to jump on %ld\\n", rsp_address_patched);
         
-            for(int i=0; i!=-10; i--)
+            for(int i=0; i!=-15; i--)
                 printf("\\t stack[%d] = %ld\\n", i, rsp_value[i]);
 
             // Patch the return address to jump on the newly compiled block
-            rsp_value[-1] = rsp_address_patched;
+            rsp_value[-1] = (long long int)rsp_address_patched;
         }
         
         uint64_t get_address(char* bytearray, int index)
