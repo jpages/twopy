@@ -38,7 +38,7 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
         # TODO: just a test, just compile fact function for now
-        if function.name == "foo":
+        if function.name == "fact":
             print("Instructions in fact ")
             for i in function.all_instructions:
                 print("\t " + str(i))
@@ -58,7 +58,7 @@ class JITCompiler:
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-            print("Call to the function with the parameter : " + str(allocator(10)))
+            print("Call to the function with the parameter : " + str(allocator(2)))
             print("after the call")
 
     # Compile all instructions to binary code
@@ -216,12 +216,9 @@ class JITCompiler:
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
-                # Pop the return address
-                allocator.encode(asm.POP(asm.rbx))
-
-                # Swap these two
-                allocator.encode(asm.PUSH(asm.rax))
-                allocator.encode(asm.PUSH(asm.rbx))
+                # Pop all parameters still on the stack
+                for i in range(0, mfunction.argcount):
+                    allocator.encode(asm.POP(asm.r10))
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -508,7 +505,7 @@ class Allocator:
 
         # The offset in code_section where the code can be allocated
         # Let some size to encode loading of parameters in the beginning
-        self.code_offset = self.function.argcount + 1
+        self.code_offset = 2*self.function.argcount
 
         # The stub pointer is in the end of the code section
         self.stub_offset = 100
@@ -534,25 +531,22 @@ class Allocator:
         # Mapping between variables names and memory
         self.function.allocations = {}
 
-        # Arguments should be on the stack
-        for i in range(self.function.argcount):
-            # Put each argument into a register
+        # TODO: save the rsp to access parameters later
+        self.encode(asm.MOV(asm.r15, self.data_address))
+        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r15), asm.registers.rsp))
 
-            # TODO: save the rsp to access parameters later
-            self.encode(asm.MOV(asm.r15, asm.registers.rsp))
+        # For a test, print the stack from here
+        #self.print_stack()
 
-            # For a test, print the stack from here
-            # Calling convention of x86_64 for Unix platforms here
-            #self.print_stack()
-
+    # Compiled a call to a C function which print the stack
     def print_stack(self):
         self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
         reg_id = asm.r10
+
         function_address = int(
             stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
         self.encode(asm.MOV(reg_id, function_address))
         self.encode(asm.CALL(reg_id))
-        self.disassemble_asm()
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # value : the value to allocate
@@ -673,12 +667,13 @@ class Allocator:
     def get_local_variable(self, argument):
         varname = self.function.varnames[argument]
 
-        test = asm.operand.MemoryOperand(asm.r15)
+        # TODO: correct computation of parameter address
 
-        i = 0
-        #self.encode(asm.ADD(asm.r15, i))
-        self.encode(asm.MOV(asm.rax, test))
-        #self.encode(asm.SUB(asm.r15, i))
+        self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rsp)))
+
+        #self.encode(asm.MOV(asm.r15, self.data_address))
+        #self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.r15)))
+
         return asm.rax
 
 
