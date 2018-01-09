@@ -17,6 +17,9 @@ ffi.cdef("""
         // Python function callback
         extern "Python" uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
         
+        // Print the stack from the stack pointer in parameter
+        void print_stack(uint64_t* rsp);
+        
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
     """)
@@ -29,7 +32,7 @@ ffi.set_source("stub_module", """
         static uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
         
         void stub_function(uint64_t id_stub, uint64_t* rsp_value)
-        {   
+        {
             uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
             printf("Want to jump on %ld\\n", rsp_address_patched);
         
@@ -40,6 +43,12 @@ ffi.set_source("stub_module", """
             rsp_value[-1] = (long long int)rsp_address_patched;
         }
         
+        void print_stack(uint64_t* rsp)
+        {
+            for(int i=5; i!=-15; i--)
+                printf("\\t %ld stack[%d] = %ld\\n", &rsp[i] , i, rsp[i]);
+        }
+
         uint64_t get_address(char* bytearray, int index)
         {
             return (uint64_t)&bytearray[index];
@@ -84,7 +93,7 @@ class StubHandler:
         # Now we store the stack pointer to patch it later
         mfunction.allocator.encode_stub(asm.MOV(asm.rsi, asm.registers.rsp))
 
-        reg_id = asm.r15
+        reg_id = asm.r10
 
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function")))
         mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))

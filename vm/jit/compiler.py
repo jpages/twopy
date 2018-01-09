@@ -38,7 +38,7 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
         # TODO: just a test, just compile fact function for now
-        if function.name == "fact":
+        if function.name == "foo":
             print("Instructions in fact ")
             for i in function.all_instructions:
                 print("\t " + str(i))
@@ -58,7 +58,7 @@ class JITCompiler:
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-            print("Call to the function with the parameter 5 : " + str(allocator(5)))
+            print("Call to the function with the parameter : " + str(allocator(10)))
             print("after the call")
 
     # Compile all instructions to binary code
@@ -343,8 +343,7 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 # Load the value and put it onto the stack
-                varname = block.function.varnames[instruction.arguments]
-                allocator.encode(asm.PUSH(mfunction.allocations[varname]))
+                allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 print("Instruction not compiled " + str(instruction))
@@ -472,8 +471,8 @@ class JITCompiler:
 
             # For now, jump to the newly compiled stub,
             # This code will be patch later
-            mfunction.allocator.encode(asm.MOV(asm.r15, address_false))
-            mfunction.allocator.encode(asm.JMP(asm.r15))
+            mfunction.allocator.encode(asm.MOV(asm.r10, address_false))
+            mfunction.allocator.encode(asm.JMP(asm.r10))
 
         elif instruction.arguments == 1:
             pass
@@ -508,7 +507,8 @@ class Allocator:
         self.data_offset = 0
 
         # The offset in code_section where the code can be allocated
-        self.code_offset = 0
+        # Let some size to encode loading of parameters in the beginning
+        self.code_offset = self.function.argcount + 1
 
         # The stub pointer is in the end of the code section
         self.stub_offset = 100
@@ -526,18 +526,10 @@ class Allocator:
         # Allocate the code segment in C
         self.allocate_code_segment()
 
-        # For now, just push 5
-        self.encode(asm.PUSH(5))
-
     # Compile the loading of arguments of the function
     def arguments_loading(self):
 
         # FIXME: for now all parameters are 64 bits integers
-        # Create registers for each argument
-        arguments_registers = []
-        for i in range(self.function.argcount):
-            # Make a proper register allocation
-            arguments_registers.append(asm.GeneralPurposeRegister64(i + 10))
 
         # Mapping between variables names and memory
         self.function.allocations = {}
@@ -545,10 +537,22 @@ class Allocator:
         # Arguments should be on the stack
         for i in range(self.function.argcount):
             # Put each argument into a register
-            instruction = asm.POP(arguments_registers[i])
 
-            self.function.allocations[self.function.varnames[i]] = arguments_registers[i]
-            self.encode(instruction)
+            # TODO: save the rsp to access parameters later
+            self.encode(asm.MOV(asm.r15, asm.registers.rsp))
+
+            # For a test, print the stack from here
+            # Calling convention of x86_64 for Unix platforms here
+            #self.print_stack()
+
+    def print_stack(self):
+        self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
+        reg_id = asm.r10
+        function_address = int(
+            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
+        self.encode(asm.MOV(reg_id, function_address))
+        self.encode(asm.CALL(reg_id))
+        self.disassemble_asm()
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # value : the value to allocate
@@ -665,14 +669,42 @@ class Allocator:
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
         self.function_pointer = self.function_type(self.code_address)
 
+    # Get the local variable from the number in parameter
+    def get_local_variable(self, argument):
+        varname = self.function.varnames[argument]
+
+        test = asm.operand.MemoryOperand(asm.r15)
+
+        i = 0
+        #self.encode(asm.ADD(asm.r15, i))
+        self.encode(asm.MOV(asm.rax, test))
+        #self.encode(asm.SUB(asm.r15, i))
+        return asm.rax
+
+
     # Call the compiled function
     def __call__(self, *args):
+
+        self.compile_prolog(args)
 
         # Print the asm code
         self.disassemble_asm()
 
         # Make the actual call
         return self.function_pointer(*args)
+
+    # Compile a fraction of code to call the correct function with its parameters
+    def compile_prolog(self, args):
+        offset = 0
+
+        # Passed all arguments on the stack
+        for arg in args:
+            print("argument " + str(arg))
+            encoded = asm.PUSH(arg).encode()
+
+            for val in encoded:
+                self.code_section[offset] = val.to_bytes(1, 'big')
+                offset = offset + 1
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
