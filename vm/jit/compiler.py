@@ -38,7 +38,7 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
         # TODO: just a test, just compile fact function for now
-        if function.name == "fact":
+        if function.name == "simple" or function.name == "foo":
             print("Instructions in fact ")
             for i in function.all_instructions:
                 print("\t " + str(i))
@@ -220,6 +220,10 @@ class JITCompiler:
                 for i in range(0, mfunction.argcount):
                     allocator.encode(asm.POP(asm.r10))
 
+                # Remove the stack frame
+                allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
+                allocator.encode(asm.POP(asm.rbp))
+
                 # Finally return
                 allocator.encode(asm.RET())
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
@@ -353,17 +357,20 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
-                # Number of arguments to depop
-                # for i in range(0, instruction.arguments):
-                # allocator.encode(asm.POP(asm.GeneralPurposeRegister64(i+10)))
+                # Depop arguments
+                for i in range(0, instruction.arguments):
+                    allocator.encode(asm.POP(asm.r10))
 
-                # Now call the function
+                # Save the function address in rax
                 allocator.encode(asm.POP(asm.rax))
 
+                # Push back all arguments
                 for i in range(0, instruction.arguments):
-                    allocator.encode(asm.PUSH(asm.GeneralPurposeRegister64(i + 10)))
+                    allocator.encode(asm.PUSH(asm.r10))
 
-                allocator.encode(asm.CALL(asm.rax))
+                #allocator.print_stack()
+
+                allocator.encode(asm.JMP(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
@@ -531,22 +538,26 @@ class Allocator:
         # Mapping between variables names and memory
         self.function.allocations = {}
 
-        # TODO: save the rsp to access parameters later
-        self.encode(asm.MOV(asm.r15, self.data_address))
-        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r15), asm.registers.rsp))
+        # Constructing a new stack frame by saving rbp
+        self.encode(asm.PUSH(asm.rbp))
+        self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
-        # For a test, print the stack from here
-        #self.print_stack()
-
-    # Compiled a call to a C function which print the stack
+    # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):
-        self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
+
+        # Save rbp
+        self.encode(asm.PUSH(asm.rbp))
+
+        self.encode(asm.MOV(asm.rdi, asm.rbp))
         reg_id = asm.r10
 
         function_address = int(
             stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
         self.encode(asm.MOV(reg_id, function_address))
         self.encode(asm.CALL(reg_id))
+
+        # Restore rbp from the stack
+        self.encode(asm.POP(asm.rbp))
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # value : the value to allocate
@@ -668,11 +679,9 @@ class Allocator:
         varname = self.function.varnames[argument]
 
         # TODO: correct computation of parameter address
-
-        self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rsp)))
-
-        #self.encode(asm.MOV(asm.r15, self.data_address))
-        #self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.r15)))
+        offset = 8 * (argument+1)
+        print("Offset  " +str(offset) + " for variable " + str(argument))
+        self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
 
         return asm.rax
 
@@ -708,3 +717,9 @@ class Allocator:
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
             print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
+        int_list = []
+        for el in list(self.data_section):
+            int_list.append(int.from_bytes(el, byteorder='big'))
+
+        print("\t data_section " + str(int_list))

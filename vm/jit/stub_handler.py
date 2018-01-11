@@ -27,6 +27,7 @@ ffi.cdef("""
 # C Sources
 ffi.set_source("stub_module", """
         #include <stdio.h>
+        #include <stdlib.h>
 
         // Function called to handle the compilation of 
         static uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
@@ -34,10 +35,10 @@ ffi.set_source("stub_module", """
         void stub_function(uint64_t id_stub, uint64_t* rsp_value)
         {
             uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
-            printf("Want to jump on %ld\\n", rsp_address_patched);
+            printf("Want to jump on %ld\\n", (long int)rsp_address_patched);
         
-            for(int i=0; i!=-15; i--)
-                printf("\\t stack[%d] = %ld\\n", i, rsp_value[i]);
+            //for(int i=15; i!=-15; i--)
+            //    printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp_value[i], i, rsp_value[i]);
 
             // Patch the return address to jump on the newly compiled block
             rsp_value[-1] = (long long int)rsp_address_patched;
@@ -45,8 +46,10 @@ ffi.set_source("stub_module", """
         
         void print_stack(uint64_t* rsp)
         {
-            for(int i=5; i!=-15; i--)
-                printf("\\t %ld stack[%d] = %ld\\n", &rsp[i] , i, rsp[i]);
+            printf("Print the stack\\n");
+            for(int i=0; i!=5; i++)
+                printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp[i] , i, rsp[i]);
+            //exit(0);
         }
 
         uint64_t get_address(char* bytearray, int index)
