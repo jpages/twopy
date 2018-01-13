@@ -58,7 +58,7 @@ class JITCompiler:
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-            print("Call to the function with the parameter : " + str(allocator(2)))
+            print("Call to the function with the parameter : " + str(allocator(3)))
             print("after the call")
 
     # Compile all instructions to binary code
@@ -212,9 +212,10 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
+                allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
-                allocator.encode(asm.POP(asm.rax))
+                allocator.encode(asm.POP(asm.rbx))
 
                 # Pop all parameters still on the stack
                 for i in range(0, mfunction.argcount):
@@ -223,6 +224,7 @@ class JITCompiler:
                 # Remove the stack frame
                 allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
                 allocator.encode(asm.POP(asm.rbp))
+                #allocator.encode(asm.PUSH(asm.rax))
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -346,6 +348,7 @@ class JITCompiler:
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
 
+
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
@@ -356,7 +359,7 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
-
+                allocator.encode(asm.INT(3))
                 # Depop arguments
                 for i in range(0, instruction.arguments):
                     allocator.encode(asm.POP(asm.r10))
@@ -368,9 +371,7 @@ class JITCompiler:
                 for i in range(0, instruction.arguments):
                     allocator.encode(asm.PUSH(asm.r10))
 
-                #allocator.print_stack()
-
-                allocator.encode(asm.JMP(asm.rax))
+                allocator.encode(asm.CALL(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
@@ -462,21 +463,29 @@ class JITCompiler:
 
             # Compile a stub for each branch
             mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
-            self.stub_dictionary[id(jump_block)] = jump_block
 
             # And update the dictionary of ids and blocks
             address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label),
                                                              id(notjump_block))
-            self.stub_dictionary[id(notjump_block)] = notjump_block
 
             # Compute the offset to the stub, by adding the size of the JGE instruction
             offset = old_stub_offset - old_code_offset
-            mfunction.allocator.encode(asm.JGE(asm.operand.RIPRelativeOffset(offset - 2)))
+            peachpy_instruction = asm.JGE(asm.operand.RIPRelativeOffset(offset - 2))
+            mfunction.allocator.encode(peachpy_instruction)
+
+            jump_stub = stub_handler.Stub(jump_block, peachpy_instruction, old_code_offset)
+            self.stub_dictionary[id(jump_block)] = jump_stub
 
             # For now, jump to the newly compiled stub,
-            # This code will be patch later
-            mfunction.allocator.encode(asm.MOV(asm.r10, address_false))
+            # This code will be patched later
+            old_code_offset = mfunction.allocator.code_offset
+            peachpy_instruction = asm.MOV(asm.r10, address_false)
+            mfunction.allocator.encode(peachpy_instruction)
             mfunction.allocator.encode(asm.JMP(asm.r10))
+
+            # We store the MOV into the register as the jumping instruction, we just need to patch this
+            notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
+            self.stub_dictionary[id(notjump_block)] = notjump_stub
 
         elif instruction.arguments == 1:
             pass
@@ -548,11 +557,29 @@ class Allocator:
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
 
-        self.encode(asm.MOV(asm.rdi, asm.rbp))
+        self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
         reg_id = asm.r10
 
         function_address = int(
             stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
+        self.encode(asm.MOV(reg_id, function_address))
+        self.encode(asm.CALL(reg_id))
+
+        # Restore rbp from the stack
+        self.encode(asm.POP(asm.rbp))
+
+    # Compiled a call to a C function which print the data section
+    def print_data_section(self):
+        # Save rbp
+        self.encode(asm.PUSH(asm.rbp))
+
+        self.encode(asm.MOV(asm.rdi, self.data_address))
+        self.encode(asm.MOV(asm.rsi, 50))
+
+        reg_id = asm.r10
+
+        function_address = int(
+            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_data_section")))
         self.encode(asm.MOV(reg_id, function_address))
         self.encode(asm.CALL(reg_id))
 
@@ -685,7 +712,6 @@ class Allocator:
 
         return asm.rax
 
-
     # Call the compiled function
     def __call__(self, *args):
 
@@ -710,6 +736,14 @@ class Allocator:
                 self.code_section[offset] = val.to_bytes(1, 'big')
                 offset = offset + 1
 
+    # Write a data in the data section
+    def write_data(self, data):
+
+        self.encode(asm.MOV(asm.r10, stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)))
+        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10), data))
+
+        self.data_offset = self.data_offset + 1
+
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
 
@@ -718,8 +752,3 @@ class Allocator:
             pass
             print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
-        int_list = []
-        for el in list(self.data_section):
-            int_list.append(int.from_bytes(el, byteorder='big'))
-
-        print("\t data_section " + str(int_list))
