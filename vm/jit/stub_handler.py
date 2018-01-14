@@ -165,8 +165,21 @@ class Stub:
             for val in encoded:
                 self.block.function.allocator.code_section[offset] = val.to_bytes(1, 'big')
                 offset = offset + 1
-
             # TODO: optimize this by not jumping if we are supposed to jump to the next instruction
+        elif isinstance(self.instruction, asm.JGE):
+            new_operand = first_offset - self.position
+
+            # Update to the new position
+            new_instruction = asm.JGE(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            offset = self.position
+            for val in encoded:
+                self.block.function.allocator.code_section[offset] = val.to_bytes(1, 'big')
+                offset = offset + 1
+
+        else:
+            print("Not yet implemented patch")
 
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"

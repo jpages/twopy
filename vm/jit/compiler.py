@@ -58,7 +58,7 @@ class JITCompiler:
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-            print("Call to the function with the parameter : " + str(allocator(3)))
+            print("Call to the function with the parameter : " + str(allocator(2)))
             print("after the call")
 
     # Compile all instructions to binary code
@@ -215,16 +215,15 @@ class JITCompiler:
                 allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
-                allocator.encode(asm.POP(asm.rbx))
+                allocator.encode(asm.POP(asm.rax))
 
                 # Pop all parameters still on the stack
                 for i in range(0, mfunction.argcount):
                     allocator.encode(asm.POP(asm.r10))
 
                 # Remove the stack frame
-                allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
-                allocator.encode(asm.POP(asm.rbp))
-                #allocator.encode(asm.PUSH(asm.rax))
+                #allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
+                #allocator.encode(asm.POP(asm.rbp))
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -360,9 +359,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
                 allocator.encode(asm.INT(3))
-                # Depop arguments
-                for i in range(0, instruction.arguments):
-                    allocator.encode(asm.POP(asm.r10))
+                # Depop arguments for now
+                #for i in range(0, instruction.arguments):
+                #    allocator.encode(asm.POP(asm.r10))
 
                 # Save the function address in rax
                 allocator.encode(asm.POP(asm.rax))
@@ -554,9 +553,6 @@ class Allocator:
     # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):
 
-        # Save rbp
-        self.encode(asm.PUSH(asm.rbp))
-
         self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
         reg_id = asm.r10
 
@@ -564,9 +560,6 @@ class Allocator:
             stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
         self.encode(asm.MOV(reg_id, function_address))
         self.encode(asm.CALL(reg_id))
-
-        # Restore rbp from the stack
-        self.encode(asm.POP(asm.rbp))
 
     # Compiled a call to a C function which print the data section
     def print_data_section(self):
