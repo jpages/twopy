@@ -52,6 +52,7 @@ ffi.set_source("stub_module", """
             printf("Print the stack\\n");
             for(int i=0; i!=8; i++)
                 printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp[i], i, rsp[i]);
+            exit(0);
         }
         
         void print_data_section(uint64_t* array, int size)

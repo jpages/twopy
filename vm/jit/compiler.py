@@ -212,23 +212,17 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
-                allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
-                #allocator.encode(asm.POP(asm.r8))
+
+                # Restore RBP
+                allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
+                allocator.encode(asm.POP(asm.rbp))
 
                 # Pop all parameters still on the stack
                 for i in range(0, mfunction.argcount):
                     allocator.encode(asm.POP(asm.r10))
-
-                #allocator.encode(asm.PUSH(asm.r9))
-                #allocator.encode(asm.PUSH(asm.r8))
-
-                # Remove the stack frame
-                #allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
-                #allocator.encode(asm.POP(asm.rbp))
-
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -352,7 +346,6 @@ class JITCompiler:
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
 
-
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
@@ -363,20 +356,11 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
-                allocator.encode(asm.INT(3))
-
-                # Depop arguments for now
-                #for i in range(0, instruction.arguments):
-                #    allocator.encode(asm.POP(asm.r10))
 
                 # Save the function address in r9
-                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
-                # FIXME
-                # Push back all arguments
-                for i in range(0, instruction.arguments):
-                    allocator.encode(asm.PUSH(asm.r10))
-
+                # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
