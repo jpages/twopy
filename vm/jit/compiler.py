@@ -38,7 +38,7 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
         # TODO: just a test, just compile fact function for now
-        if function.name == "simple" or function.name == "foo":
+        if function.name == "simple" or function.name == "fact":
             print("Instructions in fact ")
             for i in function.all_instructions:
                 print("\t " + str(i))
@@ -113,34 +113,34 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 # Pop two values inside registers
-                allocator.encode(asm.POP(asm.rax))
-                allocator.encode(asm.POP(asm.rbx))
+                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.POP(asm.r8))
 
                 # Make the sub and push the results
-                allocator.encode(asm.IMUL(asm.rbx, asm.rax))
-                allocator.encode(asm.PUSH(asm.rbx))
+                allocator.encode(asm.IMUL(asm.r8, asm.r9))
+                allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.POP(asm.rax))
-                allocator.encode(asm.POP(asm.rbx))
+                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.POP(asm.r8))
 
                 # Make the sub and push the results
-                allocator.encode(asm.ADD(asm.rbx, asm.rax))
-                allocator.encode(asm.PUSH(asm.rbx))
+                allocator.encode(asm.ADD(asm.r8, asm.r9))
+                allocator.encode(asm.PUSH(asm.r8))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
                 print("Instruction compiled " + str(instruction))
 
                 # Pop two values inside registers
-                allocator.encode(asm.POP(asm.rax))
-                allocator.encode(asm.POP(asm.rbx))
+                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.POP(asm.r8))
 
                 # Make the sub and push the results
-                allocator.encode(asm.SUB(asm.rbx, asm.rax))
-                allocator.encode(asm.PUSH(asm.rbx))
+                allocator.encode(asm.SUB(asm.r8, asm.r9))
+                allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 print("Instruction not compiled " + str(instruction))
@@ -216,14 +216,19 @@ class JITCompiler:
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
+                #allocator.encode(asm.POP(asm.r8))
 
                 # Pop all parameters still on the stack
                 for i in range(0, mfunction.argcount):
                     allocator.encode(asm.POP(asm.r10))
 
+                #allocator.encode(asm.PUSH(asm.r9))
+                #allocator.encode(asm.PUSH(asm.r8))
+
                 # Remove the stack frame
                 #allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
                 #allocator.encode(asm.POP(asm.rbp))
+
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -330,8 +335,8 @@ class JITCompiler:
 
                 # Assume we have a function here for now
                 print("Make a call to " + str(self.dict_compiled_functions[element]))
-                allocator.encode(asm.MOV(asm.rax, self.dict_compiled_functions[element]))
-                allocator.encode(asm.PUSH(asm.rax))
+                allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
+                allocator.encode(asm.PUSH(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
                 print("Instruction not compiled " + str(instruction))
@@ -359,18 +364,20 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
                 allocator.encode(asm.INT(3))
+
                 # Depop arguments for now
                 #for i in range(0, instruction.arguments):
                 #    allocator.encode(asm.POP(asm.r10))
 
-                # Save the function address in rax
-                allocator.encode(asm.POP(asm.rax))
+                # Save the function address in r9
+                allocator.encode(asm.POP(asm.r9))
 
+                # FIXME
                 # Push back all arguments
                 for i in range(0, instruction.arguments):
                     allocator.encode(asm.PUSH(asm.r10))
 
-                allocator.encode(asm.CALL(asm.rax))
+                allocator.encode(asm.CALL(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
@@ -493,8 +500,8 @@ class JITCompiler:
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
-        second_register = asm.rax
-        first_register = asm.rbx
+        second_register = asm.r8
+        first_register = asm.r9
         mfunction.allocator.encode(asm.POP(second_register))
         mfunction.allocator.encode(asm.POP(first_register))
         mfunction.allocator.encode(asm.CMP(second_register, first_register))
@@ -701,9 +708,9 @@ class Allocator:
         # TODO: correct computation of parameter address
         offset = 8 * (argument+1)
         print("Offset  " +str(offset) + " for variable " + str(argument))
-        self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
+        self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
 
-        return asm.rax
+        return asm.r9
 
     # Call the compiled function
     def __call__(self, *args):
@@ -744,4 +751,3 @@ class Allocator:
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
             print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
