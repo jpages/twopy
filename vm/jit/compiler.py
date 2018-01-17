@@ -54,11 +54,11 @@ class JITCompiler:
 
             # Associate this function with its address
             # FIXME: for now, don't execute the part of arguments loading a second time
-            self.dict_compiled_functions[function] = allocator.code_address + 2
+            self.dict_compiled_functions[function] = allocator.code_address + allocator.prolog_size
 
             print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-            print("Call to the function with the parameter : " + str(allocator(2)))
+            print("Call to the function with the parameter : " + str(allocator(5)))
             print("after the call")
 
     # Compile all instructions to binary code
@@ -213,6 +213,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -357,11 +359,15 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
+
+                allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
@@ -501,7 +507,7 @@ class Allocator:
         self.function.allocations = {}
 
         # Size of the code section
-        self.code_size = 200
+        self.code_size = 300
 
         # Size of the data section
         self.data_size = 100
@@ -511,10 +517,10 @@ class Allocator:
 
         # The offset in code_section where the code can be allocated
         # Let some size to encode loading of parameters in the beginning
-        self.code_offset = 2*self.function.argcount
+        self.code_offset = 0
 
         # The stub pointer is in the end of the code section
-        self.stub_offset = 100
+        self.stub_offset = 200
 
         # Future code and data sections, will be allocated in C
         self.code_section = None
@@ -528,6 +534,12 @@ class Allocator:
 
         # Allocate the code segment in C
         self.allocate_code_segment()
+
+        # If any, the size reserved for the prolog
+        self.prolog_size = 0
+
+        # TODO: temporary, do it here
+        self.compile_prolog([5])
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
@@ -587,9 +599,7 @@ class Allocator:
         encoded = instruction.encode()
 
         # Store each byte in memory and update code_offset
-        for val in encoded:
-            self.code_section[self.code_offset] = val.to_bytes(1, 'big')
-            self.code_offset = self.code_offset + 1
+        self.code_offset = self.write_instruction(encoded, self.code_offset)
 
     # Compile a stub in a special area of the code section
     # mstub_handler : StubHandler instance
@@ -606,9 +616,7 @@ class Allocator:
 
         stub_offset_beginning = self.stub_offset
         # Now, put the instruction in the end of the code section
-        for val in encoded:
-            self.code_section[self.stub_offset] = val.to_bytes(1, 'big')
-            self.stub_offset = self.stub_offset + 1
+        self.stub_offset = self.write_instruction(encoded, self.stub_offset)
 
         return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), stub_offset_beginning)
 
@@ -690,16 +698,14 @@ class Allocator:
         varname = self.function.varnames[argument]
 
         # TODO: correct computation of parameter address
-        offset = 8 * (argument+1)
-        print("Offset  " +str(offset) + " for variable " + str(argument))
+        offset = 16 * (argument+1)
+        print("Offset  " + str(offset) + " for variable " + str(argument))
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
 
         return asm.r9
 
     # Call the compiled function
     def __call__(self, *args):
-
-        self.compile_prolog(args)
 
         # Print the asm code
         self.disassemble_asm()
@@ -709,16 +715,30 @@ class Allocator:
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self, args):
-        offset = 0
 
         # Passed all arguments on the stack
         for arg in args:
             print("argument " + str(arg))
             encoded = asm.PUSH(arg).encode()
 
-            for val in encoded:
-                self.code_section[offset] = val.to_bytes(1, 'big')
-                offset = offset + 1
+            self.code_offset = self.write_instruction(encoded, self.code_offset)
+
+        # Call the function just after this prolog
+        # Minus the size of the return
+        offset = self.code_offset
+        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset-1)).encode(), self.code_offset)
+
+        # Finally return to python
+        self.code_offset = self.write_instruction(asm.RET().encode(), self.code_offset)
+        self.prolog_size = self.code_offset
+
+    # Write one instruction in the code section at a specified offset
+    # Return the new offset to be saved
+    def write_instruction(self, encoded, offset):
+        for val in encoded:
+            self.code_section[offset] = val.to_bytes(1, 'big')
+            offset = offset + 1
+        return offset
 
     # Write a data in the data section
     def write_data(self, data):
