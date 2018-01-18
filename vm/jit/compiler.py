@@ -213,16 +213,16 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
-                # Restore RBP
-                allocator.encode(asm.MOV(asm.rbp, asm.registers.rsp))
-                allocator.encode(asm.POP(asm.rbp))
+                # Now we need to clean the stack by modifying rsp
+                allocator.encode(asm.MOV(asm.registers.rsp, asm.rbp))
 
-                # Pop all parameters still on the stack
-                for i in range(0, mfunction.argcount):
-                    allocator.encode(asm.POP(asm.r10))
+                # Restore RBP for the caller
+                allocator.encode(asm.POP(asm.rbp))
 
                 # Finally return
                 allocator.encode(asm.RET())
@@ -356,8 +356,6 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
-
-                #allocator.encode(asm.INT(3))
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
@@ -554,7 +552,7 @@ class Allocator:
     # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):
 
-        self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
+        self.encode(asm.MOV(asm.rdi, asm.registers.rbp))
         reg_id = asm.r10
 
         function_address = int(

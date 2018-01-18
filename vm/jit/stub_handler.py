@@ -50,7 +50,7 @@ ffi.set_source("stub_module", """
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
-            for(int i=0; i!=8; i++)
+            for(int i=-1; i!=8; i++)
                 printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp[i], i, rsp[i]);
             exit(0);
         }
@@ -162,22 +162,17 @@ class Stub:
 
             # Create the new encoded instruction and replace the old one in the code section
             encoded = new_instruction.encode()
-            offset = self.position
-            for val in encoded:
-                self.block.function.allocator.code_section[offset] = val.to_bytes(1, 'big')
-                offset = offset + 1
+            self.block.function.allocator.write_instruction(encoded, self.position)
+
             # TODO: optimize this by not jumping if we are supposed to jump to the next instruction
         elif isinstance(self.instruction, asm.JGE):
-            new_operand = first_offset - self.position
+            new_operand = first_offset - self.position - 2
 
             # Update to the new position
             new_instruction = asm.JGE(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()
 
-            offset = self.position
-            for val in encoded:
-                self.block.function.allocator.code_section[offset] = val.to_bytes(1, 'big')
-                offset = offset + 1
+            self.block.function.allocator.write_instruction(encoded, self.position)
 
         else:
             print("Not yet implemented patch")
