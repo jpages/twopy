@@ -213,8 +213,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
-
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -359,7 +357,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
+                #allocator.encode(asm.INT(3))
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
@@ -466,7 +464,7 @@ class JITCompiler:
 
             # Compute the offset to the stub, by adding the size of the JGE instruction
             offset = old_stub_offset - old_code_offset
-            peachpy_instruction = asm.JGE(asm.operand.RIPRelativeOffset(offset - 2))
+            peachpy_instruction = asm.JGE(asm.operand.RIPRelativeOffset(offset-6))
             mfunction.allocator.encode(peachpy_instruction)
 
             jump_stub = stub_handler.Stub(jump_block, peachpy_instruction, old_code_offset)
