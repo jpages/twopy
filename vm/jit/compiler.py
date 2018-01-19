@@ -213,8 +213,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
-
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -363,6 +361,7 @@ class JITCompiler:
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
+                # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
@@ -536,7 +535,7 @@ class Allocator:
         self.prolog_size = 0
 
         # TODO: temporary, do it here
-        self.compile_prolog([5])
+        self.compile_prolog([6])
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
@@ -723,10 +722,12 @@ class Allocator:
         # Call the function just after this prolog
         # Minus the size of the return
         offset = self.code_offset
-        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset-1)).encode(), self.code_offset)
+        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset+1)).encode(), self.code_offset)
 
         # Finally return to python
-        #self.code_offset = self.write_instruction(asm.POP(asm.rax).encode(), self.code_offset)
+        # Pop the parameter on the stack
+        self.code_offset = self.write_instruction(asm.POP(asm.r10).encode(), self.code_offset)
+
         self.code_offset = self.write_instruction(asm.RET().encode(), self.code_offset)
         self.prolog_size = self.code_offset
 
