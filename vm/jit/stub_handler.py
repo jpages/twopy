@@ -172,6 +172,20 @@ class Stub:
             new_instruction = asm.JGE(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()
 
+            # If the previous instruction was a 32 bits offset, force it to the new one
+            if len(self.instruction.encode()) > 2:
+                encoded = bytearray(3)
+
+                # We use 4 more bytes for the encoding compare to the 8 bits version
+                new_operand = new_operand - 4
+
+                # Force the 32 encoding of the JGE
+                encoded[0] = 0x0F
+                encoded[1] = 0x8D
+
+                # Keep the same value for the jump
+                encoded[2] = new_operand
+
             self.block.function.allocator.write_instruction(encoded, self.position)
 
         else:

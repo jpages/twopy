@@ -38,7 +38,7 @@ class JITCompiler:
     # return the code instance
     def compile_function(self, function, inter):
         # TODO: just a test, just compile fact function for now
-        if function.name == "simple" or function.name == "fact":
+        if function.name == "simple" or function.name == "fact" or function.name == "fibR":
             print("Instructions in fact ")
             for i in function.all_instructions:
                 print("\t " + str(i))
@@ -463,6 +463,7 @@ class JITCompiler:
             # Compute the offset to the stub, by adding the size of the JGE instruction
             offset = old_stub_offset - old_code_offset
             peachpy_instruction = asm.JGE(asm.operand.RIPRelativeOffset(offset-6))
+            print("peachy_instruction " + str(peachpy_instruction.encode()))
             mfunction.allocator.encode(peachpy_instruction)
 
             jump_stub = stub_handler.Stub(jump_block, peachpy_instruction, old_code_offset)
@@ -725,6 +726,7 @@ class Allocator:
         self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset-1)).encode(), self.code_offset)
 
         # Finally return to python
+        #self.code_offset = self.write_instruction(asm.POP(asm.rax).encode(), self.code_offset)
         self.code_offset = self.write_instruction(asm.RET().encode(), self.code_offset)
         self.prolog_size = self.code_offset
 
