@@ -429,7 +429,7 @@ class JITCompiler:
     def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction):
         self.compile_cmp_beginning(mfunction)
 
-        # not first < second -> first >= second
+        # not first < second -> first > second
         if instruction.arguments == 0:
             true_label = asm.Label("true_block")
             false_label = asm.Label("false_block")
@@ -459,10 +459,10 @@ class JITCompiler:
             address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label),
                                                              id(notjump_block))
 
-            # Compute the offset to the stub, by adding the size of the JGE instruction
+            # Compute the offset to the stub, by adding the size of the JG instruction
             offset = old_stub_offset - old_code_offset
-            peachpy_instruction = asm.JGE(asm.operand.RIPRelativeOffset(offset-6))
-            print("peachy_instruction " + str(peachpy_instruction.encode()))
+            peachpy_instruction = asm.JG(asm.operand.RIPRelativeOffset(offset-6))
+
             mfunction.allocator.encode(peachpy_instruction)
 
             jump_stub = stub_handler.Stub(jump_block, peachpy_instruction, old_code_offset)
