@@ -9,6 +9,7 @@ import sys
 import capstone
 
 import ctypes
+import types
 import mmap
 
 # rename for better code visibility
@@ -37,29 +38,26 @@ class JITCompiler:
     # Compile the function  in parameter to binary code
     # return the code instance
     def compile_function(self, function, inter):
-        # TODO: just a test, just compile fact function for now
-        if function.name == "simple" or function.name == "fact" or function.name == "fibR":
-            print("Instructions in fact ")
-            for i in function.all_instructions:
-                print("\t " + str(i))
 
-            allocator = Allocator(function, self)
-            function.allocator = allocator
+        print("Instructions in function " + str(function))
+        for i in function.all_instructions:
+            print("\t " + str(i))
 
-            # FIXME
-            allocator.arguments_loading()
+        allocator = Allocator(function, self)
+        function.allocator = allocator
 
-            # Start the compilation of the first basic block
-            self.compile_instructions(function, function.start_basic_block)
+        allocator.arguments_loading()
 
-            # Associate this function with its address
-            # FIXME: for now, don't execute the part of arguments loading a second time
-            self.dict_compiled_functions[function] = allocator.code_address + allocator.prolog_size
+        # Start the compilation of the first basic block
+        self.compile_instructions(function, function.start_basic_block)
 
-            print("Dict_compiled_functions " + str(self.dict_compiled_functions))
+        # Associate this function with its address
+        self.dict_compiled_functions[function] = allocator.code_address + allocator.prolog_size
 
-            print("Call to the function with the parameter : " + str(allocator(5)))
-            print("after the call")
+        print("Dict_compiled_functions " + str(self.dict_compiled_functions))
+
+        print("Call to the function with the parameter : " + str(allocator(5)))
+        print("after the call")
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -261,7 +259,7 @@ class JITCompiler:
 
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
-                block.function.allocator.allocate_const(value)
+                block.function.allocator.allocate_const(instruction, value)
 
                 print("The value is now allocated")
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
@@ -534,8 +532,11 @@ class Allocator:
         # If any, the size reserved for the prolog
         self.prolog_size = 0
 
-        # TODO: temporary, do it here
-        self.compile_prolog([6])
+        # Compile a prolog only for the main function, other functions don't need that
+        if self.function.name == "main":
+            self.compile_prolog([0])
+
+        self.consts = dict()
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
@@ -579,15 +580,24 @@ class Allocator:
         self.encode(asm.POP(asm.rbp))
 
     # Allocate a value and update the environment, this function create an instruction to store the value
+    # instruction : The instruction
     # value : the value to allocate
-    def allocate_const(self, value):
+    def allocate_const(self, instruction, value):
         # Depending of the type of the value, do different things
 
         if isinstance(value, int):
             # Put the integer value on the stack
             self.encode(asm.PUSH(value))
+        elif isinstance(value, types.CodeType):
+            const_object = self.function.consts[instruction.arguments]
 
-            # TODO: handle other types
+            self.encode(asm.MOV(asm.r10, id(const_object)))
+            self.encode(asm.PUSH(asm.r10))
+
+            # Make the association in the map
+            self.consts[id(const_object)] = const_object
+
+        # TODO: handle other types
 
     # Encode and store in memory one instruction
     # instruction = the asm.Instruction to encode
@@ -722,12 +732,13 @@ class Allocator:
         # Call the function just after this prolog
         # Minus the size of the return
         offset = self.code_offset
-        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset+1)).encode(), self.code_offset)
+        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset+2)).encode(), self.code_offset)
 
         # Finally return to python
         # Pop the parameter on the stack
         self.code_offset = self.write_instruction(asm.POP(asm.r10).encode(), self.code_offset)
 
+        self.code_offset = self.write_instruction(asm.INT(3).encode(), self.code_offset)
         self.code_offset = self.write_instruction(asm.RET().encode(), self.code_offset)
         self.prolog_size = self.code_offset
 
@@ -753,4 +764,4 @@ class Allocator:
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
-            print("%i:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+            print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
