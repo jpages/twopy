@@ -364,6 +364,31 @@ class JITCompiler:
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 print("Instruction not compiled " + str(instruction))
+
+                allocator.disassemble_asm()
+                nbargs = 2 # The name and the code object
+
+                free_variables = None
+                if (instruction.arguments & 8) == 8:
+                    # Making a closure, tuple of free variables
+                    pass
+
+                if (instruction.arguments & 4) == 4:
+                    # Annotation dictionnary
+                    pass
+
+                if (instruction.arguments & 2) == 2:
+                    # keyword only default arguments
+                    pass
+
+                if (instruction.arguments & 1) == 1:
+                    # default arguments
+                    pass
+
+                stub_address = allocator.compile_function_stub(self.stub_handler, nbargs)
+                allocator.encode(asm.MOV(asm.r10, stub_address))
+                allocator.encode(asm.CALL(asm.r10))
+
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLOSURE):
@@ -615,12 +640,28 @@ class Allocator:
     def compile_stub(self, mstub_handler, mfunction, stub_label, id_block):
         return mstub_handler.compile_stub(mfunction, stub_label, id_block)
 
+    # Compile a stub to a function
+    # mstub_handler : StubHandler instance
+    # nbargs : number of parameter for this stub
+    def compile_function_stub(self, mstub_handler, nbargs):
+
+        # Put the number of parameters as the first argument
+        self.encode(asm.MOV(asm.rdi, nbargs))
+
+        # The base case, 2 parameter for the call
+        if nbargs == 2:
+            self.encode(asm.POP(asm.rsi))
+            self.encode(asm.POP(asm.rdx))
+
+        return mstub_handler.compile_function_stub(self.function, nbargs)
+
     # Encode one instruction for a stub, will be put in a special section of code
     # Return the address of the beginning of the instruction in the bytearray
     def encode_stub(self, instruction):
         encoded = instruction.encode()
 
         stub_offset_beginning = self.stub_offset
+
         # Now, put the instruction in the end of the code section
         self.stub_offset = self.write_instruction(encoded, self.stub_offset)
 

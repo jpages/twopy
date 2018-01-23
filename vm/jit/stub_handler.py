@@ -11,12 +11,18 @@ ffi = cffi.FFI()
 
 # Define the stub_function and the callback for python
 ffi.cdef("""
-        // The function called by the assembly jited code
-        void stub_function(uint64_t id_stub, uint64_t* rsp);
+        // The function called by the assembly jited code to compile a given basic block
+        void bb_stub(uint64_t id_stub, uint64_t* rsp);
+
+        // Stub for a function compilation
+        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id);
 
         // Python function callback
-        extern "Python" uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
+        extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
+        // Callback to trigger the compilation of a function
+        extern "Python" void python_callback_function_stub(uint64_t, uint64_t);
+
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
 
@@ -32,21 +38,30 @@ ffi.set_source("stub_module", """
         #include <stdio.h>
         #include <stdlib.h>
 
-        // Function called to handle the compilation of stubs
-        static uint64_t* python_callback_stub(uint64_t stub_id, uint64_t* rsp);
+        // Function called to handle the compilation of stubs for basic blocks
+        static uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
-        void stub_function(uint64_t id_stub, uint64_t* rsp_value)
+        static void python_callback_function_stub(uint64_t, uint64_t);
+
+        void bb_stub(uint64_t id_stub, uint64_t* rsp_value)
         {
-            uint64_t* rsp_address_patched = python_callback_stub(id_stub, rsp_value);
+            uint64_t* rsp_address_patched = python_callback_bb_stub(id_stub, rsp_value);
             printf("Want to jump on %ld\\n", (long int)rsp_address_patched);
-        
+
             //for(int i=15; i!=-15; i--)
             //    printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp_value[i], i, rsp_value[i]);
 
             // Patch the return address to jump on the newly compiled block
             rsp_value[-1] = (long long int)rsp_address_patched;
         }
-        
+
+        // Handle the compilation of a function's stub
+        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id)
+        {
+            // Callback to python to trigger the compilation of the function
+            python_callback_function_stub(name_id, code_id);
+        }
+
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
@@ -54,7 +69,7 @@ ffi.set_source("stub_module", """
                 printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp[i], i, rsp[i]);
             exit(0);
         }
-        
+
         void print_data_section(uint64_t* array, int size)
         {
             printf("Print the array\\n");
@@ -108,17 +123,33 @@ class StubHandler:
 
         reg_id = asm.r10
 
-        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "stub_function")))
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "bb_stub")))
         mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
 
         mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
         return address
 
+    # Compile a stub to a function
+    # mfunction: The simple_interpreter.Function
+    # nbargs : number of arguments in the registers, used by C function later
+    def compile_function_stub(self, mfunction, nargs):
+        stub_label = asm.Label("Stub_label_" + str(mfunction.name))
+
+        # The call to that will be compiled after the stub compilation is over
+        address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
+
+        # Call the stub function in C
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "function_stub")))
+        mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
+        mfunction.allocator.encode_stub(asm.CALL(asm.r10))
+
+        return address
+
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
 @ffi.def_extern()
-def python_callback_stub(stub_id, rsp):
+def python_callback_bb_stub(stub_id, rsp):
 
     print("Callback executed")
     # We must now trigger the compilation of the corresponding block
@@ -138,6 +169,13 @@ def python_callback_stub(stub_id, rsp):
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
 
     return ffi.cast("uint64_t*", rsp_address_patched)
+
+
+# This function is called when a stub is executed, need to compile a function
+@ffi.def_extern()
+def python_callback_function_stub(name_id, code_id):
+    print("CALLBACK Name id " + str(name_id))
+    print("CALLBACK Code id " + str(code_id))
 
 # Used to patch the code after the compilation of a stub
 class Stub:
