@@ -88,7 +88,10 @@ class JITCompiler:
             instruction = block.instructions[i]
             # big dispatch for all instructions
             if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
+
+                # Jut discard the TOS value
+                allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_THREE):
@@ -359,6 +362,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -369,9 +374,8 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
 
-                allocator.disassemble_asm()
                 nbargs = 2 # The name and the code object
 
                 free_variables = None
@@ -460,11 +464,7 @@ class JITCompiler:
 
         # not first < second -> first > second
         if instruction.arguments == 0:
-            true_label = asm.Label("true_block")
-            false_label = asm.Label("false_block")
-
             # The stubs must be compiled before the jumps
-
             # Get the two following blocks
             jump_block = None
             notjump_block = None
@@ -481,12 +481,13 @@ class JITCompiler:
             old_stub_offset = mfunction.allocator.stub_offset
             old_code_offset = mfunction.allocator.code_offset
 
+
             # Compile a stub for each branch
-            mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(true_label), id(jump_block))
+            mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(jump_block))
+            print("Instruction " + str(instruction) + ", " + str(instruction.arguments))
 
             # And update the dictionary of ids and blocks
-            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, asm.LABEL(false_label),
-                                                             id(notjump_block))
+            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(notjump_block))
 
             # Compute the offset to the stub, by adding the size of the JG instruction
             offset = old_stub_offset - old_code_offset
@@ -507,11 +508,8 @@ class JITCompiler:
             # We store the MOV into the register as the jumping instruction, we just need to patch this
             notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
             self.stub_dictionary[id(notjump_block)] = notjump_stub
-
-        elif instruction.arguments == 1:
-            pass
         else:
-            pass
+            print("ÇA MARCHE")
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
@@ -639,10 +637,9 @@ class Allocator:
     # Compile a stub in a special area of the code section
     # mstub_handler : StubHandler instance
     # mfunction : current function
-    # stub_label : the asm Label Instruction
     # id_block : id to put in the stub
-    def compile_stub(self, mstub_handler, mfunction, stub_label, id_block):
-        return mstub_handler.compile_stub(mfunction, stub_label, id_block)
+    def compile_stub(self, mstub_handler, mfunction, id_block):
+        return mstub_handler.compile_stub(mfunction, id_block)
 
     # Compile a stub to a function
     # mstub_handler : StubHandler instance

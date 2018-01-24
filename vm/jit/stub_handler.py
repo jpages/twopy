@@ -106,14 +106,12 @@ class StubHandler:
 
     # Compile a call to a stub with an identifier
     # mfunction: The simple_interpreter.Function
-    # stub_label : Label of the stub
     # stub_id : The id the identifier of the block
-    def compile_stub(self, mfunction, stub_label, stub_id):
-
-        stub_label = asm.Label("Stub_label_"+str(stub_id))
+    def compile_stub(self, mfunction, stub_id):
 
         # The call to that will be compiled after the stub compilation is over
-        address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
+        # Put a NOP instruction for now to get the offset
+        address = mfunction.allocator.encode_stub(asm.NOP())
 
         # Calling convention of x86_64 for Unix platforms here
         mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
