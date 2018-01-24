@@ -35,29 +35,35 @@ class JITCompiler:
         # Dictionary between stub ids and blocks to compile
         self.stub_dictionary = {}
 
+        # Dictionary between constant ids and const values
+        self.consts = {}
+
+        # Load C library and create wrappers for python
+        self.load_c_library()
+
     # Compile the function  in parameter to binary code
     # return the code instance
-    def compile_function(self, function, inter):
+    def compile_function(self, mfunction):
 
-        print("Instructions in function " + str(function))
-        for i in function.all_instructions:
+        print("Instructions in function " + str(mfunction))
+        for i in mfunction.all_instructions:
             print("\t " + str(i))
 
-        allocator = Allocator(function, self)
-        function.allocator = allocator
+        allocator = Allocator(mfunction, self)
+        mfunction.allocator = allocator
 
         allocator.arguments_loading()
 
         # Start the compilation of the first basic block
-        self.compile_instructions(function, function.start_basic_block)
+        self.compile_instructions(mfunction, mfunction.start_basic_block)
 
         # Associate this function with its address
-        self.dict_compiled_functions[function] = allocator.code_address + allocator.prolog_size
+        self.dict_compiled_functions[mfunction] = allocator.code_address + allocator.prolog_size
 
         print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-        print("Call to the function with the parameter : " + str(allocator(5)))
-        print("after the call")
+        if mfunction.name == "main" :
+            print("Call to the function with the parameter : " + str(allocator(5)))
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -515,6 +521,34 @@ class JITCompiler:
         mfunction.allocator.encode(asm.POP(first_register))
         mfunction.allocator.encode(asm.CMP(second_register, first_register))
 
+    # Define function for code allocation later
+    def load_c_library(self):
+        osname = sys.platform.lower()
+
+        # For now, just support Unix platforms
+        if osname == "darwin" or osname.startswith("linux"):
+
+            # Get the C library
+            if osname == "darwin":
+                libc = ctypes.cdll.LoadLibrary("libc.dylib")
+            else:
+                libc = ctypes.cdll.LoadLibrary("libc.so.6")
+
+            # void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset)
+            self.mmap_function = libc.mmap
+            self.mmap_function.restype = ctypes.c_void_p
+            self.mmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t,
+                                     ctypes.c_int, ctypes.c_int,
+                                     ctypes.c_int, ctypes.c_size_t]
+
+            # int munmap(void* addr, size_t len)
+            self.munmap_function = libc.munmap
+            self.munmap_function.restype = ctypes.c_int
+            self.munmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t]
+
+            def munmap(address, size):
+                munmap_result = self.munmap_function(ctypes.c_void_p(address), size)
+                assert munmap_result == 0
 
 # Allocate and handle the compilation of a function
 class Allocator:
@@ -561,8 +595,6 @@ class Allocator:
         if self.function.name == "main":
             self.compile_prolog([0])
 
-        self.consts = dict()
-
     # Compile the loading of arguments of the function
     def arguments_loading(self):
 
@@ -575,35 +607,6 @@ class Allocator:
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
-    # Compiled a call to a C function which print the stack from the stack frame
-    def print_stack(self):
-
-        self.encode(asm.MOV(asm.rdi, asm.registers.rbp))
-        reg_id = asm.r10
-
-        function_address = int(
-            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
-        self.encode(asm.MOV(reg_id, function_address))
-        self.encode(asm.CALL(reg_id))
-
-    # Compiled a call to a C function which print the data section
-    def print_data_section(self):
-        # Save rbp
-        self.encode(asm.PUSH(asm.rbp))
-
-        self.encode(asm.MOV(asm.rdi, self.data_address))
-        self.encode(asm.MOV(asm.rsi, 50))
-
-        reg_id = asm.r10
-
-        function_address = int(
-            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_data_section")))
-        self.encode(asm.MOV(reg_id, function_address))
-        self.encode(asm.CALL(reg_id))
-
-        # Restore rbp from the stack
-        self.encode(asm.POP(asm.rbp))
-
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
     # value : the value to allocate
@@ -613,15 +616,16 @@ class Allocator:
         if isinstance(value, int):
             # Put the integer value on the stack
             self.encode(asm.PUSH(value))
-        elif isinstance(value, types.CodeType):
+        else:
+            # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
 
             self.encode(asm.MOV(asm.r10, id(const_object)))
             self.encode(asm.PUSH(asm.r10))
 
-            # Make the association in the map
-            self.consts[id(const_object)] = const_object
+            self.jitcompiler.consts[id(const_object)] = const_object
 
+            print("TYPE OF THE CONST " + str(const_object.__class__) + "  "  + str(const_object) + str(id(const_object)))
         # TODO: handle other types
 
     # Encode and store in memory one instruction
@@ -669,55 +673,29 @@ class Allocator:
 
     # Allocate an executable segment of code
     def allocate_code_segment(self):
-        osname = sys.platform.lower()
 
-        # For now, just support Unix platforms
-        if osname == "darwin" or osname.startswith("linux"):
+        # Allocate code segment
+        code_address = self.jitcompiler.mmap_function(None, self.code_size,
+                                     mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+                                     mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                     -1, 0)
 
-            # Get the C library
-            if osname == "darwin":
-                libc = ctypes.cdll.LoadLibrary("libc.dylib")
-            else:
-                libc = ctypes.cdll.LoadLibrary("libc.so.6")
+        if code_address == -1:
+            raise OSError("Failed to allocate memory for code segment")
+        self.code_address = code_address
 
-            # void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset)
-            mmap_function = libc.mmap
-            mmap_function.restype = ctypes.c_void_p
-            mmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t,
-                                     ctypes.c_int, ctypes.c_int,
-                                     ctypes.c_int, ctypes.c_size_t]
-
-            # int munmap(void* addr, size_t len)
-            munmap_function = libc.munmap
-            munmap_function.restype = ctypes.c_int
-            munmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t]
-
-            def munmap(address, size):
-                munmap_result = munmap_function(ctypes.c_void_p(address), size)
-                assert munmap_result == 0
-
-            # Allocate code segment
-            code_address = mmap_function(None, self.code_size,
-                                         mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+        if self.data_size > 0:
+            # Allocate data segment
+            data_address = self.jitcompiler.mmap_function(None, self.data_size,
+                                         mmap.PROT_READ | mmap.PROT_WRITE,
                                          mmap.MAP_ANON | mmap.MAP_PRIVATE,
                                          -1, 0)
+            if data_address == -1:
+                raise OSError("Failed to allocate memory for data segment")
+            self.data_address = data_address
 
-            if code_address == -1:
-                raise OSError("Failed to allocate memory for code segment")
-            self.code_address = code_address
-
-            if self.data_size > 0:
-                # Allocate data segment
-                data_address = mmap_function(None, self.data_size,
-                                             mmap.PROT_READ | mmap.PROT_WRITE,
-                                             mmap.MAP_ANON | mmap.MAP_PRIVATE,
-                                             -1, 0)
-                if data_address == -1:
-                    raise OSError("Failed to allocate memory for data segment")
-                self.data_address = data_address
-
-            # Create manipulable python arrays for these two sections
-            self.python_arrays()
+        # Create manipulable python arrays for these two sections
+        self.python_arrays()
 
         # Create a pointer to be able to call this function directly in python
         self.create_function_pointer()
@@ -806,3 +784,33 @@ class Allocator:
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
             print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
+    # Compiled a call to a C function which print the stack from the stack frame
+    def print_stack(self):
+
+        self.encode(asm.MOV(asm.rdi, asm.registers.rbp))
+        reg_id = asm.r10
+
+        function_address = int(
+            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_stack")))
+        self.encode(asm.MOV(reg_id, function_address))
+        self.encode(asm.CALL(reg_id))
+
+    # Compiled a call to a C function which print the data section
+    def print_data_section(self):
+        # Save rbp
+        self.encode(asm.PUSH(asm.rbp))
+
+        self.encode(asm.MOV(asm.rdi, self.data_address))
+        self.encode(asm.MOV(asm.rsi, 50))
+
+        reg_id = asm.r10
+
+        function_address = int(
+            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_data_section")))
+        self.encode(asm.MOV(reg_id, function_address))
+        self.encode(asm.CALL(reg_id))
+
+        # Restore rbp from the stack
+        self.encode(asm.POP(asm.rbp))
+

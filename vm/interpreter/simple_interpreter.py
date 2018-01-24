@@ -316,7 +316,7 @@ class Function:
 
         # TODO: move this elsewhere
         if interpreter.args.jit:
-            interpreter.jitcompiler.compile_function(self, interpreter)
+            interpreter.jitcompiler.compile_function(self)
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks

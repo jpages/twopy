@@ -176,6 +176,18 @@ def python_callback_bb_stub(stub_id, rsp):
 def python_callback_function_stub(name_id, code_id):
     print("CALLBACK Name id " + str(name_id))
     print("CALLBACK Code id " + str(code_id))
+    print("ALL constants " + str(jitcompiler_instance.consts))
+
+    # Generate the Function object in the model
+    name = jitcompiler_instance.consts[name_id]
+    code = jitcompiler_instance.consts[code_id]
+
+    function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
+
+    # Trigger the compilation of the given function
+    jitcompiler_instance.compile_function(function)
+
+    #quit()
 
 # Used to patch the code after the compilation of a stub
 class Stub:
