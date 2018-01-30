@@ -1,3 +1,4 @@
+# coding=utf-8
 # Make the link between compiled assembly and high-level python functions
 # Handle the compilation of stub functions
 import cffi
@@ -15,7 +16,7 @@ ffi.cdef("""
         void bb_stub(uint64_t id_stub, uint64_t* rsp);
 
         // Stub for a function compilation
-        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id);
+        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after);
 
         // Python function callback
         extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
@@ -56,18 +57,21 @@ ffi.set_source("stub_module", """
         }
 
         // Handle the compilation of a function's stub
-        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id)
+        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after)
         {
             // Callback to python to trigger the compilation of the function
             python_callback_function_stub(name_id, code_id);
+            
+            // Patch the return address
+            rsp[-1] = (long long int)address_after;
         }
 
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
-            for(int i=-1; i!=8; i++)
-                printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp[i], i, rsp[i]);
-            exit(0);
+            for(int i=-5; i!=5; i++)
+                printf("\\t %ld stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
+            //exit(0);
         }
 
         void print_data_section(uint64_t* array, int size)
@@ -131,11 +135,17 @@ class StubHandler:
     # Compile a stub to a function
     # mfunction: The simple_interpreter.Function
     # nbargs : number of arguments in the registers, used by C function later
-    def compile_function_stub(self, mfunction, nargs):
+    # address_after : where to jump after the stub
+    def compile_function_stub(self, mfunction, nargs, address_after):
         stub_label = asm.Label("Stub_label_" + str(mfunction.name))
 
         # The call to that will be compiled after the stub compilation is over
         address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
+
+        # Save the RSP to patch it after
+        mfunction.allocator.encode_stub(asm.MOV(asm.rcx, asm.registers.rsp))
+        mfunction.allocator.encode_stub(asm.MOV(asm.r8, address_after))
+
 
         # Call the stub function in C
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "function_stub")))
@@ -184,8 +194,9 @@ def python_callback_function_stub(name_id, code_id):
 
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
+    print("Correct compilation of function " + str(function))
 
-    #quit()
+    function.allocator.disassemble_asm()
 
 # Used to patch the code after the compilation of a stub
 class Stub:

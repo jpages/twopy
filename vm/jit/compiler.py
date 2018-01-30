@@ -44,26 +44,31 @@ class JITCompiler:
     # Compile the function  in parameter to binary code
     # return the code instance
     def compile_function(self, mfunction):
+        try:
+            mfunction.allocator
+            return
+        except AttributeError:
 
-        print("Instructions in function " + str(mfunction))
-        for i in mfunction.all_instructions:
-            print("\t " + str(i))
+            print("Instructions in function " + str(mfunction))
+            for i in mfunction.all_instructions:
+                print("\t " + str(i))
 
-        allocator = Allocator(mfunction, self)
-        mfunction.allocator = allocator
+                # Try to access the attribute allocator of the function
+            allocator = Allocator(mfunction, self)
+            mfunction.allocator = allocator
 
-        allocator.arguments_loading()
+            allocator.arguments_loading()
 
-        # Start the compilation of the first basic block
-        self.compile_instructions(mfunction, mfunction.start_basic_block)
+            # Start the compilation of the first basic block
+            self.compile_instructions(mfunction, mfunction.start_basic_block)
 
-        # Associate this function with its address
-        self.dict_compiled_functions[mfunction] = allocator.code_address + allocator.prolog_size
+            # Associate this function with its address
+            self.dict_compiled_functions[mfunction] = allocator.code_address + allocator.prolog_size
 
-        print("Dict_compiled_functions " + str(self.dict_compiled_functions))
+            print("Dict_compiled_functions " + str(self.dict_compiled_functions))
 
-        if mfunction.name == "main" :
-            print("Call to the function with the parameter : " + str(allocator(5)))
+            if mfunction.name == "main" :
+                print("Call to the function with the parameter : " + str(allocator(5)))
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -247,6 +252,8 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
                 print("Instruction not compiled " + str(instruction))
+
+                allocator.encode(asm.NOP())
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_SEQUENCE):
@@ -273,6 +280,8 @@ class JITCompiler:
                 print("The value is now allocated")
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
                 print("Instruction not compiled " + str(instruction))
+                allocator.encode(asm.NOP())
+
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_LIST):
@@ -363,7 +372,6 @@ class JITCompiler:
                 print("Instruction compiled " + str(instruction))
 
                 allocator.encode(asm.INT(3))
-
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -395,9 +403,14 @@ class JITCompiler:
                     # default arguments
                     pass
 
-                stub_address = allocator.compile_function_stub(self.stub_handler, nbargs)
+                # TODO : temporary
+                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(allocator.code_section), allocator.code_offset + 22)
+
+                stub_address = allocator.compile_function_stub(self.stub_handler, nbargs, address)
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
+
+                print("Where to jump : " + str(address))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 print("Instruction not compiled " + str(instruction))
@@ -484,7 +497,6 @@ class JITCompiler:
 
             # Compile a stub for each branch
             mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(jump_block))
-            print("Instruction " + str(instruction) + ", " + str(instruction.arguments))
 
             # And update the dictionary of ids and blocks
             address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(notjump_block))
@@ -508,8 +520,9 @@ class JITCompiler:
             # We store the MOV into the register as the jumping instruction, we just need to patch this
             notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
             self.stub_dictionary[id(notjump_block)] = notjump_stub
+
         else:
-            print("ÇA MARCHE")
+            print("Not yet implemented")
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
@@ -558,7 +571,7 @@ class Allocator:
         self.function.allocations = {}
 
         # Size of the code section
-        self.code_size = 300
+        self.code_size = 500
 
         # Size of the data section
         self.data_size = 100
@@ -571,7 +584,7 @@ class Allocator:
         self.code_offset = 0
 
         # The stub pointer is in the end of the code section
-        self.stub_offset = 200
+        self.stub_offset = 300
 
         # Future code and data sections, will be allocated in C
         self.code_section = None
@@ -644,7 +657,8 @@ class Allocator:
     # Compile a stub to a function
     # mstub_handler : StubHandler instance
     # nbargs : number of parameter for this stub
-    def compile_function_stub(self, mstub_handler, nbargs):
+    # address_after : where to jump after the stub
+    def compile_function_stub(self, mstub_handler, nbargs, address_after):
 
         # Put the number of parameters as the first argument
         self.encode(asm.MOV(asm.rdi, nbargs))
@@ -654,7 +668,7 @@ class Allocator:
             self.encode(asm.POP(asm.rsi))
             self.encode(asm.POP(asm.rdx))
 
-        return mstub_handler.compile_function_stub(self.function, nbargs)
+        return mstub_handler.compile_function_stub(self.function, nbargs, address_after)
 
     # Encode one instruction for a stub, will be put in a special section of code
     # Return the address of the beginning of the instruction in the bytearray
