@@ -22,7 +22,7 @@ ffi.cdef("""
         extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         // Callback to trigger the compilation of a function
-        extern "Python" void python_callback_function_stub(uint64_t, uint64_t);
+        extern "Python" uint64_t python_callback_function_stub(uint64_t, uint64_t);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -42,7 +42,7 @@ ffi.set_source("stub_module", """
         // Function called to handle the compilation of stubs for basic blocks
         static uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
-        static void python_callback_function_stub(uint64_t, uint64_t);
+        static uint64_t python_callback_function_stub(uint64_t, uint64_t);
 
         void bb_stub(uint64_t id_stub, uint64_t* rsp_value)
         {
@@ -60,10 +60,18 @@ ffi.set_source("stub_module", """
         void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after)
         {
             // Callback to python to trigger the compilation of the function
-            python_callback_function_stub(name_id, code_id);
+            uint64_t* function_address = python_callback_function_stub(name_id, code_id);
             
+            printf("Address of the function from python %ld \\n", function_address);
+            
+            rsp = rsp + 1;
+            
+            // Put on the stack the address of the next function   
+            rsp[-1] = (long long int)function_address;
+
             // Patch the return address
-            rsp[-1] = (long long int)address_after;
+            rsp[-2] = (long long int)address_after;
+            
         }
 
         void print_stack(uint64_t* rsp)
@@ -78,7 +86,7 @@ ffi.set_source("stub_module", """
         {
             printf("Print the array\\n");
             for(int i=0; i!=size; i++)
-                ;//printf("\\t %ld array[%d] = %d\\n", (long int)&array[i], i, array[i]);
+                printf("\\t %ld array[%d] = %d\\n", (long int)&array[i], i, array[i]);
         }
 
         uint64_t get_address(char* bytearray, int index)
@@ -182,10 +190,6 @@ def python_callback_bb_stub(stub_id, rsp):
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
 def python_callback_function_stub(name_id, code_id):
-    print("CALLBACK Name id " + str(name_id))
-    print("CALLBACK Code id " + str(code_id))
-    print("ALL constants " + str(jitcompiler_instance.consts))
-
     # Generate the Function object in the model
     name = jitcompiler_instance.consts[name_id]
     code = jitcompiler_instance.consts[code_id]
@@ -197,6 +201,8 @@ def python_callback_function_stub(name_id, code_id):
     print("Correct compilation of function " + str(function))
 
     function.allocator.disassemble_asm()
+
+    return function.allocator.code_address
 
 # Used to patch the code after the compilation of a stub
 class Stub:

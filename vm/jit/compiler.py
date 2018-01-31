@@ -251,9 +251,18 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
-                print("Instruction not compiled " + str(instruction))
+                print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.NOP())
+                # Store a name in the local environment
+                allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+                # Write TOS at the instruction.arguments index in data_section
+                allocator.encode(asm.POP(asm.r10))
+
+                # Offset of the instruction's argument + r9 value
+                memory_address = asm.r9 + (64*instruction.arguments)
+                allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
+
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_SEQUENCE):
@@ -279,8 +288,16 @@ class JITCompiler:
 
                 print("The value is now allocated")
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
-                print("Instruction not compiled " + str(instruction))
-                allocator.encode(asm.NOP())
+                print("Instruction compiled " + str(instruction))
+
+                # Store a name in the local environment
+                allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+                # Offset of the instruction's argument + r9 value
+                memory_address = asm.r9 + (64*instruction.arguments)
+                allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+
+                allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
                 print("Instruction not compiled " + str(instruction))
@@ -371,7 +388,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -409,8 +425,6 @@ class JITCompiler:
                 stub_address = allocator.compile_function_stub(self.stub_handler, nbargs, address)
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
-
-                print("Where to jump : " + str(address))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 print("Instruction not compiled " + str(instruction))
