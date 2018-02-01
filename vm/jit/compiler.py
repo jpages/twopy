@@ -225,6 +225,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -387,6 +389,8 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
+
+                #allocator.encode(asm.INT(3))
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
@@ -636,11 +640,11 @@ class Allocator:
     # instruction : The instruction
     # value : the value to allocate
     def allocate_const(self, instruction, value):
-        # Depending of the type of the value, do different things
-
         if isinstance(value, int):
             # Put the integer value on the stack
             self.encode(asm.PUSH(value))
+            print("asm.PUSH(value) " + str(value))
+            print("Address " + str(stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), self.code_offset)))
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
@@ -652,6 +656,8 @@ class Allocator:
 
             print("TYPE OF THE CONST " + str(const_object.__class__) + "  "  + str(const_object) + str(id(const_object)))
         # TODO: handle other types
+        # Depending of the type of the value, do different things
+
 
     # Encode and store in memory one instruction
     # instruction = the asm.Instruction to encode

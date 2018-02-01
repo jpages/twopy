@@ -47,7 +47,7 @@ ffi.set_source("stub_module", """
         void bb_stub(uint64_t id_stub, uint64_t* rsp_value)
         {
             uint64_t* rsp_address_patched = python_callback_bb_stub(id_stub, rsp_value);
-            printf("Want to jump on %ld\\n", (long int)rsp_address_patched);
+            printf("Want to jump on 0x%lx\\n", (long int)rsp_address_patched);
 
             //for(int i=15; i!=-15; i--)
             //    printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp_value[i], i, rsp_value[i]);
@@ -174,6 +174,10 @@ def python_callback_bb_stub(stub_id, rsp):
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
+    print("First offset of the new block " + str(first_offset))
+    print("stub.block " + str(stub.block))
+    print("Stub.block.instructions " + str(stub.block.instructions))
+
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
 
@@ -255,6 +259,8 @@ class Stub:
         elif isinstance(self.instruction, asm.JG):
             new_operand = first_offset - self.position - 2
 
+            print("Operand of the JG instruction " + str(first_offset))
+
             # Update to the new position
             new_instruction = asm.JG(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()
@@ -266,9 +272,9 @@ class Stub:
                 # We use 4 more bytes for the encoding compare to the 8 bits version
                 new_operand = new_operand - 4
 
-                # Force the 32 encoding of the JGE
+                # Force the 32 encoding of the JG instruction
                 encoded[0] = 0x0F
-                encoded[1] = 0x8D
+                encoded[1] = 0x8F
 
                 # Keep the same value for the jump
                 encoded[2] = new_operand
