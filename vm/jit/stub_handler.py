@@ -3,6 +3,7 @@
 # Handle the compilation of stub functions
 import cffi
 import peachpy.x86_64 as asm
+import math
 
 from . import compiler
 
@@ -47,7 +48,6 @@ ffi.set_source("stub_module", """
         void bb_stub(uint64_t id_stub, uint64_t* rsp_value)
         {
             uint64_t* rsp_address_patched = python_callback_bb_stub(id_stub, rsp_value);
-            printf("Want to jump on 0x%lx\\n", (long int)rsp_address_patched);
 
             //for(int i=15; i!=-15; i--)
             //    printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp_value[i], i, rsp_value[i]);
@@ -61,9 +61,7 @@ ffi.set_source("stub_module", """
         {
             // Callback to python to trigger the compilation of the function
             uint64_t* function_address = python_callback_function_stub(name_id, code_id);
-            
-            printf("Address of the function from python %ld \\n", function_address);
-            
+               
             rsp = rsp + 1;
             
             // Put on the stack the address of the next function   
@@ -86,7 +84,7 @@ ffi.set_source("stub_module", """
         {
             printf("Print the array\\n");
             for(int i=0; i!=size; i++)
-                printf("\\t %ld array[%d] = %d\\n", (long int)&array[i], i, array[i]);
+                printf("\\t %ld array[%d] = %ld\\n", (long int)&array[i], i, array[i]);
         }
 
         uint64_t get_address(char* bytearray, int index)
@@ -167,16 +165,17 @@ class StubHandler:
 @ffi.def_extern()
 def python_callback_bb_stub(stub_id, rsp):
 
-    print("Callback executed")
+    print("stub_id " + str(stub_id))
     # We must now trigger the compilation of the corresponding block
     stub = jitcompiler_instance.stub_dictionary[stub_id]
 
+    print("Stubs dictionnary before " + str(jitcompiler_instance.stub_dictionary))
+    del jitcompiler_instance.stub_dictionary[stub_id]
+
+    print("Stubs dictionnary after " + str(jitcompiler_instance.stub_dictionary))
+
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
-
-    print("First offset of the new block " + str(first_offset))
-    print("stub.block " + str(stub.block))
-    print("Stub.block.instructions " + str(stub.block.instructions))
 
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
@@ -202,7 +201,6 @@ def python_callback_function_stub(name_id, code_id):
 
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
-    print("Correct compilation of function " + str(function))
 
     function.allocator.disassemble_asm()
 
@@ -221,7 +219,6 @@ class Stub:
     # Patch the instruction after the stub compilation
     # first_offset : offset of the first instruction newly compiled in the block
     def patch_instruction(self, first_offset):
-        print("Need to patch " + str(self))
 
         if isinstance(self.instruction, asm.MOV):
             # Moving an address inside a register, we need to change the address here
@@ -257,9 +254,11 @@ class Stub:
 
             self.block.function.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JG):
-            new_operand = first_offset - self.position - 2
+            print("Old instruction encoded " + str(self.instruction.encode()))
+            for i in range(0, 6):
+                print("code["+str(i)+ "] = " + str(self.block.function.allocator.code_section[self.position + i]))
 
-            print("Operand of the JG instruction " + str(first_offset))
+            new_operand = first_offset - self.position - 6
 
             # Update to the new position
             new_instruction = asm.JG(asm.operand.RIPRelativeOffset(new_operand))
@@ -267,19 +266,29 @@ class Stub:
 
             # If the previous instruction was a 32 bits offset, force it to the new one
             if len(self.instruction.encode()) > 2:
-                encoded = bytearray(3)
-
-                # We use 4 more bytes for the encoding compare to the 8 bits version
-                new_operand = new_operand - 4
+                encoded = bytearray(len(self.instruction.encode()))
 
                 # Force the 32 encoding of the JG instruction
                 encoded[0] = 0x0F
                 encoded[1] = 0x8F
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
 
-                # Keep the same value for the jump
-                encoded[2] = new_operand
+                size = math.ceil(new_operand / 256)
+                bytes = new_operand.to_bytes(size, 'big')
+
+                for i in range(0, len(bytes)):
+                    encoded[i+2] = bytes[i]
+                    print("Encoded[i] = 0x%x" % bytes[i])
 
             self.block.function.allocator.write_instruction(encoded, self.position)
+
+            print("New instruction encoded " + str(encoded))
+            for i in range(0, 6):
+                print("code["+str(i)+ "] = " + str(self.block.function.allocator.code_section[self.position + i]))
+
         else:
             print("Not yet implemented patch")
 

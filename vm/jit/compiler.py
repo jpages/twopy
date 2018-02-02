@@ -225,7 +225,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
+                #allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -810,7 +810,6 @@ class Allocator:
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
-
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             pass
