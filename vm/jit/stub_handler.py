@@ -254,11 +254,8 @@ class Stub:
 
             self.block.function.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JG):
-            print("Old instruction encoded " + str(self.instruction.encode()))
-            for i in range(0, 6):
-                print("code["+str(i)+ "] = " + str(self.block.function.allocator.code_section[self.position + i]))
 
-            new_operand = first_offset - self.position - 6
+            new_operand = first_offset - self.position - len(self.instruction.encode())
 
             # Update to the new position
             new_instruction = asm.JG(asm.operand.RIPRelativeOffset(new_operand))
@@ -281,13 +278,8 @@ class Stub:
 
                 for i in range(0, len(bytes)):
                     encoded[i+2] = bytes[i]
-                    print("Encoded[i] = 0x%x" % bytes[i])
 
             self.block.function.allocator.write_instruction(encoded, self.position)
-
-            print("New instruction encoded " + str(encoded))
-            for i in range(0, 6):
-                print("code["+str(i)+ "] = " + str(self.block.function.allocator.code_section[self.position + i]))
 
         else:
             print("Not yet implemented patch")
