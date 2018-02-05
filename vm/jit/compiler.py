@@ -225,7 +225,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
 
-                #allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -493,7 +493,7 @@ class JITCompiler:
     def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction):
         self.compile_cmp_beginning(mfunction)
 
-        # not first < second -> first > second
+        # first < second
         if instruction.arguments == 0:
             # The stubs must be compiled before the jumps
             # Get the two following blocks
@@ -503,11 +503,55 @@ class JITCompiler:
             # Locate the target of the jump in next basic blocks
             for block in instruction.block.next:
                 # If we need to make the jump
-                if block.instructions[0].offset != next_instruction.arguments:
+                if block.instructions[0].offset == next_instruction.arguments:
                     jump_block = block
                 else:
                     # Continue the execution in the second block
                     notjump_block = block
+
+            old_stub_offset = mfunction.allocator.stub_offset
+            old_code_offset = mfunction.allocator.code_offset
+
+            # Compile a stub for each branch
+            mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(jump_block))
+
+            # And update the dictionary of ids and blocks
+            address_false = mfunction.allocator.compile_stub(self.stub_handler, mfunction, id(notjump_block))
+
+            # Compute the offset to the stub, by adding the size of the JL instruction
+            offset = old_stub_offset - old_code_offset
+            peachpy_instruction = asm.JL(asm.operand.RIPRelativeOffset(offset - 6))
+
+            mfunction.allocator.encode(peachpy_instruction)
+
+            jump_stub = stub_handler.Stub(jump_block, peachpy_instruction, old_code_offset)
+            self.stub_dictionary[id(jump_block)] = jump_stub
+
+            # For now, jump to the newly compiled stub,
+            # This code will be patched later
+            old_code_offset = mfunction.allocator.code_offset
+            peachpy_instruction = asm.MOV(asm.r10, address_false)
+            mfunction.allocator.encode(peachpy_instruction)
+            mfunction.allocator.encode(asm.JMP(asm.r10))
+
+            # We store the MOV into the register as the jumping instruction, we just need to patch this
+            notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
+            self.stub_dictionary[id(notjump_block)] = notjump_stub
+        # first > second
+        elif instruction.arguments == 4:
+            # The stubs must be compiled before the jumps
+            # Get the two following blocks
+            jump_block = None
+            notjump_block = None
+
+            # Locate the target of the jump in next basic blocks
+            for block in instruction.block.next:
+                # If we need to make the jump
+                if block.instructions[0].offset == next_instruction.arguments:
+                    notjump_block = block
+                else:
+                    # Continue the execution in the second block
+                    jump_block = block
 
             old_stub_offset = mfunction.allocator.stub_offset
             old_code_offset = mfunction.allocator.code_offset
@@ -538,7 +582,6 @@ class JITCompiler:
             # We store the MOV into the register as the jumping instruction, we just need to patch this
             notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
             self.stub_dictionary[id(notjump_block)] = notjump_stub
-
         else:
             print("Not yet implemented")
 

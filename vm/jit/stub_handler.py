@@ -280,7 +280,32 @@ class Stub:
                     encoded[i+2] = bytes[i]
 
             self.block.function.allocator.write_instruction(encoded, self.position)
+        elif isinstance(self.instruction, asm.JL):
+            new_operand = first_offset - self.position - len(self.instruction.encode())
 
+            # Update to the new position
+            new_instruction = asm.JL(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            # If the previous instruction was a 32 bits offset, force it to the new one
+            if len(self.instruction.encode()) > 2:
+                encoded = bytearray(len(self.instruction.encode()))
+
+                # Force the 32 encoding of the JL instruction
+                encoded[0] = 0x0F
+                encoded[1] = 0x8C
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
+
+                size = math.ceil(new_operand / 256)
+                bytes = new_operand.to_bytes(size, 'big')
+
+                for i in range(0, len(bytes)):
+                    encoded[i + 2] = bytes[i]
+
+            self.block.function.allocator.write_instruction(encoded, self.position)
         else:
             print("Not yet implemented patch")
 
