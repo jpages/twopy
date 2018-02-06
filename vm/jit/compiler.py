@@ -222,7 +222,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-                pass
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -295,14 +294,26 @@ class JITCompiler:
 
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
 
-                # Store a name in the local environment
-                allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+                name = instruction.function.names[instruction.arguments]
 
-                # Offset of the instruction's argument + r9 value
-                memory_address = asm.r9 + (64*instruction.arguments)
-                allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+                # We are loading something from builtins
+                if name in stub_handler.primitive_addresses:
+                    function_addr = stub_handler.primitive_addresses[name]
 
-                allocator.encode(asm.PUSH(asm.r10))
+                    allocator.encode(asm.MOV(asm.r9, function_addr))
+                    allocator.encode(asm.PUSH(asm.r9))
+
+                    #print("STUB HANDLER " + str(function_addr))
+                    #print("Loading " + str(instruction) + ", name = " + name)
+                else:
+                    # Load a name in the local environment
+                    allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+                    # Offset of the instruction's argument + r9 value
+                    memory_address = asm.r9 + (64*instruction.arguments)
+                    allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+
+                    allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
                 pass
@@ -389,8 +400,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
-                pass
-
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -399,6 +408,9 @@ class JITCompiler:
 
                 # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
+
+                print("Instruction " + str(instruction))
+
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 pass
@@ -848,9 +860,11 @@ class Allocator:
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
+        return
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+        print("\n")
 
     # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):

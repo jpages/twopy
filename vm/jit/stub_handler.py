@@ -32,6 +32,9 @@ ffi.cdef("""
 
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
+        
+        // twopy lib
+        void twopy_library_print_integer(int);
     """)
 
 # C Sources
@@ -85,6 +88,13 @@ ffi.set_source("stub_module", """
         uint64_t get_address(char* bytearray, int index)
         {
             return (uint64_t)&bytearray[index];
+        }
+        
+        // Print one integer on stdout
+        void twopy_library_print_integer(int toprint)
+        {
+            printf("We are here\\n");
+            printf("%d\\n", toprint);
         }
     """)
 
@@ -309,3 +319,75 @@ class Stub:
 def custom_ceil(n):
     res = int(n)
     return res if res == n or n < 0 else res+1
+
+
+# Dictionnary between names and primitive function addresses
+primitive_addresses = {
+"abs" : abs,
+"dict" : dict,
+"help" : help,
+"min" : min,
+"setattr" : setattr,
+"all" : all,
+"dir" : dir,
+"hex" : hex,
+"next" : next,
+"slice" : slice,
+"any" : any,
+"divmod" : divmod,
+"id" : id,
+"object" : object,
+"sorted" : sorted,
+"ascii" : ascii,
+"enumerate" : enumerate,
+"input" : input,
+"oct" : oct,
+"staticmethod" : staticmethod,
+"bin" : bin,
+"eval" : eval,
+"int" : int,
+"open" : open,
+"str" : str,
+"bool" : bool,
+"exec" : exec,
+"isinstance" : isinstance,
+"ord" : ord,
+"sum" : sum,
+"bytearray" : bytearray,
+"filter" : filter,
+"issubclass" : issubclass,
+"pow" : pow,
+"super" : super,
+"bytes" : bytes,
+"float" : float,
+"iter" : iter,
+"print" : int(ffi.cast("intptr_t", ffi.addressof(lib, "twopy_library_print_integer"))),
+"tuple" : tuple,
+"callable" : callable,
+"format" : format,
+"len" : len,
+"property" : property,
+"type" : type,
+"chr" : chr,
+"frozenset" : frozenset,
+"list" : list,
+"range" : range,
+"vars" : vars,
+"classmethod" : classmethod,
+"getattr" : getattr,
+"locals" : locals,
+"repr" : repr,
+"zip" : zip,
+"globals" : globals,
+"map" : map,
+"reversed" : reversed,
+"__import__" : __import__,
+"complex" : complex,
+"hasattr" : hasattr,
+"max" : max,
+"round" : round,
+"hash" : hash,
+"delattr" : delattr,
+"memoryview" : memoryview,
+"set" : set,
+}
