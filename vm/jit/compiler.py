@@ -49,11 +49,12 @@ class JITCompiler:
             return
         except AttributeError:
 
-            print("Instructions in function " + str(mfunction))
-            for i in mfunction.all_instructions:
-                print("\t " + str(i))
+            if self.interpreter.args.verbose:
+                print("Instructions in function " + str(mfunction))
+                for i in mfunction.all_instructions:
+                    print("\t " + str(i))
 
-                # Try to access the attribute allocator of the function
+            # Try to access the attribute allocator of the function
             allocator = Allocator(mfunction, self)
             mfunction.allocator = allocator
 
@@ -65,10 +66,9 @@ class JITCompiler:
             # Associate this function with its address
             self.dict_compiled_functions[mfunction] = allocator.code_address + allocator.prolog_size
 
-            print("Dict_compiled_functions " + str(self.dict_compiled_functions))
-
             if mfunction.name == "main" :
-                print("Call to the function with the parameter : " + str(allocator(5)))
+                # Call the main with a random value
+                str(allocator(5))
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -93,36 +93,35 @@ class JITCompiler:
             instruction = block.instructions[i]
             # big dispatch for all instructions
             if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
-                print("Instruction compiled " + str(instruction))
 
                 # Jut discard the TOS value
                 allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_THREE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DUP_TOP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DUP_TOP_TWO):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.NOP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_POSITIVE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_NEGATIVE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_NOT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_INVERT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MATRIX_MULTIPLY):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MATRIX_MULTIPLY):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_POWER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Pop two values inside registers
                 allocator.encode(asm.POP(asm.r9))
@@ -133,9 +132,9 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
@@ -144,7 +143,7 @@ class JITCompiler:
                 allocator.encode(asm.ADD(asm.r8, asm.r9))
                 allocator.encode(asm.PUSH(asm.r8))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Pop two values inside registers
                 allocator.encode(asm.POP(asm.r9))
@@ -155,75 +154,75 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_TRUE_DIVIDE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_FLOOR_DIVIDE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_TRUE_DIVIDE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AITER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ANEXT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BEFORE_ASYNC_WITH):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_ADD):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_SUBTRACT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MULTIPLY):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MODULO):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_SUBSCR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_SUBSCR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_LSHIFT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_RSHIFT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_AND):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_XOR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_OR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_POWER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ITER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.GET_YIELD_FROM_ITER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_LSHIFT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_RSHIFT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_AND):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_XOR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_OR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BREAK_LOOP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_START):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -245,21 +244,21 @@ class JITCompiler:
                 allocator.encode(asm.JMP(asm.rbx))
 
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_VALUE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.POP_BLOCK):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.END_FINALLY):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.POP_EXCEPT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Store a name in the local environment
                 allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -272,31 +271,29 @@ class JITCompiler:
                 allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_SEQUENCE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.FOR_ITER):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_EX):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ATTR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_ATTR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_GLOBAL):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_GLOBAL):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
                 block.function.allocator.allocate_const(instruction, value)
 
-                print("The value is now allocated")
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
-                print("Instruction compiled " + str(instruction))
 
                 # Store a name in the local environment
                 allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -308,17 +305,16 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_LIST):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SET):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
-                print("Instruction compiled " + str(instruction))
 
                 # COMPARE_OP can't be the last instruction of the block
                 next_instruction = block.instructions[i + 1]
@@ -338,23 +334,23 @@ class JITCompiler:
                 # We already compiled the next instruction which is a branch, the block is fully compiled now
                 return
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_FORWARD):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_ABSOLUTE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_GLOBAL):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 name = mfunction.names[instruction.arguments]
 
@@ -367,34 +363,33 @@ class JITCompiler:
                     element = mfunction.module.lookup(name, False)
 
                 # Assume we have a function here for now
-                print("Make a call to " + str(self.dict_compiled_functions[element]))
                 allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
                 allocator.encode(asm.PUSH(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_LOOP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_EXCEPT):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ANNOTATION):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
@@ -406,7 +401,7 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
-                print("Instruction compiled " + str(instruction))
+                pass
 
                 nbargs = 2 # The name and the code object
 
@@ -435,51 +430,51 @@ class JITCompiler:
                 allocator.encode(asm.CALL(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLOSURE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_DEREF):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_DEREF):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_DEREF):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION_KW):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION_EX):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_WITH):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.EXTENDED_ARG):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LIST_APPEND):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SET_ADD):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.MAP_ADD):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLASSDEREF):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_LIST_UNPACK):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP_UNPACK):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP_UNPACK_WITH_CALL):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SET_UNPACK):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ASYNC_WITH):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.FORMAT_VALUE):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_CONST_KEY_MAP):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_STRING):
-                print("Instruction not compiled " + str(instruction))
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
-                print("Instruction not compiled " + str(instruction))
+                pass
 
         block.compiled = True
         block.first_offset = return_offset
@@ -587,7 +582,7 @@ class JITCompiler:
             notjump_stub = stub_handler.Stub(notjump_block, peachpy_instruction, old_code_offset)
             self.stub_dictionary[id(notjump_block)] = notjump_stub
         else:
-            print("Not yet implemented")
+            pass
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
@@ -690,8 +685,6 @@ class Allocator:
         if isinstance(value, int):
             # Put the integer value on the stack
             self.encode(asm.PUSH(value))
-            print("asm.PUSH(value) " + str(value))
-            print("Address " + str(stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), self.code_offset)))
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
@@ -701,7 +694,6 @@ class Allocator:
 
             self.jitcompiler.consts[id(const_object)] = const_object
 
-            print("TYPE OF THE CONST " + str(const_object.__class__) + "  "  + str(const_object) + str(id(const_object)))
         # TODO: handle other types
         # Depending of the type of the value, do different things
 
@@ -802,7 +794,6 @@ class Allocator:
 
         # TODO: correct computation of parameter address
         offset = 16 * (argument+1)
-        print("Offset  " + str(offset) + " for variable " + str(argument))
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
 
         return asm.r9
@@ -810,8 +801,9 @@ class Allocator:
     # Call the compiled function
     def __call__(self, *args):
 
-        # Print the asm code
-        self.disassemble_asm()
+        # #print the asm code
+        if self.jitcompiler.interpreter.args.verbose:
+            self.disassemble_asm()
 
         # Make the actual call
         return self.function_pointer(*args)
@@ -821,7 +813,6 @@ class Allocator:
 
         # Passed all arguments on the stack
         for arg in args:
-            print("argument " + str(arg))
             encoded = asm.PUSH(arg).encode()
 
             self.code_offset = self.write_instruction(encoded, self.code_offset)
@@ -859,7 +850,6 @@ class Allocator:
     def disassemble_asm(self):
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
-            pass
             print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
     # Compiled a call to a C function which print the stack from the stack frame
@@ -890,4 +880,3 @@ class Allocator:
 
         # Restore rbp from the stack
         self.encode(asm.POP(asm.rbp))
-

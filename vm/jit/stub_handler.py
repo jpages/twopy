@@ -48,9 +48,6 @@ ffi.set_source("stub_module", """
         {
             uint64_t* rsp_address_patched = python_callback_bb_stub(id_stub, rsp_value);
 
-            //for(int i=15; i!=-15; i--)
-            //    printf("\\t %ld stack[%d] = %ld\\n", (long int)&rsp_value[i], i, rsp_value[i]);
-
             // Patch the return address to jump on the newly compiled block
             rsp_value[-1] = (long long int)rsp_address_patched;
         }
@@ -59,7 +56,7 @@ ffi.set_source("stub_module", """
         void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after)
         {
             // Callback to python to trigger the compilation of the function
-            uint64_t* function_address = python_callback_function_stub(name_id, code_id);
+            uint64_t* function_address = (uint64_t*)python_callback_function_stub(name_id, code_id);
                
             rsp = rsp + 1;
             
@@ -76,7 +73,6 @@ ffi.set_source("stub_module", """
             printf("Print the stack\\n");
             for(int i=-5; i!=5; i++)
                 printf("\\t %ld stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
-            //exit(0);
         }
 
         void print_data_section(uint64_t* array, int size)
@@ -164,14 +160,11 @@ class StubHandler:
 @ffi.def_extern()
 def python_callback_bb_stub(stub_id, rsp):
 
-    print("stub_id " + str(stub_id))
     # We must now trigger the compilation of the corresponding block
     stub = jitcompiler_instance.stub_dictionary[stub_id]
 
-    print("Stubs dictionnary before " + str(jitcompiler_instance.stub_dictionary))
+    # Delete the entry
     del jitcompiler_instance.stub_dictionary[stub_id]
-
-    print("Stubs dictionnary after " + str(jitcompiler_instance.stub_dictionary))
 
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
@@ -179,8 +172,8 @@ def python_callback_bb_stub(stub_id, rsp):
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
 
-    # TODO: disassemble asm here to test
-    stub.block.function.allocator.disassemble_asm()
+    if jitcompiler_instance.interpreter.args.verbose:
+        stub.block.function.allocator.disassemble_asm()
 
     # The new value of the RSP
     c_buffer = ffi.from_buffer(stub.block.function.allocator.code_section)
@@ -201,7 +194,8 @@ def python_callback_function_stub(name_id, code_id):
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
 
-    function.allocator.disassemble_asm()
+    if jitcompiler_instance.interpreter.args.verbose:
+        function.allocator.disassemble_asm()
 
     return function.allocator.code_address
 
