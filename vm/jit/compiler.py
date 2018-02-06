@@ -137,8 +137,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
                 print("Instruction compiled " + str(instruction))
 
-                allocator.encode(asm.INT(3))
-
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
 
@@ -236,8 +234,16 @@ class JITCompiler:
                 # Restore RBP for the caller
                 allocator.encode(asm.POP(asm.rbp))
 
-                # Finally return
-                allocator.encode(asm.RET())
+                # Saving return address in a register
+                allocator.encode(asm.POP(asm.rbx))
+
+                # Clean the stack an remove parameters on this call
+                for i in range(0, instruction.block.function.argcount+1):
+                    allocator.encode(asm.POP(asm.r10))
+
+                # Finally returning by jumping
+                allocator.encode(asm.JMP(asm.rbx))
+
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
