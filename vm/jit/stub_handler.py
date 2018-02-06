@@ -3,7 +3,6 @@
 # Handle the compilation of stub functions
 import cffi
 import peachpy.x86_64 as asm
-import math
 
 from . import compiler
 
@@ -299,7 +298,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = math.ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
@@ -311,3 +310,8 @@ class Stub:
 
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"
+
+# Ceil without using the math library
+def custom_ceil(n):
+    res = int(n)
+    return res if res == n or n < 0 else res+1

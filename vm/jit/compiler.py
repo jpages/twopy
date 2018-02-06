@@ -137,6 +137,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
                 print("Instruction compiled " + str(instruction))
 
+                allocator.encode(asm.INT(3))
+
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
 
@@ -224,8 +226,6 @@ class JITCompiler:
                 print("Instruction not compiled " + str(instruction))
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
                 print("Instruction compiled " + str(instruction))
-
-                allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -390,8 +390,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
                 print("Instruction compiled " + str(instruction))
 
-                #allocator.encode(asm.INT(3))
-
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -504,10 +502,10 @@ class JITCompiler:
             for block in instruction.block.next:
                 # If we need to make the jump
                 if block.instructions[0].offset == next_instruction.arguments:
-                    jump_block = block
+                    notjump_block = block
                 else:
                     # Continue the execution in the second block
-                    notjump_block = block
+                    jump_block = block
 
             old_stub_offset = mfunction.allocator.stub_offset
             old_code_offset = mfunction.allocator.code_offset
@@ -591,7 +589,7 @@ class JITCompiler:
         first_register = asm.r9
         mfunction.allocator.encode(asm.POP(second_register))
         mfunction.allocator.encode(asm.POP(first_register))
-        mfunction.allocator.encode(asm.CMP(second_register, first_register))
+        mfunction.allocator.encode(asm.CMP(first_register, second_register))
 
     # Define function for code allocation later
     def load_c_library(self):
