@@ -11,6 +11,7 @@ python3 -m pip install cffi
 
 ### Running
 
+Simple Fibonacci example:
 ```python
 def fib(n):
     if n<2:
