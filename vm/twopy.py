@@ -21,6 +21,9 @@ def main():
     parser.add_argument("--jit", action="store_true",
                         help="JIT compilation of the code")
 
+    parser.add_argument("--asm", action="store_true",
+                        help="Print generated assembly code")
+
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject

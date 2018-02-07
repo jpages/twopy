@@ -660,7 +660,7 @@ class Allocator:
         self.function.allocations = {}
 
         # Size of the code section
-        self.code_size = 500
+        self.code_size = 1000
 
         # Size of the data section
         self.data_size = 100
@@ -673,7 +673,7 @@ class Allocator:
         self.code_offset = 0
 
         # The stub pointer is in the end of the code section
-        self.stub_offset = 300
+        self.stub_offset = 400
 
         # Future code and data sections, will be allocated in C
         self.code_section = None
@@ -835,7 +835,7 @@ class Allocator:
     def __call__(self, *args):
 
         # #print the asm code
-        if self.jitcompiler.interpreter.args.verbose:
+        if self.jitcompiler.interpreter.args.asm:
             self.disassemble_asm()
 
         # Make the actual call
@@ -880,6 +880,9 @@ class Allocator:
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
+        if not self.jitcompiler.interpreter.args.asm:
+            return
+
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))

@@ -181,7 +181,7 @@ def python_callback_bb_stub(stub_id, rsp):
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
 
-    if jitcompiler_instance.interpreter.args.verbose:
+    if jitcompiler_instance.interpreter.args.asm:
         stub.block.function.allocator.disassemble_asm()
 
     # The new value of the RSP
@@ -203,7 +203,7 @@ def python_callback_function_stub(name_id, code_id):
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
 
-    if jitcompiler_instance.interpreter.args.verbose:
+    if jitcompiler_instance.interpreter.args.asm:
         function.allocator.disassemble_asm()
 
     return function.allocator.code_address
