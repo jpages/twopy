@@ -4,7 +4,7 @@ import frontend
 import interpreter
 import jit
 
-import argparse;
+import argparse
 import os.path
 
 def main():
