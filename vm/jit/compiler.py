@@ -185,7 +185,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BEFORE_ASYNC_WITH):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_ADD):
-                pass
+
+                allocator.encode(asm.POP(asm.r9))
+
+                # Perform the operation on the stack
+                allocator.encode(asm.ADD(asm.operand.MemoryOperand(asm.registers.rsp), asm.r9))
+
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_SUBTRACT):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MULTIPLY):
