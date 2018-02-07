@@ -5,7 +5,6 @@ import dis
 import importlib
 
 import frontend
-import jit
 
 # The singleton of the Interpreter
 simple_interpreter_instance = None

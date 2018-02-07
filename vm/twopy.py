@@ -31,9 +31,10 @@ def main():
     inter = interpreter.simple_interpreter.get_interpreter(maincode, head, args)
 
     if args.jit:
-        jitcompiler = jit.compiler.JITCompiler(inter)
+        jitcompiler = jit.compiler.JITCompiler(inter, maincode)
         inter.jitcompiler = jitcompiler
-
-    inter.execute()
+        jitcompiler.execute()
+    else:
+        inter.execute()
 
 main()

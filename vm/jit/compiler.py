@@ -23,7 +23,7 @@ import interpreter.simple_interpreter
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
     # For now keep a SimpleInterpreter instance
-    def __init__(self, simpleinterpreter):
+    def __init__(self, simpleinterpreter, maincode):
         self.interpreter = simpleinterpreter
 
         self.stub_handler = stub_handler.StubHandler(self)
@@ -40,6 +40,21 @@ class JITCompiler:
 
         # Load C library and create wrappers for python
         self.load_c_library()
+
+        # Main CodeObject
+        self.maincode = maincode
+
+        # Main module
+        self.mainmodule = self.interpreter.mainmodule
+
+    # Main function called by the launcher
+    def execute(self):
+        self.start()
+
+    # Start the execution
+    def start(self):
+        # Generate the main function and recursively other functions in module
+        self.interpreter.generate_function(self.maincode, "main", self.mainmodule, True)
 
     # Compile the function  in parameter to binary code
     # return the code instance
