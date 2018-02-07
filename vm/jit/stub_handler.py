@@ -33,7 +33,7 @@ ffi.cdef("""
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
         
-        // twopy lib
+        // twopy lib, print one integer
         void twopy_library_print_integer(int);
     """)
 
@@ -91,10 +91,9 @@ ffi.set_source("stub_module", """
         }
         
         // Print one integer on stdout
-        void twopy_library_print_integer(int toprint)
+        void twopy_library_print_integer(int value)
         {
-            printf("We are here\\n");
-            printf("%d\\n", toprint);
+            printf("%d\\n", value);
         }
     """)
 

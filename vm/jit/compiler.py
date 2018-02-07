@@ -68,7 +68,7 @@ class JITCompiler:
 
             if mfunction.name == "main" :
                 # Call the main with a random value
-                str(allocator(5))
+                str(allocator(42))
 
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
@@ -302,9 +302,7 @@ class JITCompiler:
 
                     allocator.encode(asm.MOV(asm.r9, function_addr))
                     allocator.encode(asm.PUSH(asm.r9))
-
-                    #print("STUB HANDLER " + str(function_addr))
-                    #print("Loading " + str(instruction) + ", name = " + name)
+                    allocator.primitive_loaded = True
                 else:
                     # Load a name in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -361,7 +359,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_GLOBAL):
-                pass
 
                 name = mfunction.names[instruction.arguments]
 
@@ -400,17 +397,22 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
+
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
+
+                # Special case for a call to a primitive function
+                if allocator.primitive_loaded:
+                    # Set the parameter for C
+                    allocator.encode(asm.MOV(asm.rdi, asm.operand.MemoryOperand(asm.registers.rsp - 32)))
+
+                    #allocator.primitive_loaded = False
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
                 # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
-
-                print("Instruction " + str(instruction))
-
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
                 pass
@@ -674,6 +676,10 @@ class Allocator:
         # If any, the size reserved for the prolog
         self.prolog_size = 0
 
+        # A primitive function has been loaded, the call will follow
+        # TODO: find something better
+        self.primitive_loaded = False
+
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.name == "main":
             self.compile_prolog([0])
@@ -823,23 +829,22 @@ class Allocator:
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self, args):
 
-        # Passed all arguments on the stack
-        for arg in args:
-            encoded = asm.PUSH(arg).encode()
-
-            self.code_offset = self.write_instruction(encoded, self.code_offset)
+        # Save rbp
+        self.encode(asm.PUSH(asm.rbp))
+        self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
         # Call the function just after this prolog
-        # Minus the size of the return
+        # Minus the size of the return and stack's cleaning
         offset = self.code_offset
-        self.code_offset = self.write_instruction(asm.CALL(asm.operand.RIPRelativeOffset(offset+2)).encode(), self.code_offset)
+        self.encode(asm.CALL(asm.operand.RIPRelativeOffset(offset+1)))
+
+        # Restore the stack
+        self.encode(asm.MOV(asm.registers.rsp, asm.rbp))
+        self.encode(asm.POP(asm.rbp))
 
         # Finally return to python
-        # Pop the parameter on the stack
-        self.code_offset = self.write_instruction(asm.POP(asm.r10).encode(), self.code_offset)
+        self.encode(asm.RET())
 
-        self.code_offset = self.write_instruction(asm.INT(3).encode(), self.code_offset)
-        self.code_offset = self.write_instruction(asm.RET().encode(), self.code_offset)
         self.prolog_size = self.code_offset
 
     # Write one instruction in the code section at a specified offset
@@ -860,7 +865,6 @@ class Allocator:
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
-        return
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
