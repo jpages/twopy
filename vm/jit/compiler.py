@@ -9,14 +9,13 @@ import sys
 import capstone
 
 import ctypes
-import types
 import mmap
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
-from peachpy.common.function import active_function
 
 from . import stub_handler
+from . import objects
 import interpreter.simple_interpreter
 
 
@@ -46,6 +45,9 @@ class JITCompiler:
 
         # Main module
         self.mainmodule = self.interpreter.mainmodule
+
+        # Tagging objects
+        self.tags = objects.TagHandler()
 
     # Main function called by the launcher
     def execute(self):
@@ -149,7 +151,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                pass
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
@@ -722,6 +723,9 @@ class Allocator:
     def allocate_const(self, instruction, value):
         if isinstance(value, int):
             # Put the integer value on the stack
+            tvalue = self.jitcompiler.tags.tag_integer(value)
+            print("Tagged value " + str(tvalue))
+
             self.encode(asm.PUSH(value))
         else:
             # For now assume it's consts
