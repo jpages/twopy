@@ -22,10 +22,15 @@ class TagHandler:
     def untag_integer(self, value):
         return value >> 2
 
-    def tag_float(self):
-        pass
+    # 101 -> True
+    # OO1 -> False
+    def tag_bool(self, value):
+        tag_value = value << 2
+        tag_value = tag_value | 1
 
-    def untag_float(self):
+        return tag_value
+
+    def untag_bool(self):
         pass
 
 

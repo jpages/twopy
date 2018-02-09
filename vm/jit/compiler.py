@@ -138,11 +138,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_POWER):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
-                pass
 
                 # Pop two values inside registers
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
+
+                #TODO: untag one of the integer to not duplicate the tag
 
                 # Make the sub and push the results
                 allocator.encode(asm.IMUL(asm.r8, asm.r9))
@@ -159,7 +160,6 @@ class JITCompiler:
                 allocator.encode(asm.ADD(asm.r8, asm.r9))
                 allocator.encode(asm.PUSH(asm.r8))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
-                pass
 
                 # Pop two values inside registers
                 allocator.encode(asm.POP(asm.r9))
@@ -256,7 +256,7 @@ class JITCompiler:
                 # Saving return address in a register
                 allocator.encode(asm.POP(asm.rbx))
 
-                # Clean the stack an remove parameters on this call
+                # Clean the stack and remove parameters on this call
                 for i in range(0, instruction.block.function.argcount+1):
                     allocator.encode(asm.POP(asm.r10))
 
@@ -404,7 +404,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
-                pass
 
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
@@ -721,12 +720,19 @@ class Allocator:
     # instruction : The instruction
     # value : the value to allocate
     def allocate_const(self, instruction, value):
-        if isinstance(value, int):
+
+        # Bool are considered integers in python, we need to check this first
+        if isinstance(value, bool):
+            tvalue = self.jitcompiler.tags.tag_bool(value)
+            self.encode(asm.PUSH(tvalue))
+        elif isinstance(value, int):
             # Put the integer value on the stack
             tvalue = self.jitcompiler.tags.tag_integer(value)
             print("Tagged value " + str(tvalue))
-
-            self.encode(asm.PUSH(tvalue))
+            self.encode(asm.PUSH(value))
+        elif isinstance(value, float):
+            # TODO: Encode a float
+            pass
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
