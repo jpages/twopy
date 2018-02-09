@@ -66,7 +66,6 @@ ffi.set_source("stub_module", """
 
             // Patch the return address
             rsp[-2] = (long long int)address_after;
-            
         }
 
         void print_stack(uint64_t* rsp)
@@ -91,6 +90,9 @@ ffi.set_source("stub_module", """
         // Print one integer on stdout
         void twopy_library_print_integer(int value)
         {
+            // Remove the integer tag
+            value = value >> 2;
+
             printf("%d\\n", value);
         }
     """)

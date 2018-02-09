@@ -729,7 +729,7 @@ class Allocator:
         elif isinstance(value, int):
             # Put the integer value on the stack
             tvalue = self.jitcompiler.tags.tag_integer(value)
-            self.encode(asm.PUSH(value))
+            self.encode(asm.PUSH(tvalue))
         elif isinstance(value, float):
             # TODO: Encode a float
             pass
