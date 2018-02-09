@@ -723,12 +723,12 @@ class Allocator:
 
         # Bool are considered integers in python, we need to check this first
         if isinstance(value, bool):
+            # Tag a boolean
             tvalue = self.jitcompiler.tags.tag_bool(value)
             self.encode(asm.PUSH(tvalue))
         elif isinstance(value, int):
             # Put the integer value on the stack
             tvalue = self.jitcompiler.tags.tag_integer(value)
-            print("Tagged value " + str(tvalue))
             self.encode(asm.PUSH(value))
         elif isinstance(value, float):
             # TODO: Encode a float
