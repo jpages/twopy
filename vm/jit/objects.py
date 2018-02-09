@@ -16,11 +16,11 @@ class TagHandler:
 
     # Tag an integer
     def tag_integer(self, value):
-        return value * 4
+        return value << 2
 
     # Untag an integer
-    def untag_integer(self):
-        pass
+    def untag_integer(self, value):
+        return value >> 2
 
     def tag_float(self):
         pass

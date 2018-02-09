@@ -703,7 +703,7 @@ class Allocator:
 
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.name == "main":
-            self.compile_prolog([0])
+            self.compile_prolog()
 
     # Compile the loading of arguments of the function
     def arguments_loading(self):
@@ -726,7 +726,7 @@ class Allocator:
             tvalue = self.jitcompiler.tags.tag_integer(value)
             print("Tagged value " + str(tvalue))
 
-            self.encode(asm.PUSH(value))
+            self.encode(asm.PUSH(tvalue))
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
@@ -851,7 +851,7 @@ class Allocator:
         return self.function_pointer(*args)
 
     # Compile a fraction of code to call the correct function with its parameters
-    def compile_prolog(self, args):
+    def compile_prolog(self):
 
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))

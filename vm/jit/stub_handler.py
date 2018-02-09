@@ -4,8 +4,6 @@
 import cffi
 import peachpy.x86_64 as asm
 
-from . import compiler
-
 # The following definitions must be top-level to facilitate the interface with C
 # Use the CFFI to define C functions which are callable from assembly
 ffi = cffi.FFI()
@@ -275,7 +273,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = math.ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
