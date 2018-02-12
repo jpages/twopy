@@ -127,6 +127,11 @@ class StubHandler:
         # Put a NOP instruction for now to get the offset
         address = mfunction.allocator.encode_stub(asm.NOP())
 
+        stub_label = "Stub_label_" + str(stub_id)
+
+        # Save the association
+        mfunction.allocator.jump_labels[address] = stub_label
+
         # Calling convention of x86_64 for Unix platforms here
         mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
 
@@ -152,10 +157,12 @@ class StubHandler:
         # The call to that will be compiled after the stub compilation is over
         address = mfunction.allocator.encode_stub(asm.LABEL(stub_label))
 
+        # Save the association
+        mfunction.allocator.jump_labels[address] = asm.LABEL(stub_label)
+
         # Save the RSP to patch it after
         mfunction.allocator.encode_stub(asm.MOV(asm.rcx, asm.registers.rsp))
         mfunction.allocator.encode_stub(asm.MOV(asm.r8, address_after))
-
 
         # Call the stub function in C
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "function_stub")))

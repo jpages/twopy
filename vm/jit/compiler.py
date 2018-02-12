@@ -71,6 +71,9 @@ class JITCompiler:
                 for i in mfunction.all_instructions:
                     print("\t " + str(i))
 
+            # Create a versioning handler for the function
+            versioning = Versioning(mfunction)
+
             # Try to access the attribute allocator of the function
             allocator = Allocator(mfunction, self)
             mfunction.allocator = allocator
@@ -435,7 +438,6 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
-                pass
 
                 nbargs = 2 # The name and the code object
 
@@ -700,6 +702,9 @@ class Allocator:
         # TODO: find something better
         self.primitive_loaded = False
 
+        # Association between labels and addresses to print them
+        self.jump_labels = dict()
+
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.name == "main":
             self.compile_prolog()
@@ -900,7 +905,11 @@ class Allocator:
 
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
-            print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+            # Print labels
+            if i.address in self.jump_labels:
+                print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
+            print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
         print("\n")
 
     # Compiled a call to a C function which print the stack from the stack frame
@@ -931,3 +940,36 @@ class Allocator:
 
         # Restore rbp from the stack
         self.encode(asm.POP(asm.rbp))
+
+
+# Represent all versions of a function
+class Versioning:
+    def __init__(self, mfunction):
+        self.mfunction = mfunction
+
+        self.context = None
+
+        # Create the generic version
+        self.versions = []
+        self.generic_version = None
+
+    # Create a context for this version
+    def create_context(self):
+        self.context = Context(self)
+
+    def create_generic_version(self):
+        version = Version(self)
+        version.push(version)
+
+        self.generic_version = version
+
+# A particular version
+class Version:
+    def __init__(self, versioning):
+        self.versioning = versioning
+
+# Attached to a version, contains informations about versioning, stack size etc.
+class Context:
+    # version The version of the function
+    def __init__(self, version):
+        self.version = version
