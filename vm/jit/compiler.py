@@ -75,7 +75,7 @@ class JITCompiler:
             versioning = Versioning(mfunction)
 
             # Try to access the attribute allocator of the function
-            allocator = Allocator(mfunction, self)
+            allocator = Allocator(mfunction, self, versioning)
             mfunction.allocator = allocator
 
             allocator.arguments_loading()
@@ -659,9 +659,10 @@ class JITCompiler:
 
 # Allocate and handle the compilation of a function
 class Allocator:
-    def __init__(self, mfunction, jitcompiler):
+    def __init__(self, mfunction, jitcompiler, versioning):
         self.function = mfunction
         self.jitcompiler = jitcompiler
+        self.versioning = versioning
 
         # # Mapping between variables names and memory
         self.function.allocations = {}
@@ -750,7 +751,6 @@ class Allocator:
         # TODO: handle other types
         # Depending of the type of the value, do different things
 
-
     # Encode and store in memory one instruction
     # instruction = the asm.Instruction to encode
     def encode(self, instruction):
@@ -834,10 +834,6 @@ class Allocator:
 
     # Create a pointer to the compiled function
     def create_function_pointer(self):
-        # TODO: Adapt types to the correct ones
-        # result_type = None if function.result_type is None else function.result_type.as_ctypes_type
-        # argument_types = [arg.c_type.as_ctypes_type for arg in function.arguments]
-
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
         self.function_pointer = self.function_type(self.code_address)
 
@@ -845,8 +841,7 @@ class Allocator:
     def get_local_variable(self, argument):
         varname = self.function.varnames[argument]
 
-        # TODO: correct computation of parameter address
-        offset = 16 * (argument+1)
+        offset = self.versioning.current_version().context.get_offset(argument)
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
 
         return asm.r9
@@ -947,29 +942,42 @@ class Versioning:
     def __init__(self, mfunction):
         self.mfunction = mfunction
 
-        self.context = None
-
         # Create the generic version
         self.versions = []
         self.generic_version = None
 
-    # Create a context for this version
-    def create_context(self):
-        self.context = Context(self)
+        self.create_generic_version()
 
     def create_generic_version(self):
-        version = Version(self)
-        version.push(version)
+        version = Version(self, Context())
+        self.versions.append(version)
 
         self.generic_version = version
 
+    # Return the version currently compiled
+    def current_version(self):
+        return self.generic_version
+
+
 # A particular version
 class Version:
-    def __init__(self, versioning):
+    def __init__(self, versioning, context):
         self.versioning = versioning
+        self.context = context
 
-# Attached to a version, contains informations about versioning, stack size etc.
+        self.context.version = self
+
+
+# Attached to a version, contains information about versioning, stack size etc.
 class Context:
     # version The version of the function
-    def __init__(self, version):
-        self.version = version
+    def __init__(self):
+        self.version = None
+
+        self.stack_size = 0
+
+    # Get the offset from the rsp for the local variable number nbvariable
+    def get_offset(self, nbvariable):
+        res = 16 * (nbvariable + 1)
+
+        return res
