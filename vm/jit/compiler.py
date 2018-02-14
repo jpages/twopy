@@ -15,6 +15,7 @@ import mmap
 import peachpy.x86_64 as asm
 
 from . import stub_handler
+import frontend
 from . import objects
 import interpreter.simple_interpreter
 
@@ -55,8 +56,56 @@ class JITCompiler:
 
     # Start the execution
     def start(self):
+        # Start by compiling standard library
+        self.compile_std_lib()
+
         # Generate the main function and recursively other functions in module
         self.interpreter.generate_function(self.maincode, "main", self.mainmodule, True)
+
+    # Compile the standard library
+    def compile_std_lib(self):
+
+        library_code = frontend.compiler.compile("jit/standard_library.py", self.interpreter.args)
+
+        # Force the compilation of std functions
+        stdlib_function = self.interpreter.generate_function(library_code, "std_lib", self.mainmodule, True)
+        self.compile_function(stdlib_function)
+
+    # Compile a standard function
+    def compile_std_function(self, mfunction):
+
+        # For now we just have the print here
+        if mfunction.name == "twopy_print":
+            print("Compilation of the print")
+
+            # Make a call to C for the print
+
+            # Move the parameter inside rdi to respect the calling convention
+            mfunction.allocator.encode(asm.MOV(asm.rdi, mfunction.allocator.get_local_variable(0)))
+
+            # Move the C-print address inside r9
+            addr = int(stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "twopy_library_print_integer")))
+            mfunction.allocator.encode(asm.MOV(asm.r9, addr))
+
+            # The return instruction will clean the stack
+            mfunction.allocator.encode(asm.CALL(asm.r9))
+
+            # The return value is in rax
+
+            # Saving return address in a register
+            mfunction.allocator.encode(asm.POP(asm.rbx))
+
+            # Clean the stack and remove parameters on this call
+            for i in range(0, mfunction.argcount + 1):
+                # Remove print parameters
+                mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # Finally returning by jumping
+            mfunction.allocator.encode(asm.JMP(asm.rbx))
+
+            stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
+        else:
+            print("Not yet implemented")
 
     # Compile the function  in parameter to binary code
     # return the code instance
@@ -80,13 +129,17 @@ class JITCompiler:
 
             allocator.arguments_loading()
 
-            # Start the compilation of the first basic block
-            self.compile_instructions(mfunction, mfunction.start_basic_block)
+            # Special case for
+            if mfunction.name in stub_handler.twopy_primitives:
+                self.compile_std_function(mfunction)
+            else:
+                # Start the compilation of the first basic block
+                self.compile_instructions(mfunction, mfunction.start_basic_block)
 
             # Associate this function with its address
             self.dict_compiled_functions[mfunction] = allocator.code_address + allocator.prolog_size
 
-            if mfunction.name == "main" :
+            if mfunction.name == "main" or mfunction.name == "std_lib":
                 # Call the main with a random value
                 str(allocator(42))
 
@@ -146,7 +199,8 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
 
-                #TODO: untag one of the integer to not duplicate the tag
+                # Untag one of the integer to not duplicate the tag
+                allocator.encode(asm.SHR(asm.r8, 2))
 
                 # Make the sub and push the results
                 allocator.encode(asm.IMUL(asm.r8, asm.r9))
@@ -281,8 +335,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
-                pass
-
                 # Store a name in the local environment
                 allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
@@ -322,13 +374,12 @@ class JITCompiler:
 
                 # We are loading something from builtins
                 if name in stub_handler.primitive_addresses:
-                    function_addr = stub_handler.primitive_addresses[name]
+                    function_address = stub_handler.primitive_addresses[name]
 
-                    allocator.encode(asm.MOV(asm.r9, function_addr))
+                    allocator.encode(asm.MOV(asm.r9, function_address))
                     allocator.encode(asm.PUSH(asm.r9))
-                    allocator.primitive_loaded = True
                 else:
-                    # Load a name in the local environment
+                    # Load a name (a variable) in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
                     # Offset of the instruction's argument + r9 value
@@ -423,14 +474,6 @@ class JITCompiler:
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
-
-                # Special case for a call to a primitive function
-                if allocator.primitive_loaded:
-                    # Set the parameter for C
-                    allocator.encode(asm.MOV(asm.rdi, asm.operand.MemoryOperand(asm.registers.rsp)))
-
-                    # TODO: Need to discard the parameter of this call on the stack
-                    #allocator.primitive_loaded = False
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
@@ -700,10 +743,6 @@ class Allocator:
         # If any, the size reserved for the prolog
         self.prolog_size = 0
 
-        # A primitive function has been loaded, the call will follow
-        # TODO: find something better
-        self.primitive_loaded = False
-
         # Association between labels and addresses to print them
         self.jump_labels = dict()
 
@@ -790,8 +829,6 @@ class Allocator:
     def encode_stub(self, instruction):
         encoded = instruction.encode()
 
-        #self.versioning.current_version().new_instruction(instruction)
-
         stub_offset_beginning = self.stub_offset
 
         # Now, put the instruction in the end of the code section
@@ -848,7 +885,6 @@ class Allocator:
 
         offset = self.versioning.current_version().context.get_offset(argument)
 
-        #self.encode(asm.INT(3))
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
@@ -905,6 +941,7 @@ class Allocator:
         if not self.jitcompiler.interpreter.args.asm:
             return
 
+        print("Function " + str(self.function.name))
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
             # Print labels

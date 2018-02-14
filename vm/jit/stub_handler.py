@@ -32,7 +32,7 @@ ffi.cdef("""
         uint64_t get_address(char* bytearray, int index);
         
         // twopy lib, print one integer
-        void twopy_library_print_integer(int);
+        int twopy_library_print_integer(int);
     """)
 
 # C Sources
@@ -88,14 +88,14 @@ ffi.set_source("stub_module", """
         }
         
         // Print one integer on stdout
-        void twopy_library_print_integer(int value)
+        int twopy_library_print_integer(int value)
         {
             // Remove the integer tag
-            //value = value >> 2;
+            value = value >> 2;
             
             printf("%d\\n", value);
-
-            asm("INT3");
+            
+            return value;
         }
     """)
 
@@ -328,6 +328,74 @@ def custom_ceil(n):
     res = int(n)
     return res if res == n or n < 0 else res+1
 
+twopy_primitives = [
+"twopy_abs",
+"twopy_dict",
+"twopy_help",
+"twopy_min",
+"twopy_setattr",
+"twopy_all",
+"twopy_dir",
+"twopy_hex",
+"twopy_next",
+"twopy_slice",
+"twopy_any",
+"twopy_divmod",
+"twopy_id",
+"twopy_object",
+"twopy_sorted",
+"twopy_ascii",
+"twopy_enumerate",
+"twopy_input",
+"twopy_oct",
+"twopy_staticmethod",
+"twopy_bin",
+"twopy_eval",
+"twopy_int",
+"twopy_open",
+"twopy_str",
+"twopy_bool",
+"twopy_exec",
+"twopy_isinstance",
+"twopy_ord",
+"twopy_sum",
+"twopy_bytearray",
+"twopy_filter",
+"twopy_issubclass",
+"twopy_pow",
+"twopy_super",
+"twopy_bytes",
+"twopy_float",
+"twopy_iter",
+"twopy_print",
+"twopy_tuple",
+"twopy_callable",
+"twopy_format",
+"twopy_len",
+"twopy_property",
+"twopy_type",
+"twopy_chr",
+"twopy_frozenset",
+"twopy_list",
+"twopy_range",
+"twopy_vars",
+"twopy_classmethod",
+"twopy_getattr",
+"twopy_locals",
+"twopy_repr",
+"twopy_zip",
+"twopy_globals",
+"twopy_map",
+"twopy_reversed",
+"twopy___import__",
+"twopy_complex",
+"twopy_hasattr",
+"twopy_max",
+"twopy_round",
+"twopy_hash",
+"twopy_delattr",
+"twopy_memoryview",
+"twopy_set"]
 
 # Dictionnary between names and primitive function addresses
 primitive_addresses = {
@@ -369,7 +437,7 @@ primitive_addresses = {
 "bytes" : bytes,
 "float" : float,
 "iter" : iter,
-"print" : int(ffi.cast("intptr_t", ffi.addressof(lib, "twopy_library_print_integer"))),
+"print" : 0,
 "tuple" : tuple,
 "callable" : callable,
 "format" : format,
