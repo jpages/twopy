@@ -91,9 +91,11 @@ ffi.set_source("stub_module", """
         void twopy_library_print_integer(int value)
         {
             // Remove the integer tag
-            value = value >> 2;
-
+            //value = value >> 2;
+            
             printf("%d\\n", value);
+
+            asm("INT3");
         }
     """)
 

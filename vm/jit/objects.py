@@ -16,7 +16,8 @@ class TagHandler:
 
     # Tag an integer
     def tag_integer(self, value):
-        return value << 2
+        return value
+        #return value << 2
 
     # Untag an integer
     def untag_integer(self, value):

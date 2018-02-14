@@ -251,10 +251,10 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.rax))
 
                 # Now we need to clean the stack by modifying rsp
-                allocator.encode(asm.MOV(asm.registers.rsp, asm.rbp))
+                #allocator.encode(asm.MOV(asm.registers.rsp, asm.rbp))
 
                 # Restore RBP for the caller
-                allocator.encode(asm.POP(asm.rbp))
+                #allocator.encode(asm.POP(asm.rbp))
 
                 # Saving return address in a register
                 allocator.encode(asm.POP(asm.rbx))
@@ -427,8 +427,9 @@ class JITCompiler:
                 # Special case for a call to a primitive function
                 if allocator.primitive_loaded:
                     # Set the parameter for C
-                    allocator.encode(asm.MOV(asm.rdi, asm.operand.MemoryOperand(asm.registers.rsp - 32)))
+                    allocator.encode(asm.MOV(asm.rdi, asm.operand.MemoryOperand(asm.registers.rsp)))
 
+                    # TODO: Need to discard the parameter of this call on the stack
                     #allocator.primitive_loaded = False
 
                 # The return instruction will clean the stack
@@ -719,8 +720,8 @@ class Allocator:
         self.function.allocations = {}
 
         # Constructing a new stack frame by saving rbp
-        self.encode(asm.PUSH(asm.rbp))
-        self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
+        #self.encode(asm.PUSH(asm.rbp))
+        #self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
@@ -756,6 +757,8 @@ class Allocator:
     def encode(self, instruction):
         encoded = instruction.encode()
 
+        self.versioning.current_version().new_instruction(instruction)
+
         # Store each byte in memory and update code_offset
         self.code_offset = self.write_instruction(encoded, self.code_offset)
 
@@ -786,6 +789,8 @@ class Allocator:
     # Return the address of the beginning of the instruction in the bytearray
     def encode_stub(self, instruction):
         encoded = instruction.encode()
+
+        #self.versioning.current_version().new_instruction(instruction)
 
         stub_offset_beginning = self.stub_offset
 
@@ -839,10 +844,12 @@ class Allocator:
 
     # Get the local variable from the number in parameter
     def get_local_variable(self, argument):
-        varname = self.function.varnames[argument]
+        #varname = self.function.varnames[argument]
 
         offset = self.versioning.current_version().context.get_offset(argument)
-        self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rbp + offset)))
+
+        #self.encode(asm.INT(3))
+        self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
 
@@ -866,7 +873,7 @@ class Allocator:
         # Call the function just after this prolog
         # Minus the size of the return and stack's cleaning
         offset = self.code_offset
-        self.encode(asm.CALL(asm.operand.RIPRelativeOffset(offset+1)))
+        self.encode(asm.CALL(asm.operand.RIPRelativeOffset(offset + 1)))
 
         # Restore the stack
         self.encode(asm.MOV(asm.registers.rsp, asm.rbp))
@@ -910,7 +917,7 @@ class Allocator:
     # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):
 
-        self.encode(asm.MOV(asm.rdi, asm.registers.rbp))
+        self.encode(asm.MOV(asm.rdi, asm.registers.rsp))
         reg_id = asm.r10
 
         function_address = int(
@@ -920,9 +927,6 @@ class Allocator:
 
     # Compiled a call to a C function which print the data section
     def print_data_section(self):
-        # Save rbp
-        self.encode(asm.PUSH(asm.rbp))
-
         self.encode(asm.MOV(asm.rdi, self.data_address))
         self.encode(asm.MOV(asm.rsi, 50))
 
@@ -932,9 +936,6 @@ class Allocator:
             stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "print_data_section")))
         self.encode(asm.MOV(reg_id, function_address))
         self.encode(asm.CALL(reg_id))
-
-        # Restore rbp from the stack
-        self.encode(asm.POP(asm.rbp))
 
 
 # Represent all versions of a function
@@ -967,6 +968,14 @@ class Version:
 
         self.context.version = self
 
+    # Called each time an instruction is encoded
+    def new_instruction(self, instruction):
+        # Keep track of the stack size
+        if isinstance(instruction, asm.PUSH):
+            self.context.stack_size += 1
+        elif isinstance(instruction, asm.POP):
+            self.context.stack_size -= 1
+
 
 # Attached to a version, contains information about versioning, stack size etc.
 class Context:
@@ -978,6 +987,6 @@ class Context:
 
     # Get the offset from the rsp for the local variable number nbvariable
     def get_offset(self, nbvariable):
-        res = 16 * (nbvariable + 1)
+        res = (8 * self.stack_size) + 8*(1 + nbvariable)
 
         return res
