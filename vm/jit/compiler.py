@@ -76,7 +76,6 @@ class JITCompiler:
 
         # For now we just have the print here
         if mfunction.name == "twopy_print":
-            print("Compilation of the print")
 
             # Make a call to C for the print
 
@@ -304,14 +303,12 @@ class JITCompiler:
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
-                # Now we need to clean the stack by modifying rsp
-                #allocator.encode(asm.MOV(asm.registers.rsp, asm.rbp))
-
-                # Restore RBP for the caller
-                #allocator.encode(asm.POP(asm.rbp))
-
                 # Saving return address in a register
                 allocator.encode(asm.POP(asm.rbx))
+
+                # Keep the stack size correct
+                for i in range(0, instruction.block.function.argcount + 1):
+                    allocator.versioning.current_version().context.increase_stack_size()
 
                 # Clean the stack and remove parameters on this call
                 for i in range(0, instruction.block.function.argcount+1):
@@ -362,14 +359,11 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_GLOBAL):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
-                pass
-
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
                 block.function.allocator.allocate_const(instruction, value)
 
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
-
                 name = instruction.function.names[instruction.arguments]
 
                 # We are loading something from builtins
@@ -477,6 +471,9 @@ class JITCompiler:
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
+
+                for i in range(0, instruction.block.function.argcount + 1):
+                    allocator.versioning.current_version().context.decrease_stack_size()
 
                 # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
@@ -758,10 +755,6 @@ class Allocator:
         # Mapping between variables names and memory
         self.function.allocations = {}
 
-        # Constructing a new stack frame by saving rbp
-        #self.encode(asm.PUSH(asm.rbp))
-        #self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
-
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
     # value : the value to allocate
@@ -881,8 +874,6 @@ class Allocator:
 
     # Get the local variable from the number in parameter
     def get_local_variable(self, argument):
-        #varname = self.function.varnames[argument]
-
         offset = self.versioning.current_version().context.get_offset(argument)
 
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
@@ -1009,9 +1000,9 @@ class Version:
     def new_instruction(self, instruction):
         # Keep track of the stack size
         if isinstance(instruction, asm.PUSH):
-            self.context.stack_size += 1
+            self.context.increase_stack_size()
         elif isinstance(instruction, asm.POP):
-            self.context.stack_size -= 1
+            self.context.decrease_stack_size()
 
 
 # Attached to a version, contains information about versioning, stack size etc.
@@ -1022,8 +1013,13 @@ class Context:
 
         self.stack_size = 0
 
+    def increase_stack_size(self):
+        self.stack_size += 1
+
+    def decrease_stack_size(self):
+        self.stack_size -= 1
+
     # Get the offset from the rsp for the local variable number nbvariable
     def get_offset(self, nbvariable):
         res = (8 * self.stack_size) + 8*(1 + nbvariable)
-
         return res
