@@ -126,8 +126,6 @@ class JITCompiler:
             allocator = Allocator(mfunction, self, versioning)
             mfunction.allocator = allocator
 
-            allocator.arguments_loading()
-
             # Special case for
             if mfunction.name in stub_handler.twopy_primitives:
                 self.compile_std_function(mfunction)
@@ -746,14 +744,6 @@ class Allocator:
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.name == "main":
             self.compile_prolog()
-
-    # Compile the loading of arguments of the function
-    def arguments_loading(self):
-
-        # FIXME: for now all parameters are 64 bits integers
-
-        # Mapping between variables names and memory
-        self.function.allocations = {}
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
