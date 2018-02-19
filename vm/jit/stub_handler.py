@@ -90,10 +90,8 @@ ffi.set_source("stub_module", """
         // Print one integer on stdout
         int twopy_library_print_integer(int value)
         {
-            // Remove the integer tag
-            value = value >> 2;
-            
-            printf("%d\\n", value);
+            // Remove the integer tag for the print
+            printf("%d\\n", value >> 2);
             
             return value;
         }
