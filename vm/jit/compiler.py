@@ -196,8 +196,9 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
 
-                # Untag one of the integer to not duplicate the tag
-                allocator.encode(asm.SHR(asm.r8, 2))
+                # Untag the value to not duplicate the tag
+                ins = self.tags.untag_asm(asm.r8)
+                allocator.encode(ins)
 
                 # Make the sub and push the results
                 allocator.encode(asm.IMUL(asm.r8, asm.r9))
@@ -206,6 +207,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
+                self.tags.binary_operation("add")
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
