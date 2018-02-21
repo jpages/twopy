@@ -163,16 +163,13 @@ class StubHandler:
     def compile_stub(self, mfunction, stub_id):
 
         # The call to that will be compiled after the stub compilation is over
-        # Put a NOP instruction for now to get the offset
-        address = mfunction.allocator.encode_stub(asm.NOP())
-
         stub_label = "Stub_label_" + str(stub_id)
+
+        # Calling convention of x86_64 for Unix platforms here
+        address = mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
 
         # Save the association
         mfunction.allocator.jump_labels[address] = stub_label
-
-        # Calling convention of x86_64 for Unix platforms here
-        mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
 
         # Now we store the stack pointer to patch it later
         mfunction.allocator.encode_stub(asm.MOV(asm.rsi, asm.registers.rsp))
