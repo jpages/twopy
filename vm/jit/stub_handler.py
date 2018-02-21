@@ -11,7 +11,7 @@ ffi = cffi.FFI()
 # Define the stub_function and the callback for python
 ffi.cdef("""
         // The function called by the assembly jited code to compile a given basic block
-        void bb_stub(uint64_t id_stub, uint64_t* rsp);
+        void bb_stub(uint64_t* rsp);
 
         // Stub for a function compilation
         void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after);
@@ -45,12 +45,16 @@ ffi.set_source("stub_module", """
         
         static uint64_t python_callback_function_stub(uint64_t, uint64_t);
 
-        void bb_stub(uint64_t id_stub, uint64_t* rsp_value)
-        {
-            uint64_t* rsp_address_patched = python_callback_bb_stub(id_stub, rsp_value);
+        void bb_stub(uint64_t* rsp)
+        {   
+            // Read values after the stub
+            uint64_t* code_address = (uint64_t*)rsp[-1];
+            long int val = (long int)code_address[0];
+
+            uint64_t* rsp_address_patched = python_callback_bb_stub(val, rsp);
 
             // Patch the return address to jump on the newly compiled block
-            rsp_value[-1] = (long long int)rsp_address_patched;
+            rsp[-1] = (long long int)rsp_address_patched;
         }
 
         // Handle the compilation of a function's stub
@@ -165,14 +169,11 @@ class StubHandler:
         # The call to that will be compiled after the stub compilation is over
         stub_label = "Stub_label_" + str(stub_id)
 
-        # Calling convention of x86_64 for Unix platforms here
-        address = mfunction.allocator.encode_stub(asm.MOV(asm.rdi, stub_id))
+        # Now we store the stack pointer to patch it later
+        address = mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
         # Save the association
         mfunction.allocator.jump_labels[address] = stub_label
-
-        # Now we store the stack pointer to patch it later
-        mfunction.allocator.encode_stub(asm.MOV(asm.rsi, asm.registers.rsp))
 
         reg_id = asm.r10
 
@@ -180,6 +181,12 @@ class StubHandler:
         mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
 
         mfunction.allocator.encode_stub(asm.CALL(reg_id))
+
+        # Put some values after the stub to read them from C with the rsp
+        stub_id_bytes = stub_id.to_bytes(stub_id.bit_length(), "little")
+
+        offset = mfunction.allocator.stub_offset
+        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(stub_id_bytes, offset)
 
         return address
 
