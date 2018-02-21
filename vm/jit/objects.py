@@ -5,6 +5,8 @@ This module contains the representations used by the JIT compiler
 import sys
 import peachpy.x86_64 as asm
 
+from . import stub_handler
+
 # Define methods to tag and untag objects
 class TagHandler:
 
@@ -43,6 +45,7 @@ class TagHandler:
         return asm.SHR(register, 2)
 
     # Test if the value inside register is an int
+    # Return the test sequence as PeachPy instructions in a list
     def is_int_asm(self, register):
         # 7FFF FFFF FFFF FFFF max value for a 64 bits signed integer
         max_value = sys.maxsize
@@ -59,13 +62,18 @@ class TagHandler:
         test_value = 0b11
 
         # Now compare
-        instructions.append(asm.AND(register, test_value))
+        instructions.append(asm.AND(asm.r12, test_value))
 
         # The result should be 0 if we have an int
-        instructions.append(asm.CMP(register, 0))
+        instructions.append(asm.CMP(asm.r12, 0))
 
         # Make the jumps according to the result
         return instructions
+
+    # Test if the value inside register is a float
+    # Return the test sequence as PeachPy instructions in a list
+    def is_float_asm(self, register):
+        return None
 
     # Handle all binary operations and check types
     def binary_operation(self, opname):
@@ -79,25 +87,37 @@ class TagHandler:
         instructions.append(asm.POP(x_register))
         instructions.append(asm.POP(y_register))
 
-        if self.is_int_asm(x_register):
-            if self.is_int_asm(y_register):
-                # TODO: Check overflow
-                # res = add_int_overflow(x, y)
+        # Generate a test for the first variable
+        test_instructions = self.is_int_asm(x_register)
+        instructions.append(test_instructions)
 
-                # Just add the two integers
-                instructions.append(asm.ADD(x_register, y_register))
-                return instructions
-            else:
-                # Convert x to float and add
-                return add_float(int_to_float(x), y)
-        elif is_float(x):
-            if if_int(y):
-                return add_float(x, int_to_float(y))
-            elif is_float(y):
-                return add_float(x, y)
+        # Code for true and false branchs
+        true_branch = self.is_int_asm(y_register)
+        false_branch = self.is_float_asm(y_register)
 
-        # TODO: General case, call the + function from standard library
-        return x.__add__(y)
+        #TODO:
+
+        stub = stub_handler.StubType(instructions, true_branch, false_branch)
+
+
+        #     if self.is_int_asm(y_register):
+        #         # TODO: Check overflow
+        #         # res = add_int_overflow(x, y)
+        #
+        #         # Just add the two integers
+        #         instructions.append(asm.ADD(x_register, y_register))
+        #         return instructions
+        #     else:
+        #         # Convert x to float and add
+        #         return add_float(int_to_float(x), y)
+        # elif is_float(x):
+        #     if if_int(y):
+        #         return add_float(x, int_to_float(y))
+        #     elif is_float(y):
+        #         return add_float(x, y)
+        #
+        # # TODO: General case, call the + function from standard library
+        # return x.__add__(y)
 
 
 class Object:

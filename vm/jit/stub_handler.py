@@ -321,6 +321,18 @@ class Stub:
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"
 
+# A class to generate stub for type tests
+class StubType(Stub):
+    # instructions : the instruction to encode
+    # true : instructions for the true branch
+    # false : instructions for the false branch
+    def __init__(self, instructions, true_branch, false_branch):
+        print("new Stub type")
+
+
+
+
+
 # Ceil without using the math library
 def custom_ceil(n):
     res = int(n)
