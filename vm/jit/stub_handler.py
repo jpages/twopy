@@ -118,6 +118,45 @@ class StubHandler:
         global stubhandler_instance
         stubhandler_instance = self
 
+        # Dictionary between stub ids and blocks to compile
+        self.stub_dictionary = {}
+
+    # Compile a stub because of a branch instruction
+    # mfunction : The current compiled function
+    # true_block : if the condition is true jump to this basic block
+    # false_block : if the condition is false jump to this basic block
+    def compile_bb_stub(self, mfunction, true_block, false_block):
+
+        # Save both offsets
+        old_stub_offset = mfunction.allocator.stub_offset
+        old_code_offset = mfunction.allocator.code_offset
+
+        # Compile a stub for each branch
+        self.compile_stub(mfunction, id(true_block))
+
+        address_false = self.compile_stub(mfunction, id(false_block))
+
+        # And update the dictionary of ids and blocks
+        # Compute the offset to the stub, by adding the size of the JL instruction
+        offset = old_stub_offset - old_code_offset
+        peachpy_instruction = asm.JL(asm.operand.RIPRelativeOffset(offset - 6))
+
+        mfunction.allocator.encode(peachpy_instruction)
+
+        jump_stub = StubBB(true_block, peachpy_instruction, old_code_offset)
+        self.stub_dictionary[id(true_block)] = jump_stub
+
+        # For now, jump to the newly compiled stub,
+        # This code will be patched later
+        old_code_offset = mfunction.allocator.code_offset
+        peachpy_instruction = asm.MOV(asm.r10, address_false)
+        mfunction.allocator.encode(peachpy_instruction)
+        mfunction.allocator.encode(asm.JMP(asm.r10))
+
+        # We store the MOV into the register as the jumping instruction, we just need to patch this
+        notjump_stub = StubBB(false_block, peachpy_instruction, old_code_offset)
+        self.stub_dictionary[id(false_block)] = notjump_stub
+
     # Compile a call to a stub with an identifier
     # mfunction: The simple_interpreter.Function
     # stub_id : The id the identifier of the block
@@ -177,10 +216,10 @@ class StubHandler:
 def python_callback_bb_stub(stub_id, rsp):
 
     # We must now trigger the compilation of the corresponding block
-    stub = jitcompiler_instance.stub_dictionary[stub_id]
+    stub = stubhandler_instance.stub_dictionary[stub_id]
 
     # Delete the entry
-    del jitcompiler_instance.stub_dictionary[stub_id]
+    del stubhandler_instance.stub_dictionary[stub_id]
 
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
@@ -217,13 +256,8 @@ def python_callback_function_stub(name_id, code_id):
 
 # Used to patch the code after the compilation of a stub
 class Stub:
-    # block : The BasicBlock compiled by this stub
-    # instruction : The peachpy assembly instruction which jump to the stub
-    # position : position of this instruction in the code segment (offset of the beginning)
-    def __init__(self, block, instruction, position):
-        self.block = block
-        self.instruction = instruction
-        self.position = position
+    def __init__(self):
+        pass
 
     # Patch the instruction after the stub compilation
     # first_offset : offset of the first instruction newly compiled in the block
@@ -318,8 +352,25 @@ class Stub:
         else:
             print("Not yet implemented patch")
 
+# A stub for a basic block compilation
+class StubBB(Stub):
+    # block : The BasicBlock compiled by this stub
+    # instruction : The peachpy assembly instruction which jump to the stub
+    # position : position of this instruction in the code segment (offset of the beginning)
+    def __init__(self, block, instruction, position):
+        self.block = block
+        self.instruction = instruction
+        self.position = position
+
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"
+
+
+# Stub to a function compilation
+class StubFunction(Stub):
+    def __init__(self):
+        pass
+
 
 # A class to generate stub for type tests
 class StubType(Stub):
@@ -328,9 +379,6 @@ class StubType(Stub):
     # false : instructions for the false branch
     def __init__(self, instructions, true_branch, false_branch):
         print("new Stub type")
-
-
-
 
 
 # Ceil without using the math library
