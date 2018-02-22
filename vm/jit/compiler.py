@@ -499,7 +499,8 @@ class JITCompiler:
                 # TODO : temporary
                 address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(allocator.code_section), allocator.code_offset + 22)
 
-                stub_address = allocator.compile_function_stub(self.stub_handler, nbargs, address)
+                stub_address = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
+
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
 
@@ -730,6 +731,7 @@ class Allocator:
         # Store each byte in memory and update code_offset
         self.code_offset = self.write_instruction(encoded, self.code_offset)
 
+    # TODO: to remove
     # Compile a stub in a special area of the code section
     # mstub_handler : StubHandler instance
     # mfunction : current function
@@ -737,6 +739,7 @@ class Allocator:
     def compile_stub(self, mstub_handler, mfunction, id_block):
         return mstub_handler.compile_stub(mfunction, id_block)
 
+    # TODO: to remove
     # Compile a stub to a function
     # mstub_handler : StubHandler instance
     # nbargs : number of parameter for this stub
