@@ -15,12 +15,18 @@ ffi.cdef("""
 
         // Stub for a function compilation
         void function_stub(uint64_t* rsp);
+        
+        // Stub for type-test
+        void type_test_stub(uint64_t* rsp);
 
         // Python function callback
         extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         // Callback to trigger the compilation of a function
         extern "Python" uint64_t python_callback_function_stub(uint64_t, uint64_t);
+
+        // Callback for type tests
+        extern "Python" uint64_t python_callback_type_stub(uint64_t);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -44,6 +50,8 @@ ffi.set_source("stub_module", """
         static uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         static uint64_t python_callback_function_stub(uint64_t, uint64_t);
+        
+        static uint64_t python_callback_type_stub(uint64_t);
 
         void bb_stub(uint64_t* rsp)
         {   
@@ -87,6 +95,14 @@ ffi.set_source("stub_module", """
             rsp[-2] = (uint64_t)return_address;
         }
 
+        // Handle compilation of a type-test stub
+        void type_test_stub(uint64_t* rsp)
+        {  
+            python_callback_type_stub(rsp[-1]);
+
+            asm("INT3");
+        }
+        
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
@@ -283,6 +299,16 @@ def python_callback_function_stub(name_id, code_id):
 
     return function.allocator.code_address
 
+# When a stub for a type-test is triggered
+@ffi.def_extern()
+def python_callback_type_stub(return_address):
+
+    stub = stubhandler_instance.stub_dictionary[return_address]
+    stub.callback_function(return_address)
+
+    # TODO: need to return an address to patch the stack
+
+
 # Used to patch the code after the compilation of a stub
 class Stub:
     def __init__(self):
@@ -413,13 +439,15 @@ class StubType(Stub):
         self.true_branch = true_branch
         self.false_branch = false_branch
 
+        # Associate return addresses to branch of the test to know which one was executed
+        self.dict_stubs = {}
+
         self.encode_instructions()
 
     def encode_instructions(self):
-        self.mfunction.allocator.encode(asm.INT(3))
-
         # Encoding the test
         for i in self.instructions:
+            # TODO: temporary
             print("\t" + str(i))
 
             self.mfunction.allocator.encode(i)
@@ -437,22 +465,34 @@ class StubType(Stub):
         #self.mfunction.encode(asm.MOV(asm.r10, false_address))
         #self.mfunction.allocator.encode(asm.JMP(asm.r10))
 
-        # TODO: for debug purposes
-        self.mfunction.allocator.disassemble_asm()
-
     # Encode a stub to continue the test
     def encode_stub_test(self, branch, label):
-
-        # The call to that will be compiled after the stub compilation is over
-        address = self.mfunction.allocator.encode_stub(asm.NOP())
+        # Giving rsp to C function
+        address = self.mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
         # Save the association
         self.mfunction.allocator.jump_labels[address] = label
 
-        #TODO: call to C to compile the block
+        # Call to C to compile the block
+        reg_id = asm.r10
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "type_test_stub")))
+        self.mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
+        self.mfunction.allocator.encode_stub(asm.CALL(reg_id))
+
+        # TODO: put additional values like variable informations
+        # Compute the return address to link this stub to self
+        return_address = lib.get_address(ffi.from_buffer(self.mfunction.allocator.code_section), self.mfunction.allocator.stub_offset)
+        self.dict_stubs[return_address] = branch
+
+        # Associate this return address to self in the stub_handler
+        stubhandler_instance.stub_dictionary[return_address] = self
+
+        self.mfunction.allocator.disassemble_asm()
 
     # TODO: Called by C when one branch of this test is triggered
-    def callback_function(self):
+    def callback_function(self, return_address):
+
+        print("return address in the callback from the stub" + str(return_address))
         pass
 
 
