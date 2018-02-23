@@ -204,7 +204,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                self.tags.binary_operation("add")
+                self.tags.binary_operation("add", mfunction)
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))

@@ -404,10 +404,56 @@ class StubFunction(Stub):
 # A class to generate stub for type tests
 class StubType(Stub):
     # instructions : the instruction to encode
-    # true : instructions for the true branch
-    # false : instructions for the false branch
-    def __init__(self, instructions, true_branch, false_branch):
-        print("new Stub type")
+    # mfunction : currently compiled function
+    # true_branch : instructions for the true branch
+    # false_branch : instructions for the false branch
+    def __init__(self, mfunction, instructions, true_branch, false_branch):
+        self.mfunction = mfunction
+        self.instructions = instructions
+        self.true_branch = true_branch
+        self.false_branch = false_branch
+
+        self.encode_instructions()
+
+    def encode_instructions(self):
+        self.mfunction.allocator.encode(asm.INT(3))
+
+        # Encoding the test
+        for i in self.instructions:
+            print("\t" + str(i))
+
+            self.mfunction.allocator.encode(i)
+
+        # Encode the true branch first
+        old_stub_offset = self.mfunction.allocator.stub_offset
+
+        self.encode_stub_test(self.true_branch, "true_branch")
+
+        true_offset =  old_stub_offset - self.mfunction.allocator.code_offset - 6
+        self.mfunction.allocator.encode(asm.JE(asm.operand.RIPRelativeOffset(true_offset)))
+
+        # Jump to false branch
+        #false_address = self.encode_stub_test(self.false_branch, "false_branch")
+        #self.mfunction.encode(asm.MOV(asm.r10, false_address))
+        #self.mfunction.allocator.encode(asm.JMP(asm.r10))
+
+        # TODO: for debug purposes
+        self.mfunction.allocator.disassemble_asm()
+
+    # Encode a stub to continue the test
+    def encode_stub_test(self, branch, label):
+
+        # The call to that will be compiled after the stub compilation is over
+        address = self.mfunction.allocator.encode_stub(asm.NOP())
+
+        # Save the association
+        self.mfunction.allocator.jump_labels[address] = label
+
+        #TODO: call to C to compile the block
+
+    # TODO: Called by C when one branch of this test is triggered
+    def callback_function(self):
+        pass
 
 
 # Ceil without using the math library

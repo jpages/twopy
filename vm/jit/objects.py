@@ -76,7 +76,9 @@ class TagHandler:
         return None
 
     # Handle all binary operations and check types
-    def binary_operation(self, opname):
+    # opname : name of the binary operation
+    # mfunction : currently compiled function
+    def binary_operation(self, opname, mfunction):
         instructions = []
 
         # First operand in r9
@@ -89,7 +91,7 @@ class TagHandler:
 
         # Generate a test for the first variable
         test_instructions = self.is_int_asm(x_register)
-        instructions.append(test_instructions)
+        instructions.extend(test_instructions)
 
         # Code for true and false branchs
         true_branch = self.is_int_asm(y_register)
@@ -97,7 +99,7 @@ class TagHandler:
 
         #TODO:
 
-        stub = stub_handler.StubType(instructions, true_branch, false_branch)
+        stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch)
 
 
         #     if self.is_int_asm(y_register):
