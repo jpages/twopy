@@ -210,11 +210,6 @@ class StubHandler:
     # nbargs : number of arguments in the registers, used by C function later
     # address_after : where to jump after the stub
     def compile_function_stub(self, mfunction, nbargs, address_after):
-        # The base case, 2 parameter for the call
-        #if nbargs == 2:
-        #    mfunction.allocator.encode(asm.POP(asm.rsi))
-        #    mfunction.allocator.encode(asm.POP(asm.rdx))
-
         # Now encode the stub
         stub_label = asm.Label("Stub_label_" + str(mfunction.name))
 
