@@ -14,7 +14,7 @@ ffi.cdef("""
         void bb_stub(uint64_t* rsp);
 
         // Stub for a function compilation
-        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after);
+        void function_stub(uint64_t* rsp);
 
         // Python function callback
         extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
@@ -58,25 +58,40 @@ ffi.set_source("stub_module", """
         }
 
         // Handle the compilation of a function's stub
-        void function_stub(int nbargs, uint64_t name_id, uint64_t code_id, uint64_t* rsp, uint64_t address_after)
-        {
+        void function_stub(uint64_t* rsp)
+        {            
+            uint64_t* code_address = (uint64_t*)rsp[-1];
+
+            // Get the two values after the stub
+            int nbargs = (int)code_address[0];
+            uint64_t* return_address = (uint64_t*)code_address[1];
+            
+            // Read values on the stack
+            // For now consider we have just the name and code id
+            long int name_id = rsp[1];
+            long int code_id = rsp[2];
+            
+            //TODO: handle free variables list
+            if(nbargs > 2)
+                ;
+    
             // Callback to python to trigger the compilation of the function
-            uint64_t* function_address = (uint64_t*)python_callback_function_stub(name_id, code_id);
-               
+            uint64_t function_address = (uint64_t)python_callback_function_stub(name_id, code_id);
+
             rsp = rsp + 1;
             
             // Put on the stack the address of the next function   
-            rsp[-1] = (long long int)function_address;
-
+            rsp[1] = (long long int)function_address;
+            
             // Patch the return address
-            rsp[-2] = (long long int)address_after;
+            rsp[-2] = (uint64_t)return_address;
         }
 
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
             for(int i=-5; i!=5; i++)
-                printf("\\t %ld stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
+                printf("\\t 0x%lx stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
         }
 
         void print_data_section(uint64_t* array, int size)
@@ -195,14 +210,10 @@ class StubHandler:
     # nbargs : number of arguments in the registers, used by C function later
     # address_after : where to jump after the stub
     def compile_function_stub(self, mfunction, nbargs, address_after):
-        # Put the number of parameters as the first argument
-        mfunction.allocator.encode(asm.MOV(asm.rdi, nbargs))
-
         # The base case, 2 parameter for the call
-        if nbargs == 2:
-            mfunction.allocator.encode(asm.POP(asm.rsi))
-            mfunction.allocator.encode(asm.POP(asm.rdx))
-
+        #if nbargs == 2:
+        #    mfunction.allocator.encode(asm.POP(asm.rsi))
+        #    mfunction.allocator.encode(asm.POP(asm.rdx))
 
         # Now encode the stub
         stub_label = asm.Label("Stub_label_" + str(mfunction.name))
@@ -213,14 +224,23 @@ class StubHandler:
         # Save the association
         mfunction.allocator.jump_labels[address] = asm.LABEL(stub_label)
 
-        # Save the RSP to patch it after
-        mfunction.allocator.encode_stub(asm.MOV(asm.rcx, asm.registers.rsp))
-        mfunction.allocator.encode_stub(asm.MOV(asm.r8, address_after))
+        # Save the rsp for the stub
+        mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
         # Call the stub function in C
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "function_stub")))
         mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
         mfunction.allocator.encode_stub(asm.CALL(asm.r10))
+
+        # Now put additional informations for the stub
+        # Force min 8 bits encoding for this value
+        nbargs_bytes = nbargs.to_bytes(8 if nbargs.bit_length() < 8 else nbargs.bit_length(), "little")
+
+        address_after_bytes = address_after.to_bytes(address_after.bit_length(), "little")
+
+        # Write after the stub
+        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(nbargs_bytes, mfunction.allocator.stub_offset)
+        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(address_after_bytes, mfunction.allocator.stub_offset)
 
         return address
 

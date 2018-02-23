@@ -496,13 +496,17 @@ class JITCompiler:
                     # default arguments
                     pass
 
-                # TODO : temporary
-                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(allocator.code_section), allocator.code_offset + 22)
+                # TODO : temporary, the return address will be after the call to the stub
+                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(allocator.code_section), allocator.code_offset + 13)
 
                 stub_address = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
 
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
+
+                # Discard the two values on the stack
+                allocator.encode(asm.POP(asm.r10))
+                allocator.encode(asm.POP(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 pass
