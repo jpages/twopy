@@ -51,6 +51,20 @@ class JITCompiler:
     def execute(self):
         self.start()
 
+        # TODO: temporary
+        for mfunction in self.dict_compiled_functions:
+            print(mfunction)
+
+            print("Function " + str(mfunction.name))
+            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+            for i in md.disasm(bytes(mfunction.allocator.code_section), mfunction.allocator.code_address):
+                # Print labels
+                if i.address in mfunction.allocator.jump_labels:
+                    print(str(mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
+                print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
+            print("\n")
+
     # Start the execution
     def start(self):
         # Start by compiling standard library
@@ -204,7 +218,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                self.tags.binary_operation("add", mfunction)
+                #self.tags.binary_operation("add", mfunction)
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
@@ -307,9 +321,9 @@ class JITCompiler:
                 for i in range(0, instruction.block.function.argcount + 1):
                     allocator.versioning.current_version().context.increase_stack_size()
 
-                # Clean the stack and remove parameters on this call
-                for i in range(0, instruction.block.function.argcount+1):
-                    allocator.encode(asm.POP(asm.r10))
+                # Remove arguments from the stack
+                to_depop = 8*(instruction.block.function.argcount+1)
+                allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
 
                 # Finally returning by jumping
                 allocator.encode(asm.JMP(asm.rbx))
