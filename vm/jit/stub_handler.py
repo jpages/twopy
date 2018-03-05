@@ -20,13 +20,13 @@ ffi.cdef("""
         void type_test_stub(uint64_t* rsp);
 
         // Python function callback
-        extern "Python" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
+        extern "Python+C" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         // Callback to trigger the compilation of a function
-        extern "Python" uint64_t python_callback_function_stub(uint64_t, uint64_t);
+        extern "Python+C" uint64_t python_callback_function_stub(uint64_t, uint64_t);
 
         // Callback for type tests
-        extern "Python" uint64_t python_callback_type_stub(uint64_t);
+        extern "Python+C" uint64_t python_callback_type_stub(uint64_t);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -41,8 +41,7 @@ ffi.cdef("""
         int twopy_library_print_integer(int);
     """)
 
-# C Sources
-ffi.set_source("stub_module", """
+c_code = """
         #include <stdio.h>
         #include <stdlib.h>
 
@@ -97,9 +96,13 @@ ffi.set_source("stub_module", """
 
         // Handle compilation of a type-test stub
         void type_test_stub(uint64_t* rsp)
-        {  
-            python_callback_type_stub(rsp[-1]);
-
+        { 
+            printf("On est dans tpye_test_stub\\n");
+            
+            //asm("INT3");
+            printf("%ld\\n", python_callback_type_stub(rsp[-1]));
+            
+            printf("On est dans tpye_test_stub\\n");
             asm("INT3");
         }
         
@@ -130,10 +133,13 @@ ffi.set_source("stub_module", """
             
             return value;
         }
-    """)
+    """
+# C Sources
+ffi.set_source("stub_module", c_code)
+#ffi.verify(c_code)
 
 # Now compile this and create python wrapper
-ffi.compile()
+ffi.compile(verbose=True)
 
 # Import of the generated python module
 from stub_module import ffi, lib
@@ -299,12 +305,16 @@ def python_callback_function_stub(name_id, code_id):
 
     return function.allocator.code_address
 
-# When a stub for a type-test is triggered
-@ffi.def_extern()
+@ffi.def_extern(error=1)
 def python_callback_type_stub(return_address):
-
-    stub = stubhandler_instance.stub_dictionary[return_address]
-    stub.callback_function(return_address)
+    #raise Exception('I know Python!')  # Don't! If you catch, likely to hide bugs.
+    a = raw_input()
+    #print(42)
+    return 42
+    #print(stubhandler_instance.stub_dictionary[return_address])
+    #quit()
+    #stub = stubhandler_instance.stub_dictionary[return_address]
+    #stub.callback_function(return_address)
 
     # TODO: need to return an address to patch the stack
 
@@ -491,9 +501,10 @@ class StubType(Stub):
 
     # TODO: Called by C when one branch of this test is triggered
     def callback_function(self, return_address):
+        return
 
-        print("return address in the callback from the stub" + str(return_address))
-        pass
+        #print("return address in the callback from the stub" + str(return_address))
+        #pass
 
 
 # Ceil without using the math library
