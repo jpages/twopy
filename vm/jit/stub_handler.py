@@ -3,6 +3,7 @@
 # Handle the compilation of stub functions
 import cffi
 import peachpy.x86_64 as asm
+from . import objects
 
 # The following definitions must be top-level to facilitate the interface with C
 # Use the CFFI to define C functions which are callable from assembly
@@ -26,7 +27,7 @@ ffi.cdef("""
         extern "Python+C" uint64_t python_callback_function_stub(uint64_t, uint64_t);
 
         // Callback for type tests
-        extern "Python+C" uint64_t python_callback_type_stub(uint64_t);
+        extern "Python+C" uint64_t python_callback_type_stub(uint64_t, int, int);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -44,13 +45,14 @@ ffi.cdef("""
 c_code = """
         #include <stdio.h>
         #include <stdlib.h>
+        #include <Python.h>
 
         // Function called to handle the compilation of stubs for basic blocks
         static uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         static uint64_t python_callback_function_stub(uint64_t, uint64_t);
         
-        static uint64_t python_callback_type_stub(uint64_t);
+        static uint64_t python_callback_type_stub(uint64_t, int, int);
 
         void bb_stub(uint64_t* rsp)
         {   
@@ -66,7 +68,7 @@ c_code = """
 
         // Handle the compilation of a function's stub
         void function_stub(uint64_t* rsp)
-        {            
+        {
             uint64_t* code_address = (uint64_t*)rsp[-1];
 
             // Get the two values after the stub
@@ -96,14 +98,16 @@ c_code = """
 
         // Handle compilation of a type-test stub
         void type_test_stub(uint64_t* rsp)
-        { 
-            printf("On est dans tpye_test_stub\\n");
+        {
+            uint64_t* code_address = (uint64_t*)rsp[-1]; 
             
+            int id_variable = (int)code_address[0];
+            int type_value = (int)code_address[1];
+
+            printf("%ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));
+            
+            printf("On est dans tpye_test_stub\\n");
             //asm("INT3");
-            printf("%ld\\n", python_callback_type_stub(rsp[-1]));
-            
-            printf("On est dans tpye_test_stub\\n");
-            asm("INT3");
         }
         
         void print_stack(uint64_t* rsp)
@@ -136,10 +140,9 @@ c_code = """
     """
 # C Sources
 ffi.set_source("stub_module", c_code)
-#ffi.verify(c_code)
 
 # Now compile this and create python wrapper
-ffi.compile(verbose=True)
+ffi.compile()
 
 # Import of the generated python module
 from stub_module import ffi, lib
@@ -251,7 +254,7 @@ class StubHandler:
 
         # Now put additional informations for the stub
         # Force min 8 bits encoding for this value
-        nbargs_bytes = nbargs.to_bytes(8 if nbargs.bit_length() < 8 else nbargs.bit_length(), "little")
+        nbargs_bytes = encode_bytes(nbargs)
 
         address_after_bytes = address_after.to_bytes(address_after.bit_length(), "little")
 
@@ -305,19 +308,17 @@ def python_callback_function_stub(name_id, code_id):
 
     return function.allocator.code_address
 
-@ffi.def_extern(error=1)
-def python_callback_type_stub(return_address):
-    #raise Exception('I know Python!')  # Don't! If you catch, likely to hide bugs.
-    a = raw_input()
-    #print(42)
-    return 42
-    #print(stubhandler_instance.stub_dictionary[return_address])
-    #quit()
-    #stub = stubhandler_instance.stub_dictionary[return_address]
-    #stub.callback_function(return_address)
+@ffi.def_extern()
+def python_callback_type_stub(return_address, id_variable, type_value):
+    stub = stubhandler_instance.stub_dictionary[return_address]
+    stub.callback_function(return_address, id_variable, type_value)
 
     # TODO: need to return an address to patch the stack
+    return 42
 
+# Encode a value to a byte by forcing 8 bits minimum
+def encode_bytes(value):
+    return value.to_bytes(8 if value.bit_length() < 8 else value.bit_length(), "little")
 
 # Used to patch the code after the compilation of a stub
 class Stub:
@@ -443,29 +444,30 @@ class StubType(Stub):
     # mfunction : currently compiled function
     # true_branch : instructions for the true branch
     # false_branch : instructions for the false branch
-    def __init__(self, mfunction, instructions, true_branch, false_branch):
+    # variable : 0 or 1 to indicate which operands is tested here
+    # context : associated context we try to fill
+    def __init__(self, mfunction, instructions, true_branch, false_branch, variable, context):
         self.mfunction = mfunction
         self.instructions = instructions
         self.true_branch = true_branch
         self.false_branch = false_branch
+        self.variable = variable
 
         # Associate return addresses to branch of the test to know which one was executed
         self.dict_stubs = {}
 
+        self.context = context
         self.encode_instructions()
 
     def encode_instructions(self):
         # Encoding the test
         for i in self.instructions:
-            # TODO: temporary
-            print("\t" + str(i))
-
             self.mfunction.allocator.encode(i)
 
         # Encode the true branch first
         old_stub_offset = self.mfunction.allocator.stub_offset
 
-        self.encode_stub_test(self.true_branch, "true_branch")
+        self.encode_stub_test(self.true_branch, "true_branch", objects.Types.Int)
 
         true_offset =  old_stub_offset - self.mfunction.allocator.code_offset - 6
         self.mfunction.allocator.encode(asm.JE(asm.operand.RIPRelativeOffset(true_offset)))
@@ -476,7 +478,7 @@ class StubType(Stub):
         #self.mfunction.allocator.encode(asm.JMP(asm.r10))
 
     # Encode a stub to continue the test
-    def encode_stub_test(self, branch, label):
+    def encode_stub_test(self, branch, label, type_value):
         # Giving rsp to C function
         address = self.mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
@@ -489,7 +491,6 @@ class StubType(Stub):
         self.mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
         self.mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
-        # TODO: put additional values like variable informations
         # Compute the return address to link this stub to self
         return_address = lib.get_address(ffi.from_buffer(self.mfunction.allocator.code_section), self.mfunction.allocator.stub_offset)
         self.dict_stubs[return_address] = branch
@@ -497,14 +498,24 @@ class StubType(Stub):
         # Associate this return address to self in the stub_handler
         stubhandler_instance.stub_dictionary[return_address] = self
 
-        self.mfunction.allocator.disassemble_asm()
+        variable_id = encode_bytes(self.variable)
+        type_bytes = encode_bytes(type_value.value)
+
+        offset = self.mfunction.allocator.stub_offset
+        self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(variable_id, offset)
+        self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(type_bytes, self.mfunction.allocator.stub_offset)
 
     # TODO: Called by C when one branch of this test is triggered
-    def callback_function(self, return_address):
-        return
+    def callback_function(self, return_address, id_variable, type_value):
 
-        #print("return address in the callback from the stub" + str(return_address))
-        #pass
+        self.context.variable_types[id_variable] = type_value
+        # We have information on one operand
+
+        # TODO: Compile the rest of the test
+        if self.dict_stubs[return_address] == self.true_branch:
+           pass
+        else:
+            pass
 
 
 # Ceil without using the math library

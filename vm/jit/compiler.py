@@ -51,6 +51,7 @@ class JITCompiler:
     def execute(self):
         self.start()
 
+        return
         # TODO: temporary
         for mfunction in self.dict_compiled_functions:
             print(mfunction)
@@ -218,7 +219,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                #self.tags.binary_operation("add", mfunction)
+                self.tags.binary_operation("add", mfunction)
 
                 allocator.encode(asm.POP(asm.r9))
                 allocator.encode(asm.POP(asm.r8))
@@ -969,6 +970,9 @@ class Context:
         self.version = None
 
         self.stack_size = 0
+
+        # Dictionary between variables and their types
+        self.variable_types = {}
 
     def increase_stack_size(self):
         self.stack_size += 1

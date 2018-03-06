@@ -3,9 +3,11 @@ This module contains the representations used by the JIT compiler
 '''
 
 import sys
+from enum import Enum
 import peachpy.x86_64 as asm
 
 from . import stub_handler
+from . import compiler
 
 # Define methods to tag and untag objects
 class TagHandler:
@@ -97,9 +99,12 @@ class TagHandler:
         true_branch = self.is_int_asm(y_register)
         false_branch = self.is_float_asm(y_register)
 
-        #TODO:
+        context = compiler.Context()
+        context.variable_types[0] = Types.Unknow
+        context.variable_types[1] = Types.Unknow
 
-        stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch)
+        # Indicate this stub is to test the first variable
+        stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
 
 
         #     if self.is_int_asm(y_register):
@@ -140,3 +145,10 @@ class Integer(Numeric):
 class Float(Numeric):
     def __init__(self):
         pass
+
+
+# Enum class for all types in contexts
+class Types(Enum):
+    Unknow = 0
+    Int = 1
+    Float = 2
