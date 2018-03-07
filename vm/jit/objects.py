@@ -50,8 +50,6 @@ class TagHandler:
     # Return the test sequence as PeachPy instructions in a list
     def is_int_asm(self, register):
         # 7FFF FFFF FFFF FFFF max value for a 64 bits signed integer
-        max_value = sys.maxsize
-
         instructions = []
 
         # FFFF FFFF FFFF FFFC = max value with the tag applied
@@ -107,25 +105,30 @@ class TagHandler:
         stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
 
 
-        #     if self.is_int_asm(y_register):
-        #         # TODO: Check overflow
-        #         # res = add_int_overflow(x, y)
-        #
-        #         # Just add the two integers
-        #         instructions.append(asm.ADD(x_register, y_register))
-        #         return instructions
-        #     else:
-        #         # Convert x to float and add
-        #         return add_float(int_to_float(x), y)
-        # elif is_float(x):
-        #     if if_int(y):
-        #         return add_float(x, int_to_float(y))
-        #     elif is_float(y):
-        #         return add_float(x, y)
-        #
-        # # TODO: General case, call the + function from standard library
-        # return x.__add__(y)
+    # Continue the compilation of the test with a context
+    # This method is called multiple times through the test
+    def compile_test(self, context):
+        return
+        # TODO: test if we have some informations on types
+        if context.variable_types[0].Types.Int:
+            if self.is_int_asm(y_register):
+                # TODO: Check overflow
+                # res = add_int_overflow(x, y)
 
+                # Just add the two integers
+                instructions.append(asm.ADD(x_register, y_register))
+                return instructions
+            else:
+                # Convert x to float and add
+                return add_float(int_to_float(x), y)
+        elif is_float(x):
+            if if_int(y):
+                return add_float(x, int_to_float(y))
+            elif is_float(y):
+                return add_float(x, y)
+
+        # TODO: General case, call the + function from standard library
+        return x.__add__(y)
 
 class Object:
     def __init__(self):

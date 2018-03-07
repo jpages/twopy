@@ -103,10 +103,9 @@ c_code = """
             
             int id_variable = (int)code_address[0];
             int type_value = (int)code_address[1];
-
-            printf("%ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));
             
-            printf("On est dans tpye_test_stub\\n");
+            printf("Return value from callback %ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));
+            
             //asm("INT3");
         }
         
@@ -510,6 +509,8 @@ class StubType(Stub):
 
         self.context.variable_types[id_variable] = type_value
         # We have information on one operand
+
+        jitcompiler_instance.tags.compile_test(self.context)
 
         # TODO: Compile the rest of the test
         if self.dict_stubs[return_address] == self.true_branch:
