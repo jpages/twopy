@@ -108,6 +108,7 @@ class TagHandler:
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
     def compile_test(self, context):
+
         return
         # TODO: test if we have some informations on types
         if context.variable_types[0].Types.Int:

@@ -2,6 +2,7 @@
 # Make the link between compiled assembly and high-level python functions
 # Handle the compilation of stub functions
 import cffi
+import math
 import peachpy.x86_64 as asm
 from . import objects
 
@@ -381,7 +382,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = custom_ceil(new_operand / 256)
+                size = math.ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
@@ -407,7 +408,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = custom_ceil(new_operand / 256)
+                size = math.ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
@@ -506,6 +507,9 @@ class StubType(Stub):
 
     # TODO: Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
+        lib.twopy_library_print_integer(10)
+
+        #print("dsdf")
 
         self.context.variable_types[id_variable] = type_value
         # We have information on one operand
