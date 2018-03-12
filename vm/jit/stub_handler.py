@@ -22,7 +22,7 @@ ffi.cdef("""
         void type_test_stub(uint64_t* rsp);
 
         // Python function callback
-        extern "Python+C" uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
+        extern "Python+C" char* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         // Callback to trigger the compilation of a function
         extern "Python+C" uint64_t python_callback_function_stub(uint64_t, uint64_t);
@@ -46,10 +46,9 @@ ffi.cdef("""
 c_code = """
         #include <stdio.h>
         #include <stdlib.h>
-        #include <Python.h>
 
         // Function called to handle the compilation of stubs for basic blocks
-        static uint64_t* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
+        static char* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
         
         static uint64_t python_callback_function_stub(uint64_t, uint64_t);
         
@@ -61,7 +60,7 @@ c_code = """
             uint64_t* code_address = (uint64_t*)rsp[-1];
             long int val = (long int)code_address[0];
 
-            uint64_t* rsp_address_patched = python_callback_bb_stub(val, rsp);
+            uint64_t* rsp_address_patched = (uint64_t*)python_callback_bb_stub(val, rsp);             
 
             // Patch the return address to jump on the newly compiled block
             rsp[-1] = (long long int)rsp_address_patched;
@@ -69,7 +68,7 @@ c_code = """
 
         // Handle the compilation of a function's stub
         void function_stub(uint64_t* rsp)
-        {
+        {  
             uint64_t* code_address = (uint64_t*)rsp[-1];
 
             // Get the two values after the stub
@@ -105,9 +104,7 @@ c_code = """
             int id_variable = (int)code_address[0];
             int type_value = (int)code_address[1];
             
-            printf("Return value from callback %ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));
-            
-            //asm("INT3");
+            printf("Return value from callback %ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));   
         }
         
         void print_stack(uint64_t* rsp)
@@ -127,7 +124,7 @@ c_code = """
         uint64_t get_address(char* bytearray, int index)
         {
             return (uint64_t)&bytearray[index];
-        }
+        }  
         
         // Print one integer on stdout
         int twopy_library_print_integer(int value)
@@ -284,12 +281,10 @@ def python_callback_bb_stub(stub_id, rsp):
     if jitcompiler_instance.interpreter.args.asm:
         stub.block.function.allocator.disassemble_asm()
 
-    # The new value of the RSP
     c_buffer = ffi.from_buffer(stub.block.function.allocator.code_section)
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
 
-    return ffi.cast("uint64_t*", rsp_address_patched)
-
+    return ffi.cast("char*", rsp_address_patched)
 
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
@@ -508,8 +503,6 @@ class StubType(Stub):
     # TODO: Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
         lib.twopy_library_print_integer(10)
-
-        #print("dsdf")
 
         self.context.variable_types[id_variable] = type_value
         # We have information on one operand

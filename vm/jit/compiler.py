@@ -840,8 +840,7 @@ class Allocator:
 
     # Call the compiled function
     def __call__(self, *args):
-
-        # #print the asm code
+        #print the asm code
         if self.jitcompiler.interpreter.args.asm:
             self.disassemble_asm()
 
@@ -850,7 +849,6 @@ class Allocator:
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self):
-
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
