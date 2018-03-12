@@ -109,19 +109,29 @@ class TagHandler:
     # This method is called multiple times through the test
     def compile_test(self, context):
 
+        print("compile_test function")
+
+        x_type = context.variable_types[0]
+        y_type = context.variable_types[1]
+
         # TODO: test if we have some informations on types
-        if context.variable_types[0].Types.Int:
-            if self.is_int_asm(y_register):
+        if x_type == Types.Int.value:
+            print("X est un entier")
+            if y_type == Types.Unknow:
+                print("y_type unknow")
+                #Save registers for the whole test
+                return self.is_int_asm(asm.r10)
+            elif y_type == Types.Float:
+                # Convert x to float and add
+                return add_float(int_to_float(x), y)
+            elif y_type == Types.Int:
                 # TODO: Check overflow
                 # res = add_int_overflow(x, y)
 
                 # Just add the two integers
                 instructions.append(asm.ADD(x_register, y_register))
                 return instructions
-            else:
-                # Convert x to float and add
-                return add_float(int_to_float(x), y)
-        elif is_float(x):
+        elif x_type == Types.Float.value:
             if if_int(y):
                 return add_float(x, int_to_float(y))
             elif is_float(y):

@@ -10,6 +10,7 @@ import capstone
 
 import ctypes
 import mmap
+import copy
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
@@ -982,3 +983,13 @@ class Context:
     def get_offset(self, nbvariable):
         res = (8 * self.stack_size) + 8*(1 + nbvariable)
         return res
+
+    # Static function to clone a Context
+    def clone(other):
+        context = Context()
+
+        context.stack_size = other.stack_size
+        context.version = other.version
+        context.variable_types = copy.deepcopy(other.variable_types)
+
+        return context

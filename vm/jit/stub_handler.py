@@ -5,6 +5,7 @@ import cffi
 import math
 import peachpy.x86_64 as asm
 from . import objects
+from . import compiler
 
 # The following definitions must be top-level to facilitate the interface with C
 # Use the CFFI to define C functions which are callable from assembly
@@ -104,7 +105,13 @@ c_code = """
             int id_variable = (int)code_address[0];
             int type_value = (int)code_address[1];
             
-            printf("Return value from callback %ld\\n", python_callback_type_stub(rsp[-1], id_variable, type_value));   
+            uint64_t* rsp_address_patched = (uint64_t*)python_callback_type_stub(rsp[-1], id_variable, type_value);
+            
+            rsp[-1] = rsp_address_patched;
+
+            printf("Return value from callback %ld\\n", rsp_address_patched);
+            
+            asm("INT3");
         }
         
         void print_stack(uint64_t* rsp)
@@ -306,10 +313,10 @@ def python_callback_function_stub(name_id, code_id):
 @ffi.def_extern()
 def python_callback_type_stub(return_address, id_variable, type_value):
     stub = stubhandler_instance.stub_dictionary[return_address]
-    stub.callback_function(return_address, id_variable, type_value)
+    address = stub.callback_function(return_address, id_variable, type_value)
 
     # TODO: need to return an address to patch the stack
-    return 42
+    return address
 
 # Encode a value to a byte by forcing 8 bits minimum
 def encode_bytes(value):
@@ -504,16 +511,23 @@ class StubType(Stub):
     def callback_function(self, return_address, id_variable, type_value):
         lib.twopy_library_print_integer(10)
 
-        self.context.variable_types[id_variable] = type_value
         # We have information on one operand
+        self.context.variable_types[id_variable] = type_value
 
-        jitcompiler_instance.tags.compile_test(self.context)
 
-        # TODO: Compile the rest of the test
-        if self.dict_stubs[return_address] == self.true_branch:
-           pass
-        else:
-            pass
+        c_buffer = ffi.from_buffer(self.mfunction.allocator.code_section)
+        rsp_address_patched = lib.get_address(c_buffer, self.mfunction.allocator.code_offset)
+
+        # Compile the rest of the test and encode instructions
+        instructions = jitcompiler_instance.tags.compile_test(self.context)
+        for i in instructions :
+            self.mfunction.allocator.encode(i)
+
+        # TODO:call this again
+        encode_stub_test(self, branch, label, type_value)
+
+        print("address " + str(rsp_address_patched))
+        return rsp_address_patched
 
 
 # Ceil without using the math library
