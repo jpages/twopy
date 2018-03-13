@@ -506,7 +506,21 @@ class StubType(Stub):
         self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(variable_id, offset)
         self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(type_bytes, self.mfunction.allocator.stub_offset)
 
-    # TODO: Called by C when one branch of this test is triggered
+    # Set the instructions to compile after this test is over
+    # opname : name of the binary operation
+    # block : the current block
+    # next_index of the next instruction to compile, after the type-test
+    def instructions_after(self, opname, block, next_index):
+        self.opname = opname
+        self.block = block
+        self.next_index = next_index
+
+    # Compile the rest of the block after this type-test
+    def compile_instructions_after(self):
+        #self.mfunction.allocator.encode(asm.INT(3))
+        jitcompiler_instance.compile_instructions(self.mfunction, self.block, self.next_index)
+
+    # Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
         # We have information on one operand
         self.context.variable_types[id_variable] = type_value
@@ -527,17 +541,16 @@ class StubType(Stub):
         # Compile the rest of the test and encode instructions
         instructions = jitcompiler_instance.tags.compile_test(self.context)
         if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
-            print("On connait les types")
-            self.mfunction.allocator.encode(asm.INT(3))
             for i in instructions:
                 self.mfunction.allocator.encode(i)
+            # Then compile the following instructions in the block
+            self.compile_instructions_after()
         else:
             # We have some part of the test to compile
             self.encode_instructions(instructions)
 
         # TODO:call this again
 
-        print("address " + str(rsp_address_patched))
         return rsp_address_patched
 
 

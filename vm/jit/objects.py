@@ -78,16 +78,19 @@ class TagHandler:
     # Handle all binary operations and check types
     # opname : name of the binary operation
     # mfunction : currently compiled function
-    def binary_operation(self, opname, mfunction):
+    # block : the current block
+    # next_index of the next instruction to compile, after the type-test
+    # TODO: for now only handle addition
+    def binary_operation(self, opname, mfunction, block, next_index):
         instructions = []
 
         # First operand in r9
-        # TODO: Move values into registers and keep them on the stack until the end of the test
         x_register = asm.r9
         y_register = asm.r10
 
-        instructions.append(asm.POP(x_register))
-        instructions.append(asm.POP(y_register))
+        # Move values into registers and keep them on the stack until the end of the test
+        instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
+        instructions.append(asm.MOV(y_register, asm.operand.MemoryOperand(asm.registers.rsp+8)))
 
         # Generate a test for the first variable
         test_instructions = self.is_int_asm(x_register)
@@ -107,24 +110,19 @@ class TagHandler:
         # Indicate this stub is to test the first variable
         stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
 
+        # Indicate to the stub, which operation must be performed after the trigger
+        stub.instructions_after(opname, block, next_index)
 
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
     def compile_test(self, context):
 
-        print("compile_test function")
-
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
-        print("x = " + str(context.variable_types[0]))
-        print("y = " + str(context.variable_types[1]))
-
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:
-            print("X est un entier")
             if y_type == Types.Unknow:
-                print("y_type unknow")
                 #Save registers for the whole test
                 return self.is_int_asm(asm.r10)
             elif y_type == Types.Float.value:
@@ -134,9 +132,15 @@ class TagHandler:
                 # TODO: Check overflow
                 # res = add_int_overflow(x, y)
 
-                print("Y est un entier")
                 # Just add the two integers
-                return [asm.ADD(context.variables_allocation[0], context.variables_allocation[1])]
+                instructions = []
+
+                instructions.append(asm.POP(context.variables_allocation[0]))
+                instructions.append(asm.POP(context.variables_allocation[1]))
+                instructions.append(asm.ADD(context.variables_allocation[0], context.variables_allocation[1]))
+                instructions.append(asm.PUSH(context.variables_allocation[0]))
+
+                return instructions
         elif x_type == Types.Float.value:
             if if_int(y):
                 return add_float(x, int_to_float(y))

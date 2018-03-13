@@ -156,19 +156,19 @@ class JITCompiler:
     # Compile all instructions to binary code
     # mfunction : the simple_interpreter.Function object
     # block : The BasicBlock to compile
-    def compile_instructions(self, mfunction, block):
+    # index : Start the compilation from an index in the block, default 0
+    def compile_instructions(self, mfunction, block, index=0):
 
         allocator = mfunction.allocator
 
-        # Do not compile an already compiled block
-        if block.compiled:
+        # Do not compile an already compiled block, except if index is set
+        if block.compiled and index == 0:
             return block.first_offset
 
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        for i in range(len(block.instructions)):
-
+        for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
             if i == 0:
                 return_offset = allocator.code_offset
@@ -220,14 +220,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
-                self.tags.binary_operation("add", mfunction)
 
-                # allocator.encode(asm.POP(asm.r9))
-                # allocator.encode(asm.POP(asm.r8))
-                #
-                # # Make the sub and push the results
-                # allocator.encode(asm.ADD(asm.r8, asm.r9))
-                # allocator.encode(asm.PUSH(asm.r8))
+                self.tags.binary_operation("add", mfunction, block, i+1)
+
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
                 # Pop two values inside registers
