@@ -111,7 +111,7 @@ c_code = """
 
             printf("Return value from callback %ld\\n", rsp_address_patched);
             
-            asm("INT3");
+            //asm("INT3");
         }
         
         void print_stack(uint64_t* rsp)
@@ -450,7 +450,6 @@ class StubType(Stub):
     # context : associated context we try to fill
     def __init__(self, mfunction, instructions, true_branch, false_branch, variable, context):
         self.mfunction = mfunction
-        self.instructions = instructions
         self.true_branch = true_branch
         self.false_branch = false_branch
         self.variable = variable
@@ -459,11 +458,11 @@ class StubType(Stub):
         self.dict_stubs = {}
 
         self.context = context
-        self.encode_instructions()
+        self.encode_instructions(instructions)
 
-    def encode_instructions(self):
+    def encode_instructions(self, instructions):
         # Encoding the test
-        for i in self.instructions:
+        for i in instructions:
             self.mfunction.allocator.encode(i)
 
         # Encode the true branch first
@@ -509,22 +508,34 @@ class StubType(Stub):
 
     # TODO: Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
-        lib.twopy_library_print_integer(10)
-
         # We have information on one operand
         self.context.variable_types[id_variable] = type_value
 
+        # If we have a type value
+        if type_value != objects.Types.Unknow:
+            # Test the other variable now
+            if id_variable == 0:
+                self.variable = 1
+            else:
+                self.variable = 0
+        # Else continue to test the current one
 
+        # Get the address of the new instructions
         c_buffer = ffi.from_buffer(self.mfunction.allocator.code_section)
         rsp_address_patched = lib.get_address(c_buffer, self.mfunction.allocator.code_offset)
 
         # Compile the rest of the test and encode instructions
         instructions = jitcompiler_instance.tags.compile_test(self.context)
-        for i in instructions :
-            self.mfunction.allocator.encode(i)
+        if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
+            print("On connait les types")
+            self.mfunction.allocator.encode(asm.INT(3))
+            for i in instructions:
+                self.mfunction.allocator.encode(i)
+        else:
+            # We have some part of the test to compile
+            self.encode_instructions(instructions)
 
         # TODO:call this again
-        encode_stub_test(self, branch, label, type_value)
 
         print("address " + str(rsp_address_patched))
         return rsp_address_patched

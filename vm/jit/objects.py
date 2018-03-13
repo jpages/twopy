@@ -82,7 +82,7 @@ class TagHandler:
         instructions = []
 
         # First operand in r9
-
+        # TODO: Move values into registers and keep them on the stack until the end of the test
         x_register = asm.r9
         y_register = asm.r10
 
@@ -101,6 +101,9 @@ class TagHandler:
         context.variable_types[0] = Types.Unknow
         context.variable_types[1] = Types.Unknow
 
+        context.variables_allocation[0] = x_register
+        context.variables_allocation[1] = y_register
+
         # Indicate this stub is to test the first variable
         stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
 
@@ -114,6 +117,9 @@ class TagHandler:
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
+        print("x = " + str(context.variable_types[0]))
+        print("y = " + str(context.variable_types[1]))
+
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:
             print("X est un entier")
@@ -121,16 +127,16 @@ class TagHandler:
                 print("y_type unknow")
                 #Save registers for the whole test
                 return self.is_int_asm(asm.r10)
-            elif y_type == Types.Float:
+            elif y_type == Types.Float.value:
                 # Convert x to float and add
                 return add_float(int_to_float(x), y)
-            elif y_type == Types.Int:
+            elif y_type == Types.Int.value:
                 # TODO: Check overflow
                 # res = add_int_overflow(x, y)
 
+                print("Y est un entier")
                 # Just add the two integers
-                instructions.append(asm.ADD(x_register, y_register))
-                return instructions
+                return [asm.ADD(context.variables_allocation[0], context.variables_allocation[1])]
         elif x_type == Types.Float.value:
             if if_int(y):
                 return add_float(x, int_to_float(y))

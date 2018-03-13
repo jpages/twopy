@@ -222,12 +222,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
                 self.tags.binary_operation("add", mfunction)
 
-                allocator.encode(asm.POP(asm.r9))
-                allocator.encode(asm.POP(asm.r8))
-
-                # Make the sub and push the results
-                allocator.encode(asm.ADD(asm.r8, asm.r9))
-                allocator.encode(asm.PUSH(asm.r8))
+                # allocator.encode(asm.POP(asm.r9))
+                # allocator.encode(asm.POP(asm.r8))
+                #
+                # # Make the sub and push the results
+                # allocator.encode(asm.ADD(asm.r8, asm.r9))
+                # allocator.encode(asm.PUSH(asm.r8))
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
                 # Pop two values inside registers
@@ -972,6 +972,9 @@ class Context:
 
         # Dictionary between variables and their types
         self.variable_types = {}
+
+        # Dictionary between variables and their registers
+        self.variables_allocation = {}
 
     def increase_stack_size(self):
         self.stack_size += 1
