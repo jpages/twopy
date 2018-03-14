@@ -107,11 +107,7 @@ c_code = """
             
             uint64_t* rsp_address_patched = (uint64_t*)python_callback_type_stub(rsp[-1], id_variable, type_value);
             
-            rsp[-1] = rsp_address_patched;
-
-            printf("Return value from callback %ld\\n", rsp_address_patched);
-            
-            //asm("INT3");
+            rsp[-1] = (uint64_t)rsp_address_patched;
         }
         
         void print_stack(uint64_t* rsp)
@@ -391,6 +387,33 @@ class Stub:
                     encoded[i+2] = bytes[i]
 
             self.block.function.allocator.write_instruction(encoded, self.position)
+        elif isinstance(self.instruction, asm.JE):
+
+            new_operand = first_offset - self.position - len(self.instruction.encode())
+
+            # Update to the new position
+            new_instruction = asm.JE(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            # If the previous instruction was a 32 bits offset, force it to the new one
+            if len(self.instruction.encode()) > 2:
+                encoded = bytearray(len(self.instruction.encode()))
+
+                # Force the 32 encoding of the JE instruction
+                encoded[0] = 0x0F
+                encoded[1] = 0x84
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
+
+                size = custom_ceil(new_operand / 256)
+                bytes = new_operand.to_bytes(size, 'big')
+
+                for i in range(0, len(bytes)):
+                    encoded[i+2] = bytes[i]
+
+            self.block.function.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JL):
             new_operand = first_offset - self.position - len(self.instruction.encode())
 
@@ -454,8 +477,9 @@ class StubType(Stub):
         self.false_branch = false_branch
         self.variable = variable
 
-        # Associate return addresses to branch of the test to know which one was executed
+        # Associate return addresses to instructions of the test
         self.dict_stubs = {}
+        self.dict_stubs_position = {}
 
         self.context = context
         self.encode_instructions(instructions)
@@ -468,10 +492,15 @@ class StubType(Stub):
         # Encode the true branch first
         old_stub_offset = self.mfunction.allocator.stub_offset
 
-        self.encode_stub_test(self.true_branch, "true_branch", objects.Types.Int)
+        return_address = self.encode_stub_test(self.true_branch, "true_branch", objects.Types.Int)
 
         true_offset =  old_stub_offset - self.mfunction.allocator.code_offset - 6
-        self.mfunction.allocator.encode(asm.JE(asm.operand.RIPRelativeOffset(true_offset)))
+        old_position = self.mfunction.allocator.code_offset
+        instruction = asm.JE(asm.operand.RIPRelativeOffset(true_offset))
+        self.mfunction.allocator.encode(instruction)
+
+        self.dict_stubs[return_address] = instruction
+        self.dict_stubs_position[return_address] = old_position
 
         # Jump to false branch
         #false_address = self.encode_stub_test(self.false_branch, "false_branch")
@@ -494,7 +523,6 @@ class StubType(Stub):
 
         # Compute the return address to link this stub to self
         return_address = lib.get_address(ffi.from_buffer(self.mfunction.allocator.code_section), self.mfunction.allocator.stub_offset)
-        self.dict_stubs[return_address] = branch
 
         # Associate this return address to self in the stub_handler
         stubhandler_instance.stub_dictionary[return_address] = self
@@ -505,6 +533,8 @@ class StubType(Stub):
         offset = self.mfunction.allocator.stub_offset
         self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(variable_id, offset)
         self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(type_bytes, self.mfunction.allocator.stub_offset)
+
+        return return_address
 
     # Set the instructions to compile after this test is over
     # opname : name of the binary operation
@@ -517,7 +547,6 @@ class StubType(Stub):
 
     # Compile the rest of the block after this type-test
     def compile_instructions_after(self):
-        #self.mfunction.allocator.encode(asm.INT(3))
         jitcompiler_instance.compile_instructions(self.mfunction, self.block, self.next_index)
 
     # Called by C when one branch of this test is triggered
@@ -538,6 +567,13 @@ class StubType(Stub):
         c_buffer = ffi.from_buffer(self.mfunction.allocator.code_section)
         rsp_address_patched = lib.get_address(c_buffer, self.mfunction.allocator.code_offset)
 
+        # Patch the previous test
+        self.instruction = self.dict_stubs[return_address]
+        self.position = self.dict_stubs_position[return_address]
+
+        self.patch_instruction(self.mfunction.allocator.code_offset)
+
+        # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
         instructions = jitcompiler_instance.tags.compile_test(self.context)
         if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
@@ -548,8 +584,6 @@ class StubType(Stub):
         else:
             # We have some part of the test to compile
             self.encode_instructions(instructions)
-
-        # TODO:call this again
 
         return rsp_address_patched
 
