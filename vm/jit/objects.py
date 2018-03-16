@@ -85,8 +85,8 @@ class TagHandler:
         instructions = []
 
         # First operand in r9
-        x_register = asm.r9
-        y_register = asm.r10
+        x_register = asm.r13
+        y_register = asm.r14
 
         # Move values into registers and keep them on the stack until the end of the test
         instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
@@ -124,7 +124,7 @@ class TagHandler:
         if x_type == Types.Int.value:
             if y_type == Types.Unknow:
                 #Save registers for the whole test
-                return self.is_int_asm(asm.r10)
+                return self.is_int_asm(context.variables_allocation[1])
             elif y_type == Types.Float.value:
                 # Convert x to float and add
                 return add_float(int_to_float(x), y)

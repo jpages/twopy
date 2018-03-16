@@ -152,7 +152,6 @@ jitcompiler_instance = None
 
 stubhandler_instance = None
 
-
 # Class for handle compilation of stubs, and ffi-related operations
 class StubHandler:
 
