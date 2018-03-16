@@ -580,6 +580,18 @@ class StubType(Stub):
                 self.mfunction.allocator.encode(i)
             # Then compile the following instructions in the block
             self.compile_instructions_after()
+            print("After the test")
+
+            import capstone
+            print("Function " + str(self.mfunction.name))
+            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+            for i in md.disasm(bytes(self.mfunction.allocator.code_section), self.mfunction.allocator.code_address):
+                # Print labels
+                if i.address in self.mfunction.allocator.jump_labels:
+                    print(str(self.mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
+                print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
+            print("\n")
         else:
             # We have some part of the test to compile
             self.encode_instructions(instructions)

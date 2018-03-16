@@ -53,8 +53,6 @@ class TagHandler:
         instructions = []
 
         # FFFF FFFF FFFF FFFC = max value with the tag applied
-        # test with 0b11, if we have 0, then we have an integer
-        instructions.append(asm.MOV(asm.r11, 0xFFFFFFFFFFFFFFFC))
 
         # Copy the value inside a new register
         instructions.append(asm.MOV(asm.r12, register))
@@ -120,6 +118,10 @@ class TagHandler:
 
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
+
+        print(opname)
+        print(x_type)
+        print(y_type)
 
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:

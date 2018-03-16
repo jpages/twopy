@@ -676,7 +676,7 @@ class Allocator:
         self.code_offset = 0
 
         # The stub pointer is in the end of the code section
-        self.stub_offset = 400
+        self.stub_offset = 600
 
         # Future code and data sections, will be allocated in C
         self.code_section = None
