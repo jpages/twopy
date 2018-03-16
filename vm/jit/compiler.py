@@ -225,13 +225,7 @@ class JITCompiler:
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
-                # Pop two values inside registers
-                allocator.encode(asm.POP(asm.r9))
-                allocator.encode(asm.POP(asm.r8))
-
-                # Make the sub and push the results
-                allocator.encode(asm.SUB(asm.r8, asm.r9))
-                allocator.encode(asm.PUSH(asm.r8))
+                self.tags.binary_operation("sub", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 pass

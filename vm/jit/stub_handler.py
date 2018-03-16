@@ -574,7 +574,7 @@ class StubType(Stub):
 
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
-        instructions = jitcompiler_instance.tags.compile_test(self.context)
+        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname)
         if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
             for i in instructions:
                 self.mfunction.allocator.encode(i)

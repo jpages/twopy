@@ -84,7 +84,6 @@ class TagHandler:
     def binary_operation(self, opname, mfunction, block, next_index):
         instructions = []
 
-        # First operand in r9
         x_register = asm.r13
         y_register = asm.r14
 
@@ -115,7 +114,9 @@ class TagHandler:
 
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
-    def compile_test(self, context):
+    # context : the context filled with type informations
+    # opname : name of the operand
+    def compile_test(self, context, opname):
 
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
@@ -135,10 +136,12 @@ class TagHandler:
                 # Just add the two integers
                 instructions = []
 
-                instructions.append(asm.POP(context.variables_allocation[0]))
                 instructions.append(asm.POP(context.variables_allocation[1]))
-                instructions.append(asm.ADD(context.variables_allocation[0], context.variables_allocation[1]))
-                instructions.append(asm.PUSH(context.variables_allocation[0]))
+                instructions.append(asm.POP(context.variables_allocation[0]))
+
+                self.compile_operation(instructions, context.variables_allocation[0], context.variables_allocation[1], opname)
+
+                #instructions.append(asm.INT(3))
 
                 return instructions
         elif x_type == Types.Float.value:
@@ -149,6 +152,18 @@ class TagHandler:
 
         # TODO: General case, call the + function from standard library
         return x.__add__(y)
+
+    # Compile the operation from two registers and an opname
+    def compile_operation(self, instructions, reg0, reg1, opname):
+        if opname == "add":
+            instructions.append(asm.ADD(reg0, reg1))
+        elif opname == "sub":
+            instructions.append(asm.SUB(reg0, reg1))
+        else:
+            print("Not yet implemented")
+
+        instructions.append(asm.PUSH(reg0))
+
 
 class Object:
     def __init__(self):
