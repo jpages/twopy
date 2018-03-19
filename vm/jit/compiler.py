@@ -52,21 +52,6 @@ class JITCompiler:
     def execute(self):
         self.start()
 
-        return
-        # TODO: temporary
-        for mfunction in self.dict_compiled_functions:
-            print(mfunction)
-
-            print("Function " + str(mfunction.name))
-            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-            for i in md.disasm(bytes(mfunction.allocator.code_section), mfunction.allocator.code_address):
-                # Print labels
-                if i.address in mfunction.allocator.jump_labels:
-                    print(str(mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
-                print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
-            print("\n")
-
     # Start the execution
     def start(self):
         # Start by compiling standard library
@@ -302,6 +287,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
+
+                if instruction.block.function.name == "fact":
+                    allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
