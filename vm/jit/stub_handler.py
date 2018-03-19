@@ -329,12 +329,21 @@ class Stub:
         if isinstance(self.instruction, asm.MOV):
             # Moving an address inside a register, we need to change the address here
 
-            new_address = lib.get_address(ffi.from_buffer(self.block.function.allocator.code_section), first_offset)
-            new_instruction = asm.MOV(self.instruction.operands[0], new_address)
+            # If the MOVE + JUMP is supposed to go just after, put NOP instead
+            diff = first_offset - self.position
+            if diff <= 13:
+                nop = asm.NOP().encode()
+                for i in range(diff):
+                    self.block.function.allocator.write_instruction(nop, self.position)
+                    self.position += 1
+            else:
+                # It's a real jump, just compile it and patch the code
+                new_address = lib.get_address(ffi.from_buffer(self.block.function.allocator.code_section), first_offset)
+                new_instruction = asm.MOV(self.instruction.operands[0], new_address)
 
-            # Create the new encoded instruction and replace the old one in the code section
-            encoded = new_instruction.encode()
-            self.block.function.allocator.write_instruction(encoded, self.position)
+                # Create the new encoded instruction and replace the old one in the code section
+                encoded = new_instruction.encode()
+                self.block.function.allocator.write_instruction(encoded, self.position)
 
             # TODO: optimize this by not jumping if we are supposed to jump to the next instruction
         elif isinstance(self.instruction, asm.JGE):
