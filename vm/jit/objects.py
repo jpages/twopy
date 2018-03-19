@@ -119,9 +119,9 @@ class TagHandler:
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
-        print(opname)
-        print(x_type)
-        print(y_type)
+        #print(opname)
+        #print(x_type)
+        #print(y_type)
 
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:
@@ -142,8 +142,6 @@ class TagHandler:
                 instructions.append(asm.POP(context.variables_allocation[0]))
 
                 self.compile_operation(instructions, context.variables_allocation[0], context.variables_allocation[1], opname)
-
-                #instructions.append(asm.INT(3))
 
                 return instructions
         elif x_type == Types.Float.value:

@@ -221,10 +221,11 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
 
+                #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("add", mfunction, block, i+1)
-
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
+                #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("sub", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):

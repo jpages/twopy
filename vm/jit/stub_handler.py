@@ -432,7 +432,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = math.ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
@@ -441,6 +441,7 @@ class Stub:
             self.block.function.allocator.write_instruction(encoded, self.position)
         else:
             print("Not yet implemented patch")
+
 
 # A stub for a basic block compilation
 class StubBB(Stub):
@@ -580,18 +581,19 @@ class StubType(Stub):
                 self.mfunction.allocator.encode(i)
             # Then compile the following instructions in the block
             self.compile_instructions_after()
-            print("After the test")
 
-            import capstone
-            print("Function " + str(self.mfunction.name))
-            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-            for i in md.disasm(bytes(self.mfunction.allocator.code_section), self.mfunction.allocator.code_address):
-                # Print labels
-                if i.address in self.mfunction.allocator.jump_labels:
-                    print(str(self.mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
-                print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
-            print("\n")
+            # print("After the test")
+            #
+            # import capstone
+            # print("Function " + str(self.mfunction.name))
+            # md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+            # for i in md.disasm(bytes(self.mfunction.allocator.code_section), self.mfunction.allocator.code_address):
+            #     # Print labels
+            #     if i.address in self.mfunction.allocator.jump_labels:
+            #         print(str(self.mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
+            #     print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+            #
+            # print("\n")
         else:
             # We have some part of the test to compile
             self.encode_instructions(instructions)
