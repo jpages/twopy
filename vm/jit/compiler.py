@@ -78,7 +78,7 @@ class JITCompiler:
             # Make a call to C for the print
 
             # Move the parameter inside rdi to respect the calling convention
-            mfunction.allocator.encode(asm.MOV(asm.rdi, mfunction.allocator.get_local_variable(0)))
+            mfunction.allocator.encode(asm.MOV(asm.rdi, mfunction.allocator.get_local_variable(0, mfunction.start_basic_block)))
 
             # Move the C-print address inside r9
             addr = int(stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "twopy_library_print_integer")))
@@ -288,8 +288,8 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
 
-                if instruction.block.function.name == "fact":
-                    allocator.encode(asm.INT(3))
+                #if instruction.block.function.name == "fact":
+                #    allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -299,7 +299,7 @@ class JITCompiler:
 
                 # Keep the stack size correct
                 for i in range(0, instruction.block.function.argcount + 1):
-                    allocator.versioning.current_version().context.increase_stack_size()
+                    allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
 
                 # Remove arguments from the stack
                 to_depop = 8*(instruction.block.function.argcount+1)
@@ -444,8 +444,11 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
 
+                #if instruction.block.function.name == "fibR":
+                #    allocator.encode(asm.INT(3))
+
                 # Load the value and put it onto the stack
-                allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments)))
+                allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 pass
@@ -457,6 +460,9 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
 
+                #if instruction.block.function.name == "fibR":
+                #    allocator.encode(asm.INT(3))
+
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
 
@@ -464,7 +470,7 @@ class JITCompiler:
                 allocator.encode(asm.CALL(asm.r9))
 
                 for i in range(0, instruction.block.function.argcount + 1):
-                    allocator.versioning.current_version().context.decrease_stack_size()
+                    allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
 
                 # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
@@ -810,8 +816,10 @@ class Allocator:
         self.function_pointer = self.function_type(self.code_address)
 
     # Get the local variable from the number in parameter
-    def get_local_variable(self, argument):
-        offset = self.versioning.current_version().context.get_offset(argument)
+    # argument : number of the variable
+    # block : enclosing block for this access
+    def get_local_variable(self, argument, block):
+        offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
 
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
@@ -931,9 +939,30 @@ class Version:
 
         self.context.version = self
 
+        # Map between blocks and contexts
+        self.context_map = {}
+
+    # Create a context for a given block if needed
+    # Return the newly created context or the preexistent one
+    def get_context_for_block(self, block):
+        if block in self.context_map:
+            return self.context_map[block]
+        else:
+            context = Context()
+            context.block = block
+            self.context_map[block] = context
+
+            # Copy the previous stack size from a parent block
+            for parent in block.previous:
+                if parent in self.context_map:
+                    # TODO: maybe do something if we have several compiled parent's blocks
+                    context.stack_size = self.context_map[parent].stack_size
+
+            return context
+
     # Called each time an instruction is encoded
     def new_instruction(self, instruction):
-        # Keep track of the stack size
+    # Keep track of the stack size
         if isinstance(instruction, asm.PUSH):
             self.context.increase_stack_size()
         elif isinstance(instruction, asm.POP):
@@ -953,6 +982,9 @@ class Context:
 
         # Dictionary between variables and their registers
         self.variables_allocation = {}
+
+        # Associated block, if any
+        self.block = None
 
     def increase_stack_size(self):
         self.stack_size += 1

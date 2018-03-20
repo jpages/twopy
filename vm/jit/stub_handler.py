@@ -344,8 +344,6 @@ class Stub:
                 # Create the new encoded instruction and replace the old one in the code section
                 encoded = new_instruction.encode()
                 self.block.function.allocator.write_instruction(encoded, self.position)
-
-            # TODO: optimize this by not jumping if we are supposed to jump to the next instruction
         elif isinstance(self.instruction, asm.JGE):
             new_operand = first_offset - self.position - 2
 
