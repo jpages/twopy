@@ -97,7 +97,7 @@ class TagHandler:
         true_branch = self.is_int_asm(y_register)
         false_branch = self.is_float_asm(y_register)
 
-        context = compiler.Context()
+        context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
         context.variable_types[0] = Types.Unknow
         context.variable_types[1] = Types.Unknow
 
@@ -119,10 +119,6 @@ class TagHandler:
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
-        #print(opname)
-        #print(x_type)
-        #print(y_type)
-
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:
             if y_type == Types.Unknow:
@@ -138,10 +134,14 @@ class TagHandler:
                 # Just add the two integers
                 instructions = []
 
+                #instructions.append(asm.INT(3))
                 instructions.append(asm.POP(context.variables_allocation[1]))
                 instructions.append(asm.POP(context.variables_allocation[0]))
 
-                self.compile_operation(instructions, context.variables_allocation[0], context.variables_allocation[1], opname)
+                context.decrease_stack_size()
+                context.decrease_stack_size()
+
+                self.compile_operation(instructions, context, context.variables_allocation[0], context.variables_allocation[1], opname)
 
                 return instructions
         elif x_type == Types.Float.value:
@@ -154,7 +154,7 @@ class TagHandler:
         return x.__add__(y)
 
     # Compile the operation from two registers and an opname
-    def compile_operation(self, instructions, reg0, reg1, opname):
+    def compile_operation(self, instructions, context, reg0, reg1, opname):
         if opname == "add":
             instructions.append(asm.ADD(reg0, reg1))
         elif opname == "sub":
@@ -163,7 +163,7 @@ class TagHandler:
             print("Not yet implemented")
 
         instructions.append(asm.PUSH(reg0))
-
+        context.increase_stack_size()
 
 class Object:
     def __init__(self):

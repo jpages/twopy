@@ -120,6 +120,9 @@ class JITCompiler:
             # Create a versioning handler for the function
             versioning = Versioning(mfunction)
 
+            self.current_function = mfunction
+            self.current_block = mfunction.start_basic_block
+
             # Try to access the attribute allocator of the function
             allocator = Allocator(mfunction, self, versioning)
             mfunction.allocator = allocator
@@ -149,6 +152,10 @@ class JITCompiler:
         # Do not compile an already compiled block, except if index is set
         if block.compiled and index == 0:
             return block.first_offset
+
+        # Force the creation of a block
+        allocator.versioning.current_version().get_context_for_block(block)
+        self.current_block = block
 
         # Offset of the first instruction compiled in the block
         return_offset = 0
@@ -212,7 +219,6 @@ class JITCompiler:
 
                 #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("sub", mfunction, block, i+1)
-
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
@@ -288,8 +294,8 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
 
-                #if instruction.block.function.name == "fact":
-                #    allocator.encode(asm.INT(3))
+                # if mfunction.name == "fibR":
+                #     allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
@@ -444,9 +450,6 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
 
-                #if instruction.block.function.name == "fibR":
-                #    allocator.encode(asm.INT(3))
-
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
 
@@ -459,9 +462,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
-
-                #if instruction.block.function.name == "fibR":
-                #    allocator.encode(asm.INT(3))
 
                 # Save the function address in r9
                 allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
@@ -821,6 +821,7 @@ class Allocator:
     def get_local_variable(self, argument, block):
         offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
 
+        print("Offset " + str(offset))
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
@@ -935,9 +936,9 @@ class Versioning:
 class Version:
     def __init__(self, versioning, context):
         self.versioning = versioning
-        self.context = context
+        #self.context = context
 
-        self.context.version = self
+        #self.context.version = self
 
         # Map between blocks and contexts
         self.context_map = {}
@@ -957,17 +958,19 @@ class Version:
                 if parent in self.context_map:
                     # TODO: maybe do something if we have several compiled parent's blocks
                     context.stack_size = self.context_map[parent].stack_size
+                    print("Parent stack size " + str(self.context_map[parent].stack_size))
 
             return context
 
     # Called each time an instruction is encoded
     def new_instruction(self, instruction):
-    # Keep track of the stack size
+        # Keep track of the stack size
         if isinstance(instruction, asm.PUSH):
-            self.context.increase_stack_size()
+            current_block = stub_handler.jitcompiler_instance.current_block
+            self.get_context_for_block(current_block).increase_stack_size()
         elif isinstance(instruction, asm.POP):
-            self.context.decrease_stack_size()
-
+            current_block = stub_handler.jitcompiler_instance.current_block
+            self.get_context_for_block(current_block).decrease_stack_size()
 
 # Attached to a version, contains information about versioning, stack size etc.
 class Context:

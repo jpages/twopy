@@ -386,7 +386,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = math.ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 256)
                 bytes = new_operand.to_bytes(size, 'big')
 
                 for i in range(0, len(bytes)):
