@@ -294,8 +294,8 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
 
-                # if mfunction.name == "fibR":
-                #     allocator.encode(asm.INT(3))
+                if mfunction.name == "fibR":
+                    allocator.encode(asm.INT(3))
 
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))

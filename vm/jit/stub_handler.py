@@ -273,7 +273,6 @@ def python_callback_bb_stub(stub_id, rsp):
 
     # Delete the entry
     del stubhandler_instance.stub_dictionary[stub_id]
-
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
@@ -421,13 +420,12 @@ class Stub:
 
             self.block.function.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JL):
-            new_operand = first_offset - self.position - len(self.instruction.encode())
+            new_operand = first_offset - self.position - len(self.instruction.encode()) +2
 
-            # Update to the new position
             new_instruction = asm.JL(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()
 
-            # If the previous instruction was a 32 bits offset, force it to the new one
+            # If the previous instruction was a 32 bits offset, force the same length for the new one
             if len(self.instruction.encode()) > 2:
                 encoded = bytearray(len(self.instruction.encode()))
 
@@ -440,7 +438,7 @@ class Stub:
                 encoded[5] = 0
 
                 size = custom_ceil(new_operand / 256)
-                bytes = new_operand.to_bytes(size, 'big')
+                bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
                     encoded[i + 2] = bytes[i]
