@@ -388,6 +388,10 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
+                if index != block.instructions.index(instruction):
+                    self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
+                    return
+
                 # COMPARE_OP can't be the last instruction of the block
                 next_instruction = block.instructions[i + 1]
 

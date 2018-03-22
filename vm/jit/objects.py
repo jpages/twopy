@@ -134,13 +134,6 @@ class TagHandler:
                 # Just add the two integers
                 instructions = []
 
-                #instructions.append(asm.INT(3))
-                instructions.append(asm.POP(context.variables_allocation[1]))
-                instructions.append(asm.POP(context.variables_allocation[0]))
-
-                context.decrease_stack_size()
-                context.decrease_stack_size()
-
                 self.compile_operation(instructions, context, context.variables_allocation[0], context.variables_allocation[1], opname)
 
                 return instructions
@@ -155,9 +148,20 @@ class TagHandler:
 
     # Compile the operation from two registers and an opname
     def compile_operation(self, instructions, context, reg0, reg1, opname):
+        # Special case for comparison operators
+        if opname in compiler.JITCompiler.compare_operators:
+            return
+
+        context.decrease_stack_size()
+        context.decrease_stack_size()
+
         if opname == "add":
+            instructions.append(asm.POP(context.variables_allocation[1]))
+            instructions.append(asm.POP(context.variables_allocation[0]))
             instructions.append(asm.ADD(reg0, reg1))
         elif opname == "sub":
+            instructions.append(asm.POP(context.variables_allocation[1]))
+            instructions.append(asm.POP(context.variables_allocation[0]))
             instructions.append(asm.SUB(reg0, reg1))
         else:
             print("Not yet implemented")
