@@ -420,7 +420,7 @@ class Stub:
 
             self.block.function.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JL):
-            new_operand = first_offset - self.position - len(self.instruction.encode()) +2
+            new_operand = first_offset - self.position - len(self.instruction.encode())
 
             new_instruction = asm.JL(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()

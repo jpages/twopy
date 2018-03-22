@@ -294,9 +294,6 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
 
-                if mfunction.name == "fibR":
-                    allocator.encode(asm.INT(3))
-
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -658,7 +655,8 @@ class Allocator:
         self.function.allocations = {}
 
         # Size of the code section
-        self.code_size = 1000
+        # TODO: global code section with a big size
+        self.code_size = 2000
 
         # Size of the data section
         self.data_size = 100
@@ -821,7 +819,6 @@ class Allocator:
     def get_local_variable(self, argument, block):
         offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
 
-        print("Offset " + str(offset))
         self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
@@ -958,7 +955,6 @@ class Version:
                 if parent in self.context_map:
                     # TODO: maybe do something if we have several compiled parent's blocks
                     context.stack_size = self.context_map[parent].stack_size
-                    print("Parent stack size " + str(self.context_map[parent].stack_size))
 
             return context
 
