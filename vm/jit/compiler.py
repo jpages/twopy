@@ -388,9 +388,11 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
+                # If this is the first time we seen this instruction, put a type-test here and return
                 if index != block.instructions.index(instruction):
                     self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
                     return
+                # Otherwise compile the instruction, the test was executed
 
                 # COMPARE_OP can't be the last instruction of the block
                 next_instruction = block.instructions[i + 1]
@@ -695,7 +697,7 @@ class Allocator:
         self.jump_labels = dict()
 
         # Compile a prolog only for the main function, other functions don't need that
-        if self.function.name == "main":
+        if self.function.is_main:
             self.compile_prolog()
 
     # Allocate a value and update the environment, this function create an instruction to store the value
