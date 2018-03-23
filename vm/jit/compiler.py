@@ -48,6 +48,9 @@ class JITCompiler:
         # Tagging objects
         self.tags = objects.TagHandler()
 
+        # Allocate code and data sections
+        self.global_allocator = GlobalAllocator(self)
+
     # Main function called by the launcher
     def execute(self):
         self.start()
@@ -107,10 +110,9 @@ class JITCompiler:
     # Compile the function  in parameter to binary code
     # return the code instance
     def compile_function(self, mfunction):
-        try:
-            mfunction.allocator
+        if mfunction.allocator != None:
             return
-        except AttributeError:
+        else:
 
             if self.interpreter.args.verbose:
                 print("Instructions in function " + str(mfunction))
@@ -163,7 +165,7 @@ class JITCompiler:
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
             if i == 0:
-                return_offset = allocator.code_offset
+                return_offset = self.global_allocator.code_offset
 
             instruction = block.instructions[i]
             # big dispatch for all instructions
@@ -500,7 +502,7 @@ class JITCompiler:
                     pass
 
                 # TODO : temporary, the return address will be after the call to the stub
-                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(allocator.code_section), allocator.code_offset + 13)
+                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.global_allocator.code_section), self.global_allocator.code_offset + 13)
 
                 stub_address = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
 
@@ -650,6 +652,139 @@ class JITCompiler:
                 munmap_result = self.munmap_function(ctypes.c_void_p(address), size)
                 assert munmap_result == 0
 
+
+# Handle allocation of the general code section
+class GlobalAllocator:
+    def __init__(self, jitcompiler):
+        self.jitcompiler = jitcompiler
+
+        # Size of the code section
+        self.code_size = 20000
+
+        # Size of the data section
+        self.data_size = 200
+
+        # The next free zone in the data section
+        self.data_offset = 0
+
+        # The offset in code_section where the code can be allocated
+        self.code_offset = 0
+
+        # The stub pointer is in the end of the code section
+        self.stub_offset = 15000
+
+        # Future code and data sections, will be allocated in C
+        self.code_section = None
+        self.data_section = None
+
+        # Future code address
+        self.general_code_address = None
+
+        # Future data address
+        self.general_data_address = None
+
+        # Allocate the code segment in C
+        self.allocate_code_segment()
+
+    # Allocate an executable segment of code
+    def allocate_code_segment(self):
+
+        # Allocate code segment
+        code_address = self.jitcompiler.mmap_function(None, self.code_size,
+                                                      mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+                                                      mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                                      -1, 0)
+
+        if code_address == -1:
+            raise OSError("Failed to allocate memory for code segment")
+        self.code_address = code_address
+
+        if self.data_size > 0:
+            # Allocate data segment
+            data_address = self.jitcompiler.mmap_function(None, self.data_size,
+                                                          mmap.PROT_READ | mmap.PROT_WRITE,
+                                                          mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                                          -1, 0)
+            if data_address == -1:
+                raise OSError("Failed to allocate memory for data segment")
+            self.data_address = data_address
+
+        # Create manipulable python arrays for these two sections
+        self.python_arrays()
+
+    # Create python array interface from C allocated arrays
+    def python_arrays(self):
+
+        addr = stub_handler.ffi.cast("char*", self.code_address)
+        self.code_section = stub_handler.ffi.buffer(addr, self.code_size)
+
+        addr = stub_handler.ffi.cast("char*", self.data_address)
+        self.data_section = stub_handler.ffi.buffer(addr, self.data_size)
+
+    # Return the next address for storing an instruction
+    def get_current_address(self):
+        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), self.code_offset)
+
+    # Return the next address for storing an instruction
+    def get_current_data_address(self):
+        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)
+
+    # Encode and store in memory one instruction
+    # instruction = the asm.Instruction to encode
+    def encode(self, instruction, function):
+        encoded = instruction.encode()
+
+        if function.allocator != None:
+            function.allocator.versioning.current_version().new_instruction(instruction)
+
+        # Store each byte in memory and update code_offset
+        self.code_offset = self.write_instruction(encoded, self.code_offset)
+
+    # Encode one instruction for a stub, will be put in a special section of code
+    # Return the address of the beginning of the instruction in the bytearray
+    def encode_stub(self, instruction):
+        encoded = instruction.encode()
+
+        stub_offset_beginning = self.stub_offset
+
+        # Now, put the instruction in the end of the code section
+        self.stub_offset = self.write_instruction(encoded, self.stub_offset)
+
+        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), stub_offset_beginning)
+
+    # Write one instruction in the code section at a specified offset
+    # Return the new offset to be saved
+    def write_instruction(self, encoded, offset):
+        for val in encoded:
+            self.code_section[offset] = val.to_bytes(1, 'big')
+            offset = offset + 1
+        return offset
+
+    # Write a data in the data section
+    def write_data(self, data):
+
+        self.encode(asm.MOV(asm.r10, stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)))
+        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10), data))
+
+        self.data_offset = self.data_offset + 1
+
+    # Disassemble the compiled assembly code
+    def disassemble_asm(self):
+        if not self.jitcompiler.interpreter.args.asm:
+            return
+
+        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        print(md.disasm(bytes(self.code_section), self.code_address))
+        # print()
+        for i in md.disasm(bytes(self.code_section), self.code_address):
+            # Print labels
+            # if i.address in self.jump_labels:
+            #     print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
+            print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
+
+        print("\n")
+
+
 # Allocate and handle the compilation of a function
 class Allocator:
     def __init__(self, mfunction, jitcompiler, versioning):
@@ -657,44 +792,20 @@ class Allocator:
         self.jitcompiler = jitcompiler
         self.versioning = versioning
 
-        # # Mapping between variables names and memory
-        self.function.allocations = {}
-
-        # Size of the code section
-        # TODO: global code section with a big size
-        self.code_size = 2000
-
-        # Size of the data section
-        self.data_size = 100
-
-        # The next free zone in the data section
-        self.data_offset = 0
-
-        # The offset in code_section where the code can be allocated
-        # Let some size to encode loading of parameters in the beginning
-        self.code_offset = 0
-
-        # The stub pointer is in the end of the code section
-        self.stub_offset = 600
-
-        # Future code and data sections, will be allocated in C
-        self.code_section = None
-        self.data_section = None
-
         # Future code address
-        self.code_address = None
+        self.code_address = jitcompiler.global_allocator.get_current_address()
 
         # Future data address
-        self.data_address = None
-
-        # Allocate the code segment in C
-        self.allocate_code_segment()
+        self.data_address = jitcompiler.global_allocator.get_current_address()
 
         # If any, the size reserved for the prolog
         self.prolog_size = 0
 
         # Association between labels and addresses to print them
         self.jump_labels = dict()
+
+        # Create a pointer to be able to call this function directly in python
+        self.create_function_pointer()
 
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.is_main:
@@ -726,19 +837,6 @@ class Allocator:
 
             self.jitcompiler.consts[id(const_object)] = const_object
 
-        # TODO: handle other types
-        # Depending of the type of the value, do different things
-
-    # Encode and store in memory one instruction
-    # instruction = the asm.Instruction to encode
-    def encode(self, instruction):
-        encoded = instruction.encode()
-
-        self.versioning.current_version().new_instruction(instruction)
-
-        # Store each byte in memory and update code_offset
-        self.code_offset = self.write_instruction(encoded, self.code_offset)
-
     # TODO: to remove
     # Compile a stub in a special area of the code section
     # mstub_handler : StubHandler instance
@@ -764,56 +862,6 @@ class Allocator:
 
         return mstub_handler.compile_function_stub(self.function, nbargs, address_after)
 
-    # Encode one instruction for a stub, will be put in a special section of code
-    # Return the address of the beginning of the instruction in the bytearray
-    def encode_stub(self, instruction):
-        encoded = instruction.encode()
-
-        stub_offset_beginning = self.stub_offset
-
-        # Now, put the instruction in the end of the code section
-        self.stub_offset = self.write_instruction(encoded, self.stub_offset)
-
-        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), stub_offset_beginning)
-
-    # Allocate an executable segment of code
-    def allocate_code_segment(self):
-
-        # Allocate code segment
-        code_address = self.jitcompiler.mmap_function(None, self.code_size,
-                                     mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
-                                     mmap.MAP_ANON | mmap.MAP_PRIVATE,
-                                     -1, 0)
-
-        if code_address == -1:
-            raise OSError("Failed to allocate memory for code segment")
-        self.code_address = code_address
-
-        if self.data_size > 0:
-            # Allocate data segment
-            data_address = self.jitcompiler.mmap_function(None, self.data_size,
-                                         mmap.PROT_READ | mmap.PROT_WRITE,
-                                         mmap.MAP_ANON | mmap.MAP_PRIVATE,
-                                         -1, 0)
-            if data_address == -1:
-                raise OSError("Failed to allocate memory for data segment")
-            self.data_address = data_address
-
-        # Create manipulable python arrays for these two sections
-        self.python_arrays()
-
-        # Create a pointer to be able to call this function directly in python
-        self.create_function_pointer()
-
-    # Create python array interface from C allocated arrays
-    def python_arrays(self):
-
-        addr = stub_handler.ffi.cast("char*", self.code_address)
-        self.code_section = stub_handler.ffi.buffer(addr, self.code_size)
-
-        addr = stub_handler.ffi.cast("char*", self.data_address)
-        self.data_section = stub_handler.ffi.buffer(addr, self.data_size)
-
     # Create a pointer to the compiled function
     def create_function_pointer(self):
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
@@ -831,22 +879,23 @@ class Allocator:
 
     # Call the compiled function
     def __call__(self, *args):
-        #print the asm code
+        # Print the asm code
         if self.jitcompiler.interpreter.args.asm:
-            self.disassemble_asm()
+            self.jitcompiler.global_allocator.disassemble_asm()
 
         # Make the actual call
         return self.function_pointer(*args)
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self):
+        offset_before = self.jitcompiler.global_allocator.code_offset
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
         # Call the function just after this prolog
         # Minus the size of the return and stack's cleaning
-        offset = self.code_offset
+        offset = self.jitcompiler.global_allocator.code_offset
         self.encode(asm.CALL(asm.operand.RIPRelativeOffset(offset + 1)))
 
         # Restore the stack
@@ -856,38 +905,15 @@ class Allocator:
         # Finally return to python
         self.encode(asm.RET())
 
-        self.prolog_size = self.code_offset
+        self.prolog_size = self.jitcompiler.global_allocator.code_offset - offset_before
 
-    # Write one instruction in the code section at a specified offset
-    # Return the new offset to be saved
-    def write_instruction(self, encoded, offset):
-        for val in encoded:
-            self.code_section[offset] = val.to_bytes(1, 'big')
-            offset = offset + 1
-        return offset
+    # Just a wrapper for migrate code to a global section
+    def encode(self, instruction):
+        self.jitcompiler.global_allocator.encode(instruction, self.function)
 
-    # Write a data in the data section
-    def write_data(self, data):
-
-        self.encode(asm.MOV(asm.r10, stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)))
-        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10), data))
-
-        self.data_offset = self.data_offset + 1
-
-    # Disassemble the compiled assembly code
-    def disassemble_asm(self):
-        if not self.jitcompiler.interpreter.args.asm:
-            return
-
-        print("Function " + str(self.function.name))
-        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-        for i in md.disasm(bytes(self.code_section), self.code_address):
-            # Print labels
-            if i.address in self.jump_labels:
-                print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
-            print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
-        print("\n")
+    # Just a wrapper for migrate code to a global section
+    def encode_stub(self, instruction):
+        return self.jitcompiler.global_allocator.encode_stub(instruction)
 
     # Compiled a call to a C function which print the stack from the stack frame
     def print_stack(self):
@@ -939,9 +965,6 @@ class Versioning:
 class Version:
     def __init__(self, versioning, context):
         self.versioning = versioning
-        #self.context = context
-
-        #self.context.version = self
 
         # Map between blocks and contexts
         self.context_map = {}

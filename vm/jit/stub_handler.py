@@ -258,8 +258,8 @@ class StubHandler:
         address_after_bytes = address_after.to_bytes(address_after.bit_length(), "little")
 
         # Write after the stub
-        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(nbargs_bytes, mfunction.allocator.stub_offset)
-        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(address_after_bytes, mfunction.allocator.stub_offset)
+        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(nbargs_bytes, jitcompiler_instance.global_allocator.stub_offset)
+        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(address_after_bytes, jitcompiler_instance.global_allocator.stub_offset)
 
         return address
 
@@ -302,6 +302,7 @@ def python_callback_function_stub(name_id, code_id):
     if jitcompiler_instance.interpreter.args.asm:
         function.allocator.disassemble_asm()
 
+    print("Function code_address " + str(function.allocator.code_address))
     return function.allocator.code_address
 
 @ffi.def_extern()

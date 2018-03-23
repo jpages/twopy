@@ -313,8 +313,12 @@ class Function:
         # self
         self.receiver = None
 
+
         # TODO: move this elsewhere
         if interpreter.args.jit:
+            # For the JIT
+            self.allocator = None
+
             interpreter.jitcompiler.compile_function(self)
 
     def generate_instructions(self):
