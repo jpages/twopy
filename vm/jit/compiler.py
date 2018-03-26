@@ -441,7 +441,6 @@ class JITCompiler:
                     # Lookup in its module to find a name
                     element = mfunction.module.lookup(name, False)
 
-                print("Loading a function address " + str(self.dict_compiled_functions[element]))
                 # Assume we have a function here for now
                 allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
                 allocator.encode(asm.PUSH(asm.r9))
@@ -882,7 +881,6 @@ class Allocator:
         if self.jitcompiler.interpreter.args.asm:
             self.jitcompiler.global_allocator.disassemble_asm()
 
-        # print("self.function pointer " + str(self.function_pointer))
         # Make the actual call
         return self.function_pointer(*args)
 

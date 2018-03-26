@@ -60,7 +60,7 @@ c_code = """
             // Read values after the stub
             uint64_t* code_address = (uint64_t*)rsp[-1];
             long int val = (long int)code_address[0];
-
+            
             uint64_t* rsp_address_patched = (uint64_t*)python_callback_bb_stub(val, rsp);             
 
             // Patch the return address to jump on the newly compiled block
@@ -171,8 +171,8 @@ class StubHandler:
     def compile_bb_stub(self, mfunction, true_block, false_block):
 
         # Save both offsets
-        old_stub_offset = mfunction.allocator.stub_offset
-        old_code_offset = mfunction.allocator.code_offset
+        old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
+        old_code_offset = jitcompiler_instance.global_allocator.code_offset
 
         # Compile a stub for each branch
         self.compile_stub(mfunction, id(true_block))
@@ -191,7 +191,7 @@ class StubHandler:
 
         # For now, jump to the newly compiled stub,
         # This code will be patched later
-        old_code_offset = mfunction.allocator.code_offset
+        old_code_offset = jitcompiler_instance.global_allocator.code_offset
         peachpy_instruction = asm.MOV(asm.r10, address_false)
         mfunction.allocator.encode(peachpy_instruction)
         mfunction.allocator.encode(asm.JMP(asm.r10))
@@ -224,8 +224,8 @@ class StubHandler:
         # Put some values after the stub to read them from C with the rsp
         stub_id_bytes = stub_id.to_bytes(stub_id.bit_length(), "little")
 
-        offset = mfunction.allocator.stub_offset
-        mfunction.allocator.stub_offset = mfunction.allocator.write_instruction(stub_id_bytes, offset)
+        offset = jitcompiler_instance.global_allocator.stub_offset
+        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(stub_id_bytes, offset)
 
         return address
 
@@ -282,7 +282,7 @@ def python_callback_bb_stub(stub_id, rsp):
     if jitcompiler_instance.interpreter.args.asm:
         stub.block.function.allocator.disassemble_asm()
 
-    c_buffer = ffi.from_buffer(stub.block.function.allocator.code_section)
+    c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
 
     return ffi.cast("char*", rsp_address_patched)
@@ -333,16 +333,16 @@ class Stub:
             if diff <= 13:
                 nop = asm.NOP().encode()
                 for i in range(diff):
-                    self.block.function.allocator.write_instruction(nop, self.position)
+                    jitcompiler_instance.global_allocator.write_instruction(nop, self.position)
                     self.position += 1
             else:
                 # It's a real jump, just compile it and patch the code
-                new_address = lib.get_address(ffi.from_buffer(self.block.function.allocator.code_section), first_offset)
+                new_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section), first_offset)
                 new_instruction = asm.MOV(self.instruction.operands[0], new_address)
 
                 # Create the new encoded instruction and replace the old one in the code section
                 encoded = new_instruction.encode()
-                self.block.function.allocator.write_instruction(encoded, self.position)
+                jitcompiler_instance.global_allocator.allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JGE):
             new_operand = first_offset - self.position - 2
 
@@ -364,7 +364,7 @@ class Stub:
                 # Keep the same value for the jump
                 encoded[2] = new_operand
 
-            self.block.function.allocator.write_instruction(encoded, self.position)
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JG):
 
             new_operand = first_offset - self.position - len(self.instruction.encode())
@@ -391,7 +391,7 @@ class Stub:
                 for i in range(0, len(bytes)):
                     encoded[i+2] = bytes[i]
 
-            self.block.function.allocator.write_instruction(encoded, self.position)
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JE):
 
             new_operand = first_offset - self.position - len(self.instruction.encode())
@@ -418,7 +418,7 @@ class Stub:
                 for i in range(0, len(bytes)):
                     encoded[i+2] = bytes[i]
 
-            self.block.function.allocator.write_instruction(encoded, self.position)
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JL):
             new_operand = first_offset - self.position - len(self.instruction.encode())
 
@@ -443,7 +443,7 @@ class Stub:
                 for i in range(0, len(bytes)):
                     encoded[i + 2] = bytes[i]
 
-            self.block.function.allocator.write_instruction(encoded, self.position)
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         else:
             print("Not yet implemented patch")
 
@@ -495,19 +495,19 @@ class StubType(Stub):
             self.mfunction.allocator.encode(i)
 
         # Encode the true branch first
-        old_stub_offset = self.mfunction.allocator.stub_offset
+        old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
 
         return_address = self.encode_stub_test(self.true_branch, "true_branch", objects.Types.Int)
 
-        true_offset =  old_stub_offset - self.mfunction.allocator.code_offset - 6
-        old_position = self.mfunction.allocator.code_offset
+        true_offset = old_stub_offset - jitcompiler_instance.global_allocator.code_offset - 6
+        old_position = jitcompiler_instance.global_allocator.code_offset
         instruction = asm.JE(asm.operand.RIPRelativeOffset(true_offset))
         self.mfunction.allocator.encode(instruction)
 
         self.dict_stubs[return_address] = instruction
         self.dict_stubs_position[return_address] = old_position
 
-        # Jump to false branch
+        #TODO: Jump to false branch
         #false_address = self.encode_stub_test(self.false_branch, "false_branch")
         #self.mfunction.encode(asm.MOV(asm.r10, false_address))
         #self.mfunction.allocator.encode(asm.JMP(asm.r10))
@@ -527,7 +527,7 @@ class StubType(Stub):
         self.mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
         # Compute the return address to link this stub to self
-        return_address = lib.get_address(ffi.from_buffer(self.mfunction.allocator.code_section), self.mfunction.allocator.stub_offset)
+        return_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section), jitcompiler_instance.global_allocator.stub_offset)
 
         # Associate this return address to self in the stub_handler
         stubhandler_instance.stub_dictionary[return_address] = self
@@ -535,9 +535,9 @@ class StubType(Stub):
         variable_id = encode_bytes(self.variable)
         type_bytes = encode_bytes(type_value.value)
 
-        offset = self.mfunction.allocator.stub_offset
-        self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(variable_id, offset)
-        self.mfunction.allocator.stub_offset = self.mfunction.allocator.write_instruction(type_bytes, self.mfunction.allocator.stub_offset)
+        offset = jitcompiler_instance.global_allocator.stub_offset
+        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(variable_id, offset)
+        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(type_bytes, jitcompiler_instance.global_allocator.stub_offset)
 
         return return_address
 
@@ -569,14 +569,14 @@ class StubType(Stub):
         # Else continue to test the current one
 
         # Get the address of the new instructions
-        c_buffer = ffi.from_buffer(self.mfunction.allocator.code_section)
-        rsp_address_patched = lib.get_address(c_buffer, self.mfunction.allocator.code_offset)
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        rsp_address_patched = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.code_offset)
 
         # Patch the previous test
         self.instruction = self.dict_stubs[return_address]
         self.position = self.dict_stubs_position[return_address]
 
-        self.patch_instruction(self.mfunction.allocator.code_offset)
+        self.patch_instruction(jitcompiler_instance.global_allocator.code_offset)
 
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
@@ -586,19 +586,6 @@ class StubType(Stub):
                 self.mfunction.allocator.encode(i)
             # Then compile the following instructions in the block
             self.compile_instructions_after()
-
-            # print("After the test")
-            #
-            # import capstone
-            # print("Function " + str(self.mfunction.name))
-            # md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-            # for i in md.disasm(bytes(self.mfunction.allocator.code_section), self.mfunction.allocator.code_address):
-            #     # Print labels
-            #     if i.address in self.mfunction.allocator.jump_labels:
-            #         print(str(self.mfunction.allocator.jump_labels[i.address]) + " " + str(hex(i.address)))
-            #     print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-            #
-            # print("\n")
         else:
             # We have some part of the test to compile
             self.encode_instructions(instructions)
