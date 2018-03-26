@@ -84,7 +84,7 @@ c_code = """
             //TODO: handle free variables list
             if(nbargs > 2)
                 ;
-    
+
             // Callback to python to trigger the compilation of the function
             uint64_t function_address = (uint64_t)python_callback_function_stub(name_id, code_id);
 
@@ -302,7 +302,6 @@ def python_callback_function_stub(name_id, code_id):
     if jitcompiler_instance.interpreter.args.asm:
         function.allocator.disassemble_asm()
 
-    print("Function code_address " + str(function.allocator.code_address))
     return function.allocator.code_address
 
 @ffi.def_extern()

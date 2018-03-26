@@ -171,7 +171,7 @@ class JITCompiler:
             # big dispatch for all instructions
             if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
 
-                # Jut discard the TOS value
+                # Just discard the TOS value
                 allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
                 pass
@@ -441,6 +441,7 @@ class JITCompiler:
                     # Lookup in its module to find a name
                     element = mfunction.module.lookup(name, False)
 
+                print("Loading a function address " + str(self.dict_compiled_functions[element]))
                 # Assume we have a function here for now
                 allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
                 allocator.encode(asm.PUSH(asm.r9))
@@ -774,12 +775,10 @@ class GlobalAllocator:
             return
 
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-        print(md.disasm(bytes(self.code_section), self.code_address))
-        # print()
         for i in md.disasm(bytes(self.code_section), self.code_address):
-            # Print labels
-            # if i.address in self.jump_labels:
-            #     print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
+            #Print labels
+            #if i.address in self.jump_labels:
+            #    print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
             print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
         print("\n")
@@ -883,27 +882,37 @@ class Allocator:
         if self.jitcompiler.interpreter.args.asm:
             self.jitcompiler.global_allocator.disassemble_asm()
 
+        # print("self.function pointer " + str(self.function_pointer))
         # Make the actual call
         return self.function_pointer(*args)
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self):
         offset_before = self.jitcompiler.global_allocator.code_offset
+
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
         # Call the function just after this prolog
         # Minus the size of the return and stack's cleaning
-        offset = self.jitcompiler.global_allocator.code_offset
-        self.encode(asm.CALL(asm.operand.RIPRelativeOffset(offset + 1)))
+
+        instructions = []
 
         # Restore the stack
-        self.encode(asm.MOV(asm.registers.rsp, asm.rbp))
-        self.encode(asm.POP(asm.rbp))
+        instructions.append(asm.MOV(asm.registers.rsp, asm.rbp))
+        instructions.append(asm.POP(asm.rbp))
+        instructions.append(asm.RET())
 
-        # Finally return to python
-        self.encode(asm.RET())
+        size = 0
+        for i in instructions:
+            size += len(i.encode())
+
+        offset = self.jitcompiler.global_allocator.code_offset
+        self.encode(asm.CALL(asm.operand.RIPRelativeOffset(size)))
+
+        for i in instructions:
+            self.encode(i)
 
         self.prolog_size = self.jitcompiler.global_allocator.code_offset - offset_before
 
