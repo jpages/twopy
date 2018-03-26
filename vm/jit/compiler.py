@@ -835,31 +835,6 @@ class Allocator:
 
             self.jitcompiler.consts[id(const_object)] = const_object
 
-    # TODO: to remove
-    # Compile a stub in a special area of the code section
-    # mstub_handler : StubHandler instance
-    # mfunction : current function
-    # id_block : id to put in the stub
-    def compile_stub(self, mstub_handler, mfunction, id_block):
-        return mstub_handler.compile_stub(mfunction, id_block)
-
-    # TODO: to remove
-    # Compile a stub to a function
-    # mstub_handler : StubHandler instance
-    # nbargs : number of parameter for this stub
-    # address_after : where to jump after the stub
-    def compile_function_stub(self, mstub_handler, nbargs, address_after):
-
-        # Put the number of parameters as the first argument
-        self.encode(asm.MOV(asm.rdi, nbargs))
-
-        # The base case, 2 parameter for the call
-        if nbargs == 2:
-            self.encode(asm.POP(asm.rsi))
-            self.encode(asm.POP(asm.rdx))
-
-        return mstub_handler.compile_function_stub(self.function, nbargs, address_after)
-
     # Create a pointer to the compiled function
     def create_function_pointer(self):
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
