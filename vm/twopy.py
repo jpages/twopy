@@ -24,6 +24,9 @@ def main():
     parser.add_argument("--asm", action="store_true",
                         help="Print generated assembly code")
 
+    parser.add_argument("--maxvers", type=int,
+                        help="Maximum number of generated versions for BBV.\n0 means infitine versions, default is 5.")
+
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject
