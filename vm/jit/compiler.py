@@ -51,6 +51,11 @@ class JITCompiler:
         # Allocate code and data sections
         self.global_allocator = GlobalAllocator(self)
 
+        # Default value for max versions of versioning
+        self.maxvers = 5
+        if self.interpreter.args.maxvers:
+            self.maxvers = self.interpreter.args.maxvers
+
     # Main function called by the launcher
     def execute(self):
         self.start()
@@ -978,6 +983,7 @@ class Version:
         elif isinstance(instruction, asm.POP):
             current_block = stub_handler.jitcompiler_instance.current_block
             self.get_context_for_block(current_block).decrease_stack_size()
+
 
 # Attached to a version, contains information about versioning, stack size etc.
 class Context:
