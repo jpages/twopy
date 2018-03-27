@@ -938,7 +938,12 @@ class Versioning:
         self.create_generic_version()
 
     def create_generic_version(self):
-        version = Version(self, Context())
+        version = Version(self)
+
+        # Store the association
+        first_context = Context(version, self.mfunction.start_basic_block)
+        version.context_map[self.mfunction.start_basic_block] = first_context
+
         self.versions.append(version)
 
         self.generic_version = version
@@ -950,7 +955,7 @@ class Versioning:
 
 # A particular version
 class Version:
-    def __init__(self, versioning, context):
+    def __init__(self, versioning):
         self.versioning = versioning
 
         # Map between blocks and contexts
@@ -962,8 +967,7 @@ class Version:
         if block in self.context_map:
             return self.context_map[block]
         else:
-            context = Context()
-            context.block = block
+            context = Context(self, block)
             self.context_map[block] = context
 
             # Copy the previous stack size from a parent block
@@ -985,11 +989,13 @@ class Version:
             self.get_context_for_block(current_block).decrease_stack_size()
 
 
-# Attached to a version, contains information about versioning, stack size etc.
+# Attached to a version and a block, contains informations such as stack size, types, etc.
 class Context:
-    # version The version of the function
-    def __init__(self):
-        self.version = None
+    # version : the associated version of the code
+    # block : the associated block of this context
+    def __init__(self, version, block):
+        self.version = version
+        self.block = block
 
         self.stack_size = 0
 
@@ -999,8 +1005,12 @@ class Context:
         # Dictionary between variables and their registers
         self.variables_allocation = {}
 
-        # Associated block, if any
-        self.block = None
+
+        # Virtual stack, association between positions on the stack and variables types
+        self.stack = None
+
+        # Initialize the virtual stack
+        self.initialize_stack()
 
     def increase_stack_size(self):
         self.stack_size += 1
@@ -1013,12 +1023,9 @@ class Context:
         res = (8 * self.stack_size) + 8*(1 + nbvariable)
         return res
 
-    # Static function to clone a Context
-    def clone(other):
-        context = Context()
+    # Initialize the virtual stack which represents types on the stack
+    def initialize_stack(self):
 
-        context.stack_size = other.stack_size
-        context.version = other.version
-        context.variable_types = copy.deepcopy(other.variable_types)
-
-        return context
+        # If this is the first block, without previous block
+        if self.block:
+            self.stack = []
