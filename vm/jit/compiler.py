@@ -134,7 +134,7 @@ class JITCompiler:
             allocator = Allocator(mfunction, self, versioning)
             mfunction.allocator = allocator
 
-            # Special case for
+            # Special case for primitive functions
             if mfunction.name in stub_handler.twopy_primitives:
                 self.compile_std_function(mfunction)
             else:
@@ -161,7 +161,7 @@ class JITCompiler:
             return block.first_offset
 
         # Force the creation of a block
-        allocator.versioning.current_version().get_context_for_block(block)
+        context = allocator.versioning.current_version().get_context_for_block(block)
         self.current_block = block
 
         # Offset of the first instruction compiled in the block
@@ -176,6 +176,7 @@ class JITCompiler:
             # big dispatch for all instructions
             if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
 
+                context.pop_value()
                 # Just discard the TOS value
                 allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
@@ -364,6 +365,7 @@ class JITCompiler:
                 value = block.function.consts[instruction.arguments]
                 block.function.allocator.allocate_const(instruction, value)
 
+                context.push_value(value)
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
                 name = instruction.function.names[instruction.arguments]
 
@@ -894,10 +896,12 @@ class Allocator:
 
         self.prolog_size = self.jitcompiler.global_allocator.code_offset - offset_before
 
+    # TODO: to remove
     # Just a wrapper for migrate code to a global section
     def encode(self, instruction):
         self.jitcompiler.global_allocator.encode(instruction, self.function)
 
+    # TODO: to remove
     # Just a wrapper for migrate code to a global section
     def encode_stub(self, instruction):
         return self.jitcompiler.global_allocator.encode_stub(instruction)
@@ -1005,9 +1009,9 @@ class Context:
         # Dictionary between variables and their registers
         self.variables_allocation = {}
 
-
+        # TODO: initialize the stack from the parent block
         # Virtual stack, association between positions on the stack and variables types
-        self.stack = None
+        self.stack = []
 
         # Initialize the virtual stack
         self.initialize_stack()
@@ -1029,3 +1033,13 @@ class Context:
         # If this is the first block, without previous block
         if self.block:
             self.stack = []
+
+    # Push a value onto the virtual stack
+    def push_value(self, value):
+        self.stack.append(value)
+
+        print(self.stack)
+
+    # Pop a value from the virtual stack
+    def pop_value(self):
+        self.stack.pop()
