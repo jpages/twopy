@@ -363,11 +363,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
-                block.function.allocator.allocate_const(instruction, value)
+                block.function.allocator.allocate_const(instruction, value, context)
 
-                context.push_value(value)
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
                 name = instruction.function.names[instruction.arguments]
+
+                context.push_value(name, objects.Types.Unknown)
 
                 # We are loading something from builtins
                 if name in stub_handler.primitive_addresses:
@@ -440,6 +441,7 @@ class JITCompiler:
 
                 name = mfunction.names[instruction.arguments]
 
+                context.push_value(name)
                 element = None
                 # Lookup in the global environment
                 if name in self.interpreter.global_environment:
@@ -461,6 +463,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
+
+                context.push_value(mfunction.varnames[instruction.arguments])
 
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
@@ -819,17 +823,21 @@ class Allocator:
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
     # value : the value to allocate
-    def allocate_const(self, instruction, value):
+    # context : current compilation context, has to be filled with the constant informations
+    def allocate_const(self, instruction, value, context):
 
         # Bool are considered integers in python, we need to check this first
         if isinstance(value, bool):
             # Tag a boolean
             tvalue = self.jitcompiler.tags.tag_bool(value)
             self.encode(asm.PUSH(tvalue))
+            context.push_value(value, objects.Types.Bool)
         elif isinstance(value, int):
             # Put the integer value on the stack
             tvalue = self.jitcompiler.tags.tag_integer(value)
             self.encode(asm.PUSH(tvalue))
+
+            context.push_value(value, objects.Types.Int)
         elif isinstance(value, float):
             # TODO: Encode a float
             pass
@@ -841,6 +849,8 @@ class Allocator:
             self.encode(asm.PUSH(asm.r10))
 
             self.jitcompiler.consts[id(const_object)] = const_object
+
+            context.push_value(value, objects.Types.Unknown)
 
     # Create a pointer to the compiled function
     def create_function_pointer(self):
@@ -1009,7 +1019,7 @@ class Context:
         # Dictionary between variables and their registers
         self.variables_allocation = {}
 
-        # TODO: initialize the stack from the parent block
+        # TODO: initialize the stacks from the parent block
         # Virtual stack, association between positions on the stack and variables types
         self.stack = []
 
@@ -1029,14 +1039,16 @@ class Context:
 
     # Initialize the virtual stack which represents types on the stack
     def initialize_stack(self):
-
         # If this is the first block, without previous block
         if self.block:
             self.stack = []
 
     # Push a value onto the virtual stack
-    def push_value(self, value):
-        self.stack.append(value)
+    def push_value(self, value, type_info=objects.Types.Unknown):
+
+        # Make a tuple of a value and its type
+        el = (value, type_info)
+        self.stack.append(el)
 
         print(self.stack)
 

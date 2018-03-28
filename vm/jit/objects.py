@@ -98,8 +98,8 @@ class TagHandler:
         false_branch = self.is_float_asm(y_register)
 
         context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
-        context.variable_types[0] = Types.Unknow
-        context.variable_types[1] = Types.Unknow
+        context.variable_types[0] = Types.Unknown
+        context.variable_types[1] = Types.Unknown
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
@@ -121,7 +121,7 @@ class TagHandler:
 
         # TODO: test if we have some informations on types
         if x_type == Types.Int.value:
-            if y_type == Types.Unknow:
+            if y_type == Types.Unknown:
                 #Save registers for the whole test
                 return self.is_int_asm(context.variables_allocation[1])
             elif y_type == Types.Float.value:
@@ -184,6 +184,11 @@ class Integer(Numeric):
         pass
 
 
+class Bool(Integer):
+    def __init__(self):
+        pass
+
+
 class Float(Numeric):
     def __init__(self):
         pass
@@ -191,6 +196,7 @@ class Float(Numeric):
 
 # Enum class for all types in contexts
 class Types(Enum):
-    Unknow = 0
+    Unknown = 0
     Int = 1
     Float = 2
+    Bool = 3

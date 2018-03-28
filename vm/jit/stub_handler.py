@@ -560,7 +560,7 @@ class StubType(Stub):
         self.context.variable_types[id_variable] = type_value
 
         # If we have a type value
-        if type_value != objects.Types.Unknow:
+        if type_value != objects.Types.Unknown:
             # Test the other variable now
             if id_variable == 0:
                 self.variable = 1
@@ -581,7 +581,7 @@ class StubType(Stub):
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
         instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname)
-        if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
+        if self.context.variable_types[0] != objects.Types.Unknown and self.context.variable_types[1] != objects.Types.Unknown:
             for i in instructions:
                 self.mfunction.allocator.encode(i)
             # Then compile the following instructions in the block
