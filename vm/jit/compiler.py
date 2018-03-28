@@ -1043,12 +1043,20 @@ class Context:
         if self.block:
             self.stack = []
 
+        # TODO: if we have inter-procedural propagation, initialize the current context with values from the caller
+
+    # TODO: Try to know if a value is duplicated on the stack, in this case store the information
     # Push a value onto the virtual stack
     def push_value(self, value, type_info=objects.Types.Unknown):
 
         # Make a tuple of a value and its type
         el = (value, type_info)
         self.stack.append(el)
+
+        # If we add an unknown value on the stack, try to get its type
+        for element in self.stack:
+            if value == element[0] and type_info == objects.Types.Unknown:
+                print("Duplicated unknown value on the virtual stack : " + str(value))
 
         print(self.stack)
 
