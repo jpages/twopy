@@ -401,7 +401,7 @@ class JITCompiler:
                 # If this is the first time we seen this instruction, put a type-test here and return
                 if index != block.instructions.index(instruction):
                     self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
-                    return
+                    return return_offset
                 # Otherwise compile the instruction, the test was executed
 
                 # COMPARE_OP can't be the last instruction of the block
@@ -420,7 +420,7 @@ class JITCompiler:
                     self.compile_cmp(instruction)
 
                 # We already compiled the next instruction which is a branch, the block is fully compiled now
-                return
+                return return_offset
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):

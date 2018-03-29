@@ -268,6 +268,7 @@ class StubHandler:
 @ffi.def_extern()
 def python_callback_bb_stub(stub_id, rsp):
 
+    # TODO: use the rsp to identify the stub instead of its id
     # We must now trigger the compilation of the corresponding block
     stub = stubhandler_instance.stub_dictionary[stub_id]
 
@@ -276,6 +277,9 @@ def python_callback_bb_stub(stub_id, rsp):
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
+    print("stub.block.function " + str(stub.block.function))
+    print("stub.block.instructions " + str(stub.block.instructions))
+    print("first_offset " + str(first_offset))
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
 

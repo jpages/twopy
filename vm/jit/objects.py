@@ -98,17 +98,33 @@ class TagHandler:
         false_branch = self.is_float_asm(y_register)
 
         context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
-        context.variable_types[0] = Types.Unknown
-        context.variable_types[1] = Types.Unknown
+
+        # Try to retrieve information on the top two values in virtual stack
+        # context.variable_types[0] = context.stack[-1][1]
+        # context.variable_types[1] = context.stack[-2][1]
+
+        context.variable_types[0] = Types.Int.value
+        context.variable_types[1] = Types.Int.value
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
 
-        # Indicate this stub is to test the first variable
-        stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
+        # Directly compile the operation
+        if context.variable_types[0] != Types.Unknown.value and context.variable_types[1] != Types.Unknown.value:
+            mfunction.allocator.encode(asm.INT(3))
+            instructions = self.compile_test(context, opname)
+            for i in instructions:
+                mfunction.allocator.encode(i)
 
-        # Indicate to the stub, which operation must be performed after the trigger
-        stub.instructions_after(opname, block, next_index)
+            # In this case only, ask for the compilation of the remaining instructions in the block
+            if opname in compiler.JITCompiler.compare_operators:
+                stub_handler.jitcompiler_instance.compile_instructions(mfunction, block, next_index)
+        else:
+            # Indicate this stub is to test the first variable
+            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
+
+            # Indicate to the stub, which operation must be performed after the trigger
+            stub.instructions_after(opname, block, next_index)
 
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
