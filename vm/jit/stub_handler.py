@@ -277,9 +277,6 @@ def python_callback_bb_stub(stub_id, rsp):
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
-    print("stub.block.function " + str(stub.block.function))
-    print("stub.block.instructions " + str(stub.block.instructions))
-    print("first_offset " + str(first_offset))
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
 
@@ -537,7 +534,7 @@ class StubType(Stub):
         stubhandler_instance.stub_dictionary[return_address] = self
 
         variable_id = encode_bytes(self.variable)
-        type_bytes = encode_bytes(type_value.value)
+        type_bytes = encode_bytes(type_value)
 
         offset = jitcompiler_instance.global_allocator.stub_offset
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(variable_id, offset)
@@ -584,7 +581,7 @@ class StubType(Stub):
 
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
-        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname)
+        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname, True)
         if self.context.variable_types[0] != objects.Types.Unknown and self.context.variable_types[1] != objects.Types.Unknown:
             for i in instructions:
                 self.mfunction.allocator.encode(i)

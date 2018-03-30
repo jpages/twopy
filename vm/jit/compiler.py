@@ -984,6 +984,7 @@ class Version:
             context = Context(self, block)
             self.context_map[block] = context
 
+
             # Copy the previous stack size from a parent block
             for parent in block.previous:
                 if parent in self.context_map:
@@ -1056,9 +1057,10 @@ class Context:
         # If we add an unknown value on the stack, try to get its type
         for element in self.stack:
             if value == element[0] and type_info == objects.Types.Unknown:
-                print("Duplicated unknown value on the virtual stack : " + str(value))
+                pass
+                #print("Duplicated unknown value on the virtual stack : " + str(value))
 
-        print(self.stack)
+        #print(self.stack)
 
     # Pop a value from the virtual stack
     def pop_value(self):
