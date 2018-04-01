@@ -315,7 +315,7 @@ class Function:
 
 
         # TODO: move this elsewhere
-        if interpreter.args.jit:
+        if not interpreter.args.inter:
             # For the JIT
             self.allocator = None
 

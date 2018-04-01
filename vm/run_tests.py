@@ -11,8 +11,8 @@ import subprocess
 
 # Python interpreters used for testing
 
-ref_interp = ['python2']
-interp = ['python3']
+ref_interp = ['python3']
+interp = ['../../../twopy.py']
 
 #------------------------------------------------------------------------------
 
@@ -62,7 +62,7 @@ red_text = '\33[31;1m'
 erase_to_eol = '\33[K'
 
 def output(text):
-    sys.stdout.write(text)
+    sys.stdout.write(str(text))
 
 def output_flush():
     sys.stdout.flush()
@@ -162,7 +162,7 @@ def run(cmd, cwd):
         stdin.close()
     result = p.stdout.read()
     code = p.wait()
-    return (code,result)
+    return (code, result)
 
 #------------------------------------------------------------------------------
 
@@ -209,7 +209,7 @@ def main():
         add_dir(arg)
 
     if len(dirs) == 0:
-        add_dir(os.path.join(os.path.dirname(sys.argv[0]),'tests'))
+        add_dir(os.path.join(os.path.dirname(sys.argv[0]), 'unit_tests'))
 
     run_tests(get_tests(dirs))
 
