@@ -1065,3 +1065,7 @@ class Context:
     # Pop a value from the virtual stack
     def pop_value(self):
         self.stack.pop()
+
+    # Set a value for a type in the virtual stack
+    def set_value(self, position, type_enum):
+        pass

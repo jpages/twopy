@@ -88,11 +88,11 @@ class TagHandler:
         context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
 
         # TODO: Try to retrieve information on the top two values in virtual stack
-        # context.variable_types[0] = context.stack[-1][1]
-        # context.variable_types[1] = context.stack[-2][1]
+        context.variable_types[0] = context.stack[-1][1]
+        context.variable_types[1] = context.stack[-2][1]
 
-        context.variable_types[0] = Types.Unknown
-        context.variable_types[1] = Types.Unknown
+        # context.variable_types[0] = Types.Unknown
+        # context.variable_types[1] = Types.Unknown
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
