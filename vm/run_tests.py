@@ -38,6 +38,8 @@ def get_tests(dirs):
                                               f.read().splitlines()))
                 for f in os.listdir(path):
                     visit(os.path.join(path, f), ignore + new_ignore)
+        elif path.endswith('.py'):
+            tests.append(path)
 
     for dir in dirs:
         visit(dir, [])
@@ -62,7 +64,7 @@ red_text = '\33[31;1m'
 erase_to_eol = '\33[K'
 
 def output(text):
-    sys.stdout.write(str(text))
+    sys.stdout.write(text)
 
 def output_flush():
     sys.stdout.flush()
@@ -112,6 +114,41 @@ def run_tests(tests):
     output('\n')
     output_line()
 
+def get_expected(test):
+    with open(test, 'rb') as f:
+        content = f.read()
+    expected = None
+    pos = len(content)
+    i = pos
+    if i > 0 and content[i-1:i] == b'\n':
+        i -= 1
+    while True:
+        while i > 0 and content[i-1:i] != b'\n': # search line start
+            i -= 1
+        if content[i:i+1] != b'#': # line doesn't start with '#'?
+            break
+        if expected is None:
+            expected = b''
+        expected = content[i+1:pos] + expected
+        pos = i
+        i -= 1
+    return (content[0:pos], expected)
+
+def set_expected(test, expected):
+    ex = get_expected(test)
+    commented = b'\n#'
+    if len(expected) == 0 or expected[-1:] != b'\n':
+        commented += expected.replace(b'\n', b'\n#')
+    else:
+        commented += expected[:-1].replace(b'\n', b'\n#') + expected[-1:]
+    new_content = ex[0] + commented
+    if ex[1] is not None:
+        reply = str(raw_input('really replace expected output of ' + test + ' (y/n): ')).lower().strip()
+        if reply[0] != 'y':
+            return
+    with open(test, 'wb') as f:
+        f.write(new_content)
+
 def run_test(test):
 
     def fail():
@@ -124,14 +161,31 @@ def run_test(test):
 
     test_dir = os.path.dirname(test)
 
-    if test_dir.startswith(common_dir):
-        name = test_dir[len(common_dir):]
+    if test.startswith(common_dir):
+        name = test[len(common_dir):]
     else:
-        name = test_dir
+        name = test
     output(' ' + name)
     output_flush()
 
-    ref_result = run(ref_interp + [test], test_dir)
+    ex = get_expected(test)
+
+    if ex[1] is None:
+        if fix_expected:
+            ref_result = run(ref_interp + [test], test_dir)
+            if ref_result[0] == 0:
+                set_expected(test, ref_result[1])
+            else:
+                print('\ncannot set expected result of crashing test '+test)
+                sys.exit(1)
+        else:
+            output(' *MISSING EXPECTED RESULT*\n')
+            output_line()
+            fail()
+            return
+    else:
+        ref_result = (0, ex[1])
+
     result = run(interp + [test], test_dir)
 
     if result == ref_result:
@@ -143,9 +197,9 @@ def run_test(test):
     else:
         output(' *FAIL*\n')
         output('*********** GOT STATUS=' + str(result[0]) + '\n')
-        output(result[1])
+        output(result[1].decode('iso8859-1'))
         output('*********** EXPECTED STATUS=' + str(ref_result[0]) + '\n')
-        output(ref_result[1])
+        output(ref_result[1].decode('iso8859-1'))
         output_line()
         fail()
 
@@ -162,7 +216,7 @@ def run(cmd, cwd):
         stdin.close()
     result = p.stdout.read()
     code = p.wait()
-    return (code, result)
+    return (code,result)
 
 #------------------------------------------------------------------------------
 
@@ -170,6 +224,7 @@ def run(cmd, cwd):
 
 dirs = []
 common_dir = None
+fix_expected = False
 
 def add_dir(path):
 
@@ -189,14 +244,17 @@ def add_dir(path):
 
 def main():
 
-    global ref_interp, interp
+    global ref_interp, interp, fix_expected
 
     i = 1
 
     while i < len(sys.argv):
         arg = sys.argv[i]
         i += 1
-        if i < len(sys.argv):
+        if arg == '-fix_expected':
+            fix_expected = True
+            continue
+        elif i < len(sys.argv):
             arg2 = sys.argv[i]
             if arg == '-interp':
                 interp = arg2.split()
