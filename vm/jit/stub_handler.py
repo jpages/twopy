@@ -490,6 +490,9 @@ class StubType(Stub):
         self.context = context
         self.encode_instructions(instructions)
 
+        self.first_variable = context.stack[len(context.stack)-1]
+        self.second_variable = context.stack[len(context.stack)-2]
+
     def encode_instructions(self, instructions):
         # Encoding the test
         for i in instructions:
@@ -564,9 +567,12 @@ class StubType(Stub):
         if type_value != objects.Types.Unknown:
             # Test the other variable now
             if id_variable == 0:
+                self.context.set_value(self.first_variable, type_value)
                 self.variable = 1
             else:
                 self.variable = 0
+                self.context.set_value(self.second_variable, type_value)
+
         # Else continue to test the current one
 
         # Get the address of the new instructions

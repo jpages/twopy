@@ -1066,6 +1066,14 @@ class Context:
     def pop_value(self):
         self.stack.pop()
 
-    # Set a value for a type in the virtual stack
-    def set_value(self, position, type_enum):
-        pass
+    # Set a value for a tuple in the virtual stack
+    # Try to find duplicate in the stack and set them too
+    def set_value(self, tuple, type_value):
+        #TODO: find a better solution than this
+        variable = tuple[0]
+
+        for i in range(len(self.stack)):
+            if self.stack[i][0] == variable:
+                # element[1] = type_value
+                self.stack[i] = (variable, type_value)
+

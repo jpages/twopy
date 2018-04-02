@@ -91,9 +91,6 @@ class TagHandler:
         context.variable_types[0] = context.stack[-1][1]
         context.variable_types[1] = context.stack[-2][1]
 
-        # context.variable_types[0] = Types.Unknown
-        # context.variable_types[1] = Types.Unknown
-
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
 
@@ -119,8 +116,12 @@ class TagHandler:
             true_branch = self.is_int_asm(y_register)
             false_branch = self.is_float_asm(y_register)
 
-            # Indicate this stub is to test the first variable
-            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
+            # Indicate which operand has to be tested
+            id_var = 0
+            if context.variable_types[0] != Types.Unknown:
+                id_var = 1
+
+            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, id_var, context)
 
             # Indicate to the stub, which operation must be performed after the trigger
             stub.instructions_after(opname, block, next_index)
