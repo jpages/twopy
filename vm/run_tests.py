@@ -12,7 +12,7 @@ import subprocess
 # Python interpreters used for testing
 
 ref_interp = ['python3']
-interp = ['../../../twopy.py']
+interp = ['../../twopy.py']
 
 #------------------------------------------------------------------------------
 
