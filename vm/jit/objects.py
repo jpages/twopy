@@ -3,7 +3,7 @@ This module contains the representations used by the JIT compiler
 '''
 
 import sys
-from enum import Enum
+from enum import IntEnum
 import peachpy.x86_64 as asm
 
 from . import stub_handler
@@ -85,59 +85,77 @@ class TagHandler:
         x_register = asm.r13
         y_register = asm.r14
 
-        # Move values into registers and keep them on the stack until the end of the test
-        instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
-        instructions.append(asm.MOV(y_register, asm.operand.MemoryOperand(asm.registers.rsp+8)))
-
-        # Generate a test for the first variable
-        test_instructions = self.is_int_asm(x_register)
-        instructions.extend(test_instructions)
-
-        # Code for true and false branchs
-        true_branch = self.is_int_asm(y_register)
-        false_branch = self.is_float_asm(y_register)
-
         context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
-        context.variable_types[0] = Types.Unknow
-        context.variable_types[1] = Types.Unknow
+
+        # TODO: Try to retrieve information on the top two values in virtual stack
+        context.variable_types[0] = context.stack[-1][1]
+        context.variable_types[1] = context.stack[-2][1]
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
 
-        # Indicate this stub is to test the first variable
-        stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 0, context)
+        # Directly compile the operation
+        if context.variable_types[0] != Types.Unknown and context.variable_types[1] != Types.Unknown:
+            instructions = self.compile_test(context, opname)
+            for i in instructions:
+                mfunction.allocator.encode(i)
 
-        # Indicate to the stub, which operation must be performed after the trigger
-        stub.instructions_after(opname, block, next_index)
+            # In this case only, ask for the compilation of the remaining instructions in the block
+            if opname in compiler.JITCompiler.compare_operators:
+                stub_handler.jitcompiler_instance.compile_instructions(mfunction, block, next_index)
+        else:
+            # Move values into registers and keep them on the stack until the end of the test
+            instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
+            instructions.append(asm.MOV(y_register, asm.operand.MemoryOperand(asm.registers.rsp + 8)))
+
+            # Generate a test for the first variable
+            test_instructions = self.is_int_asm(x_register)
+            instructions.extend(test_instructions)
+
+            # Code for true and false branchs
+            true_branch = self.is_int_asm(y_register)
+            false_branch = self.is_float_asm(y_register)
+
+            # Indicate which operand has to be tested
+            id_var = 0
+            if context.variable_types[0] != Types.Unknown:
+                id_var = 1
+
+            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, id_var, context)
+
+            # Indicate to the stub, which operation must be performed after the trigger
+            stub.instructions_after(opname, block, next_index)
 
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
     # context : the context filled with type informations
     # opname : name of the operand
-    def compile_test(self, context, opname):
+    # FIXME: dirty fix, find something better here
+    # from_callback : Indicate if this function is called from a callback
+    def compile_test(self, context, opname, from_callback=False):
 
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
-        # TODO: test if we have some informations on types
-        if x_type == Types.Int.value:
-            if y_type == Types.Unknow:
+        # Test if we have some informations on types
+        if x_type == Types.Int:
+            if y_type == Types.Unknown:
                 #Save registers for the whole test
                 return self.is_int_asm(context.variables_allocation[1])
-            elif y_type == Types.Float.value:
+            elif y_type == Types.Float:
                 # Convert x to float and add
                 return add_float(int_to_float(x), y)
-            elif y_type == Types.Int.value:
+            elif y_type == Types.Int:
                 # TODO: Check overflow
                 # res = add_int_overflow(x, y)
 
                 # Just add the two integers
                 instructions = []
 
-                self.compile_operation(instructions, context, context.variables_allocation[0], context.variables_allocation[1], opname)
+                self.compile_operation(instructions, context, context.variables_allocation[0], context.variables_allocation[1], opname, from_callback)
 
                 return instructions
-        elif x_type == Types.Float.value:
+        elif x_type == Types.Float:
             if if_int(y):
                 return add_float(x, int_to_float(y))
             elif is_float(y):
@@ -147,13 +165,15 @@ class TagHandler:
         return x.__add__(y)
 
     # Compile the operation from two registers and an opname
-    def compile_operation(self, instructions, context, reg0, reg1, opname):
+    def compile_operation(self, instructions, context, reg0, reg1, opname, from_callback=False):
         # Special case for comparison operators
         if opname in compiler.JITCompiler.compare_operators:
             return
 
-        context.decrease_stack_size()
-        context.decrease_stack_size()
+        #FIXME
+        if from_callback:
+            context.decrease_stack_size()
+            context.decrease_stack_size()
 
         if opname == "add":
             instructions.append(asm.POP(context.variables_allocation[1]))
@@ -167,7 +187,10 @@ class TagHandler:
             print("Not yet implemented")
 
         instructions.append(asm.PUSH(reg0))
-        context.increase_stack_size()
+
+        # FIXME
+        if from_callback:
+            context.increase_stack_size()
 
 class Object:
     def __init__(self):
@@ -184,13 +207,19 @@ class Integer(Numeric):
         pass
 
 
+class Bool(Integer):
+    def __init__(self):
+        pass
+
+
 class Float(Numeric):
     def __init__(self):
         pass
 
 
 # Enum class for all types in contexts
-class Types(Enum):
-    Unknow = 0
+class Types(IntEnum):
+    Unknown = 0
     Int = 1
     Float = 2
+    Bool = 3

@@ -268,6 +268,7 @@ class StubHandler:
 @ffi.def_extern()
 def python_callback_bb_stub(stub_id, rsp):
 
+    # TODO: use the rsp to identify the stub instead of its id
     # We must now trigger the compilation of the corresponding block
     stub = stubhandler_instance.stub_dictionary[stub_id]
 
@@ -489,6 +490,9 @@ class StubType(Stub):
         self.context = context
         self.encode_instructions(instructions)
 
+        self.first_variable = context.stack[len(context.stack)-1]
+        self.second_variable = context.stack[len(context.stack)-2]
+
     def encode_instructions(self, instructions):
         # Encoding the test
         for i in instructions:
@@ -533,7 +537,7 @@ class StubType(Stub):
         stubhandler_instance.stub_dictionary[return_address] = self
 
         variable_id = encode_bytes(self.variable)
-        type_bytes = encode_bytes(type_value.value)
+        type_bytes = encode_bytes(type_value)
 
         offset = jitcompiler_instance.global_allocator.stub_offset
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(variable_id, offset)
@@ -560,12 +564,15 @@ class StubType(Stub):
         self.context.variable_types[id_variable] = type_value
 
         # If we have a type value
-        if type_value != objects.Types.Unknow:
+        if type_value != objects.Types.Unknown:
             # Test the other variable now
             if id_variable == 0:
+                self.context.set_value(self.first_variable, type_value)
                 self.variable = 1
             else:
                 self.variable = 0
+                self.context.set_value(self.second_variable, type_value)
+
         # Else continue to test the current one
 
         # Get the address of the new instructions
@@ -580,8 +587,8 @@ class StubType(Stub):
 
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
-        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname)
-        if self.context.variable_types[0] != objects.Types.Unknow and self.context.variable_types[1] != objects.Types.Unknow:
+        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname, True)
+        if self.context.variable_types[0] != objects.Types.Unknown and self.context.variable_types[1] != objects.Types.Unknown:
             for i in instructions:
                 self.mfunction.allocator.encode(i)
             # Then compile the following instructions in the block

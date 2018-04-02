@@ -51,6 +51,11 @@ class JITCompiler:
         # Allocate code and data sections
         self.global_allocator = GlobalAllocator(self)
 
+        # Default value for max versions of versioning
+        self.maxvers = 5
+        if self.interpreter.args.maxvers:
+            self.maxvers = self.interpreter.args.maxvers
+
     # Main function called by the launcher
     def execute(self):
         self.start()
@@ -134,7 +139,7 @@ class JITCompiler:
             allocator = Allocator(mfunction, self, versioning)
             mfunction.allocator = allocator
 
-            # Special case for
+            # Special case for primitive functions
             if mfunction.name in stub_handler.twopy_primitives:
                 self.compile_std_function(mfunction)
             else:
@@ -161,7 +166,7 @@ class JITCompiler:
             return block.first_offset
 
         # Force the creation of a block
-        allocator.versioning.current_version().get_context_for_block(block)
+        context = allocator.versioning.current_version().get_context_for_block(block)
         self.current_block = block
 
         # Offset of the first instruction compiled in the block
@@ -176,6 +181,7 @@ class JITCompiler:
             # big dispatch for all instructions
             if isinstance(instruction, interpreter.simple_interpreter.POP_TOP):
 
+                context.pop_value()
                 # Just discard the TOS value
                 allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
@@ -362,10 +368,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
-                block.function.allocator.allocate_const(instruction, value)
+                block.function.allocator.allocate_const(instruction, value, context)
 
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_NAME):
                 name = instruction.function.names[instruction.arguments]
+
+                context.push_value(name, objects.Types.Unknown)
 
                 # We are loading something from builtins
                 if name in stub_handler.primitive_addresses:
@@ -398,7 +406,7 @@ class JITCompiler:
                 # If this is the first time we seen this instruction, put a type-test here and return
                 if index != block.instructions.index(instruction):
                     self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
-                    return
+                    return return_offset
                 # Otherwise compile the instruction, the test was executed
 
                 # COMPARE_OP can't be the last instruction of the block
@@ -417,7 +425,7 @@ class JITCompiler:
                     self.compile_cmp(instruction)
 
                 # We already compiled the next instruction which is a branch, the block is fully compiled now
-                return
+                return return_offset
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
@@ -438,6 +446,7 @@ class JITCompiler:
 
                 name = mfunction.names[instruction.arguments]
 
+                context.push_value(name)
                 element = None
                 # Lookup in the global environment
                 if name in self.interpreter.global_environment:
@@ -459,6 +468,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
+
+                context.push_value(mfunction.varnames[instruction.arguments])
 
                 # Load the value and put it onto the stack
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
@@ -817,17 +828,21 @@ class Allocator:
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
     # value : the value to allocate
-    def allocate_const(self, instruction, value):
+    # context : current compilation context, has to be filled with the constant informations
+    def allocate_const(self, instruction, value, context):
 
         # Bool are considered integers in python, we need to check this first
         if isinstance(value, bool):
             # Tag a boolean
             tvalue = self.jitcompiler.tags.tag_bool(value)
             self.encode(asm.PUSH(tvalue))
+            context.push_value(value, objects.Types.Bool)
         elif isinstance(value, int):
             # Put the integer value on the stack
             tvalue = self.jitcompiler.tags.tag_integer(value)
             self.encode(asm.PUSH(tvalue))
+
+            context.push_value(value, objects.Types.Int)
         elif isinstance(value, float):
             # TODO: Encode a float
             pass
@@ -839,6 +854,8 @@ class Allocator:
             self.encode(asm.PUSH(asm.r10))
 
             self.jitcompiler.consts[id(const_object)] = const_object
+
+            context.push_value(value, objects.Types.Unknown)
 
     # Create a pointer to the compiled function
     def create_function_pointer(self):
@@ -894,10 +911,12 @@ class Allocator:
 
         self.prolog_size = self.jitcompiler.global_allocator.code_offset - offset_before
 
+    # TODO: to remove
     # Just a wrapper for migrate code to a global section
     def encode(self, instruction):
         self.jitcompiler.global_allocator.encode(instruction, self.function)
 
+    # TODO: to remove
     # Just a wrapper for migrate code to a global section
     def encode_stub(self, instruction):
         return self.jitcompiler.global_allocator.encode_stub(instruction)
@@ -938,7 +957,12 @@ class Versioning:
         self.create_generic_version()
 
     def create_generic_version(self):
-        version = Version(self, Context())
+        version = Version(self)
+
+        # Store the association
+        first_context = Context(version, self.mfunction.start_basic_block)
+        version.context_map[self.mfunction.start_basic_block] = first_context
+
         self.versions.append(version)
 
         self.generic_version = version
@@ -950,7 +974,7 @@ class Versioning:
 
 # A particular version
 class Version:
-    def __init__(self, versioning, context):
+    def __init__(self, versioning):
         self.versioning = versioning
 
         # Map between blocks and contexts
@@ -962,9 +986,9 @@ class Version:
         if block in self.context_map:
             return self.context_map[block]
         else:
-            context = Context()
-            context.block = block
+            context = Context(self, block)
             self.context_map[block] = context
+
 
             # Copy the previous stack size from a parent block
             for parent in block.previous:
@@ -984,11 +1008,14 @@ class Version:
             current_block = stub_handler.jitcompiler_instance.current_block
             self.get_context_for_block(current_block).decrease_stack_size()
 
-# Attached to a version, contains information about versioning, stack size etc.
+
+# Attached to a version and a block, contains informations such as stack size, types, etc.
 class Context:
-    # version The version of the function
-    def __init__(self):
-        self.version = None
+    # version : the associated version of the code
+    # block : the associated block of this context
+    def __init__(self, version, block):
+        self.version = version
+        self.block = block
 
         self.stack_size = 0
 
@@ -998,8 +1025,12 @@ class Context:
         # Dictionary between variables and their registers
         self.variables_allocation = {}
 
-        # Associated block, if any
-        self.block = None
+        # TODO: initialize the stacks from the parent block
+        # Virtual stack, association between positions on the stack and variables types
+        self.stack = []
+
+        # Initialize the virtual stack
+        self.initialize_stack()
 
     def increase_stack_size(self):
         self.stack_size += 1
@@ -1012,12 +1043,42 @@ class Context:
         res = (8 * self.stack_size) + 8*(1 + nbvariable)
         return res
 
-    # Static function to clone a Context
-    def clone(other):
-        context = Context()
+    # Initialize the virtual stack which represents types on the stack
+    def initialize_stack(self):
+        # If this is the first block, without previous block
+        if self.block:
+            self.stack = []
 
-        context.stack_size = other.stack_size
-        context.version = other.version
-        context.variable_types = copy.deepcopy(other.variable_types)
+        # TODO: if we have inter-procedural propagation, initialize the current context with values from the caller
 
-        return context
+    # TODO: Try to know if a value is duplicated on the stack, in this case store the information
+    # Push a value onto the virtual stack
+    def push_value(self, value, type_info=objects.Types.Unknown):
+
+        # Make a tuple of a value and its type
+        el = (value, type_info)
+        self.stack.append(el)
+
+        # If we add an unknown value on the stack, try to get its type
+        for element in self.stack:
+            if value == element[0] and type_info == objects.Types.Unknown:
+                pass
+                #print("Duplicated unknown value on the virtual stack : " + str(value))
+
+        #print(self.stack)
+
+    # Pop a value from the virtual stack
+    def pop_value(self):
+        self.stack.pop()
+
+    # Set a value for a tuple in the virtual stack
+    # Try to find duplicate in the stack and set them too
+    def set_value(self, tuple, type_value):
+        #TODO: find a better solution than this
+        variable = tuple[0]
+
+        for i in range(len(self.stack)):
+            if self.stack[i][0] == variable:
+                # element[1] = type_value
+                self.stack[i] = (variable, type_value)
+
