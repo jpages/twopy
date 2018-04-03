@@ -94,7 +94,7 @@ class JITCompiler:
             mfunction.allocator.encode(asm.MOV(asm.rdi, mfunction.allocator.get_local_variable(0, mfunction.start_basic_block)))
 
             # Move the C-print address inside r9
-            addr = int(stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "twopy_library_print_integer")))
+            addr = int(stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "twopy_print")))
             mfunction.allocator.encode(asm.MOV(asm.r9, addr))
 
             # The return instruction will clean the stack
@@ -903,7 +903,6 @@ class Allocator:
         for i in instructions:
             size += len(i.encode())
 
-        offset = self.jitcompiler.global_allocator.code_offset
         self.encode(asm.CALL(asm.operand.RIPRelativeOffset(size)))
 
         for i in instructions:
@@ -988,7 +987,6 @@ class Version:
         else:
             context = Context(self, block)
             self.context_map[block] = context
-
 
             # Copy the previous stack size from a parent block
             for parent in block.previous:

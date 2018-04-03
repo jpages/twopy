@@ -40,8 +40,14 @@ ffi.cdef("""
         // Get the address of an element in a bytearray
         uint64_t get_address(char* bytearray, int index);
         
+        // Twopy general print
+        long int twopy_print(long int);
+        
         // twopy lib, print one integer
         int twopy_library_print_integer(int);
+        
+        // twopy lib, print one boolean
+        int twopy_library_print_boolean(int);
     """)
 
 c_code = """
@@ -127,13 +133,38 @@ c_code = """
         uint64_t get_address(char* bytearray, int index)
         {
             return (uint64_t)&bytearray[index];
-        }  
-        
+        }
+
         // Print one integer on stdout
         int twopy_library_print_integer(int value)
         {
             // Remove the integer tag for the print
             printf("%d\\n", value >> 2);
+            
+            return value;
+        }
+        
+        // Print the representation of a boolean        
+        int twopy_library_print_boolean(int value)
+        {
+            // Remove the tag for the print
+            if(value == 1)
+                printf("False\\n");
+            else
+                printf("True\\n");    
+            
+            return value;
+        }
+
+        long int twopy_print(long int value)
+        {
+            // Test the tag of the object
+            int tag = (int)value & 3;
+
+            if(tag == 1)
+                return twopy_library_print_boolean(value);
+            else if(tag == 0)
+                return twopy_library_print_integer(value);
             
             return value;
         }
