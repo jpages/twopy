@@ -20,6 +20,7 @@ import frontend
 from . import objects
 import interpreter.simple_interpreter
 
+import gc
 
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
