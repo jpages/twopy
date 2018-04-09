@@ -526,10 +526,6 @@ class JITCompiler:
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
 
-                # Discard the two values on the stack
-                allocator.encode(asm.POP(asm.r10))
-                allocator.encode(asm.POP(asm.r10))
-
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLOSURE):

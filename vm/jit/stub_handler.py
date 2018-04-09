@@ -89,18 +89,18 @@ c_code = """
             if(nbargs > 2)
                 ;
             
-            print_stack(rsp);
+            //print_stack(rsp);
             
             // Callback to python to trigger the compilation of the function
-            uint64_t function_address = (uint64_t)python_callback_function_stub(name_id, code_id, (uint64_t)return_address);
+            python_callback_function_stub(name_id, code_id, (uint64_t)return_address);
 
-            rsp = rsp + 1;
+            //rsp = rsp + 1;
             
             // Put on the stack the address of the next function
-            rsp[1] = (long long int)function_address;
+            //rsp[1] = (long long int)function_address;
             
             // Patch the return address
-            rsp[-2] = (uint64_t)return_address;
+            //rsp[-2] = (uint64_t)return_address;
         }
 
         // Handle compilation of a type-test stub
@@ -260,7 +260,6 @@ class StubHandler:
         print("Stub_id " + str(stub_id))
         # Align the stack on 16 bits
 
-        # mfunction.allocator.encode_stub(asm.INT(3))
         mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
         mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
         mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
@@ -377,7 +376,7 @@ def python_callback_function_stub(name_id, code_id, return_address):
     stub.data_address = stubhandler_instance.data_addresses[return_address]
 
     #TODO: to finish
-    stub.clean(return_address)
+    stub.clean(return_address, function.allocator.code_address)
 
     return ffi.cast("char*", function.allocator.code_address)
 
@@ -530,7 +529,6 @@ class Stub:
 
         print("Cleaning from " + str(self))
         instructions = []
-        instructions.append(asm.INT(3).encode())
         instructions.append(asm.POP(asm.registers.rsp).encode())
         instructions.append(asm.MOV(asm.rax, return_address).encode())
         instructions.append(asm.JMP(asm.rax).encode())
@@ -561,6 +559,29 @@ class StubFunction(Stub):
     def __init__(self):
         super().__init__()
 
+    # Write instructions to restore the context before returning to asm
+    # return_address : where to jump after this stub
+    # function_address : address of the newly compiled function, to put on TOS after returning
+    def clean(self, return_address, function_address):
+        instructions = []
+
+        # restore rsp
+        instructions.append(asm.POP(asm.registers.rsp).encode())
+
+        # Discard the two top values on the stack
+        instructions.append(asm.ADD(asm.registers.rsp, 24).encode())
+
+        # Now push the function address
+        instructions.append(asm.MOV(asm.rax, function_address).encode())
+        instructions.append(asm.PUSH(asm.rax).encode())
+
+        # Finally, jump to the correct destination
+        instructions.append(asm.MOV(asm.rax, return_address).encode())
+        instructions.append(asm.JMP(asm.rax).encode())
+
+        offset = self.data_address
+        for i in instructions:
+            offset = jitcompiler_instance.global_allocator.write_instruction(i, offset)
 
 # A class to generate stub for type tests
 class StubType(Stub):
