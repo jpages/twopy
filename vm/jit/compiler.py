@@ -20,8 +20,6 @@ import frontend
 from . import objects
 import interpreter.simple_interpreter
 
-import gc
-
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
     # For now keep a SimpleInterpreter instance
@@ -219,7 +217,6 @@ class JITCompiler:
                 ins = self.tags.untag_asm(asm.r8)
                 allocator.encode(ins)
 
-                # Make the sub and push the results
                 allocator.encode(asm.IMUL(asm.r8, asm.r9))
                 allocator.encode(asm.PUSH(asm.r8))
 
@@ -228,11 +225,28 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
 
                 #TODO: ensure that this operator wasn't redefined
-                self.tags.binary_operation("add", mfunction, block, i+1)
+                # self.tags.binary_operation("add", mfunction, block, i+1)
+                # Pop two values inside registers
+                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.POP(asm.r8))
+
+                # Make the sub and push the results
+                allocator.encode(asm.ADD(asm.r8, asm.r9))
+                allocator.encode(asm.PUSH(asm.r8))
+
+
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
                 #TODO: ensure that this operator wasn't redefined
-                self.tags.binary_operation("sub", mfunction, block, i+1)
+                # self.tags.binary_operation("sub", mfunction, block, i+1)
+
+                allocator.encode(asm.POP(asm.r9))
+                allocator.encode(asm.POP(asm.r8))
+
+                # Make the sub and push the results
+                allocator.encode(asm.SUB(asm.r8, asm.r9))
+                allocator.encode(asm.PUSH(asm.r8))
+
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
@@ -405,9 +419,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
-                if index != block.instructions.index(instruction):
-                    self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
-                    return return_offset
+                # if index != block.instructions.index(instruction):
+                #     self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
+                #     return return_offset
                 # Otherwise compile the instruction, the test was executed
 
                 # COMPARE_OP can't be the last instruction of the block

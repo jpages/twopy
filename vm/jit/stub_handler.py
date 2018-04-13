@@ -23,7 +23,7 @@ ffi.cdef("""
         void type_test_stub(uint64_t* rsp);
 
         // Python function callback
-        extern "Python+C" char* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
+        extern "Python+C" char* python_callback_bb_stub(uint64_t rsp);
         
         // Callback to trigger the compilation of a function
         extern "Python+C" char* python_callback_function_stub(uint64_t, uint64_t, uint64_t);
@@ -55,7 +55,7 @@ c_code = """
         #include <stdlib.h>
 
         // Function called to handle the compilation of stubs for basic blocks
-        static char* python_callback_bb_stub(uint64_t stub_id, uint64_t* rsp);
+        static char* python_callback_bb_stub(uint64_t rsp);
         
         static char* python_callback_function_stub(uint64_t, uint64_t, uint64_t);
         
@@ -63,22 +63,17 @@ c_code = """
 
         void bb_stub(uint64_t* rsp)
         {
-            // Read values after the stub
-            uint64_t* code_address = (uint64_t*)rsp[-2];
-             
-            long int val = (long int)code_address[0];
-            
-            python_callback_bb_stub(val, rsp);
+            python_callback_bb_stub(rsp[-2]);
         }
 
         // Handle the compilation of a function's stub
         void function_stub(uint64_t* rsp)
-        {  
-            uint64_t* code_address = (uint64_t*)rsp[-1];
-
+        {
+            uint64_t* code_address = (uint64_t*)rsp[-2];
+            
             // Get the two values after the stub
             int nbargs = (int)code_address[0];
-            uint64_t* return_address = rsp[0];
+            uint64_t return_address = rsp[0];
 
             // Read values on the stack
             // For now consider we have just the name and code id
@@ -89,34 +84,24 @@ c_code = """
             if(nbargs > 2)
                 ;
             
-            //print_stack(rsp);
-            
             // Callback to python to trigger the compilation of the function
-            python_callback_function_stub(name_id, code_id, (uint64_t)return_address);
-
-            //rsp = rsp + 1;
-            
-            // Put on the stack the address of the next function
-            //rsp[1] = (long long int)function_address;
-            
-            // Patch the return address
-            //rsp[-2] = (uint64_t)return_address;
+            python_callback_function_stub(name_id, code_id, return_address);
         }
 
         // Handle compilation of a type-test stub
         void type_test_stub(uint64_t* rsp)
         {
-            uint64_t* code_address = (uint64_t*)rsp[-3]; 
+            // Get the return address
+            long int return_address = rsp[-2];
             
+            long int return_address_aligned = return_address & -16;
+
+            uint64_t* code_address = (uint64_t*)rsp[-2];
+
             int id_variable = (int)code_address[0];
             int type_value = (int)code_address[1];
-            
-            // Get the return address
-            long int return_address = rsp[-3];
-            
-            return_address = return_address & -16;
 
-            python_callback_type_stub(return_address, id_variable, type_value);
+            python_callback_type_stub(return_address_aligned, id_variable, type_value);
         }
         
         void print_stack(uint64_t* rsp)
@@ -210,11 +195,6 @@ class StubHandler:
         old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
         old_code_offset = jitcompiler_instance.global_allocator.code_offset
 
-        # Compile a stub for each branch
-        self.compile_stub(mfunction, id(true_block))
-
-        address_false = self.compile_stub(mfunction, id(false_block))
-
         # And update the dictionary of ids and blocks
         # Compute the offset to the stub, by adding the size of the JL instruction
         offset = old_stub_offset - old_code_offset
@@ -222,30 +202,33 @@ class StubHandler:
 
         mfunction.allocator.encode(peachpy_instruction)
 
+        # Compile a stub for each branch
         jump_stub = StubBB(true_block, peachpy_instruction, old_code_offset)
-        self.stub_dictionary[id(true_block)] = jump_stub
-
-        jump_stub.data_address = self.data_addresses[id(true_block)]
+        self.compile_stub(mfunction, jump_stub)
 
         # For now, jump to the newly compiled stub,
         # This code will be patched later
         old_code_offset = jitcompiler_instance.global_allocator.code_offset
+
+        # Compute the address of the false block stub
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        address_false = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.stub_offset)
+
         peachpy_instruction = asm.MOV(asm.r10, address_false)
         mfunction.allocator.encode(peachpy_instruction)
         mfunction.allocator.encode(asm.JMP(asm.r10))
 
         # We store the MOV into the register as the jumping instruction, we just need to patch this
         notjump_stub = StubBB(false_block, peachpy_instruction, old_code_offset)
-        self.stub_dictionary[id(false_block)] = notjump_stub
-        notjump_stub.data_address = self.data_addresses[id(false_block)]
+        self.compile_stub(mfunction, notjump_stub)
 
     # Compile a call to a stub with an identifier
     # mfunction: The simple_interpreter.Function
-    # stub_id : The id the identifier of the block
-    def compile_stub(self, mfunction, stub_id):
+    # stub : The associated StubBB object
+    def compile_stub(self, mfunction, stub):
 
         # The call to that will be compiled after the stub compilation is over
-        stub_label = "Stub_label_" + str(stub_id)
+        stub_label = "Stub_label_" + str(id(stub))
 
         # Now we store the stack pointer to patch it later
         address = mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
@@ -257,28 +240,31 @@ class StubHandler:
 
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "bb_stub")))
 
-        print("Stub_id " + str(stub_id))
         # Align the stack on 16 bits
 
         mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
-        mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
         mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
 
         mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
 
         mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
-        # Put some values after the stub to read them from C with the rsp
-        stub_id_bytes = stub_id.to_bytes(stub_id.bit_length(), "little")
-
+        # Save the offset
         offset = jitcompiler_instance.global_allocator.stub_offset
+
+        return_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section),
+                        jitcompiler_instance.global_allocator.stub_offset)
+
+        # Indicate this offset correspond to the "return address" on the stub after the call to C returned
+        self.data_addresses[return_address] = offset
+        self.stub_dictionary[return_address] = stub
 
         # Save some space for cleaning instructions
         mfunction.allocator.encode_stub(asm.NOP())
-
-        # Indicate this offset correspond to the "return address" on the stub after the call to C returned
-        self.data_addresses[stub_id] = offset
-        jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(stub_id_bytes, offset)
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
 
         return address
 
@@ -305,7 +291,6 @@ class StubHandler:
         # Align the stack on 16 bits
         mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
         mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
-        # mfunction.allocator.encode_stub(asm.SUB(asm.registers.rsp, 8))
         mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
 
         mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
@@ -326,20 +311,22 @@ class StubHandler:
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(nbargs_bytes, jitcompiler_instance.global_allocator.stub_offset)
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(address_after_bytes, jitcompiler_instance.global_allocator.stub_offset)
 
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
+        mfunction.allocator.encode_stub(asm.NOP())
+
         return address
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # stub_id : The identifier of the basic block to compile
 @ffi.def_extern()
-def python_callback_bb_stub(stub_id, rsp):
+def python_callback_bb_stub(rsp):
 
-    print("test")
     # TODO: use the rsp to identify the stub instead of its id
     # We must now trigger the compilation of the corresponding block
-    stub = stubhandler_instance.stub_dictionary[stub_id]
+    stub = stubhandler_instance.stub_dictionary[rsp]
 
-    # Delete the entry
-    del stubhandler_instance.stub_dictionary[stub_id]
     # Get the offset of the first instruction compiled in the block
     first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
@@ -351,8 +338,12 @@ def python_callback_bb_stub(stub_id, rsp):
 
     c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
+    stub.data_address = stubhandler_instance.data_addresses[rsp]
 
     stub.clean(rsp_address_patched)
+
+    # Delete the entry
+    # del stubhandler_instance.stub_dictionary[rsp]
 
     return ffi.cast("char*", rsp_address_patched)
 
@@ -371,13 +362,12 @@ def python_callback_function_stub(name_id, code_id, return_address):
     if jitcompiler_instance.interpreter.args.asm:
         function.allocator.disassemble_asm()
 
-    print(stubhandler_instance.stub_dictionary[return_address])
     stub = stubhandler_instance.stub_dictionary[return_address]
     stub.data_address = stubhandler_instance.data_addresses[return_address]
 
-    #TODO: to finish
     stub.clean(return_address, function.allocator.code_address)
 
+    # TODO: now useless return
     return ffi.cast("char*", function.allocator.code_address)
 
 @ffi.def_extern()
@@ -527,9 +517,9 @@ class Stub:
     # Write instructions to restore the context before returning to asm
     def clean(self, return_address):
 
-        print("Cleaning from " + str(self))
         instructions = []
         instructions.append(asm.POP(asm.registers.rsp).encode())
+
         instructions.append(asm.MOV(asm.rax, return_address).encode())
         instructions.append(asm.JMP(asm.rax).encode())
 
@@ -653,14 +643,10 @@ class StubType(Stub):
         self.mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
         self.mfunction.allocator.encode_stub(asm.CALL(reg_id))
 
-        #TODO: need to pop the address after
         # Compute the return address to link this stub to self
         return_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section), jitcompiler_instance.global_allocator.stub_offset)
 
-
-        print("Return address before alignment " + str(return_address))
         return_address = return_address & -16
-        print("Return address now in dict " + str(return_address))
         # Associate this return address to self in the stub_handler
         stubhandler_instance.stub_dictionary[return_address] = self
 
@@ -673,6 +659,13 @@ class StubType(Stub):
 
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(variable_id, offset)
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(type_bytes, jitcompiler_instance.global_allocator.stub_offset)
+
+        # Saving some space for the cleaning
+        self.mfunction.allocator.encode_stub(asm.NOP())
+        self.mfunction.allocator.encode_stub(asm.NOP())
+        self.mfunction.allocator.encode_stub(asm.NOP())
+        self.mfunction.allocator.encode_stub(asm.NOP())
+        self.mfunction.allocator.encode_stub(asm.NOP())
 
         return return_address
 
