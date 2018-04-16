@@ -260,11 +260,8 @@ class StubHandler:
         self.stub_dictionary[return_address] = stub
 
         # Save some space for cleaning instructions
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
+        for i in range(15):
+            mfunction.allocator.encode_stub(asm.NOP())
 
         return address
 
@@ -311,10 +308,8 @@ class StubHandler:
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(nbargs_bytes, jitcompiler_instance.global_allocator.stub_offset)
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(address_after_bytes, jitcompiler_instance.global_allocator.stub_offset)
 
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
-        mfunction.allocator.encode_stub(asm.NOP())
+        for i in range(5):
+            mfunction.allocator.encode_stub(asm.NOP())
 
         return address
 
@@ -323,7 +318,6 @@ class StubHandler:
 @ffi.def_extern()
 def python_callback_bb_stub(rsp):
 
-    # TODO: use the rsp to identify the stub instead of its id
     # We must now trigger the compilation of the corresponding block
     stub = stubhandler_instance.stub_dictionary[rsp]
 
@@ -392,6 +386,7 @@ class Stub:
     # first_offset : offset of the first instruction newly compiled in the block
     def patch_instruction(self, first_offset):
 
+        print("PATCHING a " + str(self.instruction))
         if isinstance(self.instruction, asm.MOV):
             # Moving an address inside a register, we need to change the address here
 
@@ -516,7 +511,6 @@ class Stub:
 
     # Write instructions to restore the context before returning to asm
     def clean(self, return_address):
-
         instructions = []
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
@@ -600,6 +594,9 @@ class StubType(Stub):
         self.second_variable = context.stack[len(context.stack)-2]
 
     def encode_instructions(self, instructions):
+
+        jitcompiler_instance.global_allocator.encode_stub(asm.INT(3))
+
         # Encoding the test
         for i in instructions:
             self.mfunction.allocator.encode(i)
@@ -612,6 +609,7 @@ class StubType(Stub):
         true_offset = old_stub_offset - jitcompiler_instance.global_allocator.code_offset - 6
         old_position = jitcompiler_instance.global_allocator.code_offset
         instruction = asm.JE(asm.operand.RIPRelativeOffset(true_offset))
+
         self.mfunction.allocator.encode(instruction)
 
         self.dict_stubs[return_address] = instruction
@@ -661,11 +659,8 @@ class StubType(Stub):
         jitcompiler_instance.global_allocator.stub_offset = jitcompiler_instance.global_allocator.write_instruction(type_bytes, jitcompiler_instance.global_allocator.stub_offset)
 
         # Saving some space for the cleaning
-        self.mfunction.allocator.encode_stub(asm.NOP())
-        self.mfunction.allocator.encode_stub(asm.NOP())
-        self.mfunction.allocator.encode_stub(asm.NOP())
-        self.mfunction.allocator.encode_stub(asm.NOP())
-        self.mfunction.allocator.encode_stub(asm.NOP())
+        for i in range(5):
+            self.mfunction.allocator.encode_stub(asm.NOP())
 
         return return_address
 

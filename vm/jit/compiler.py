@@ -237,15 +237,16 @@ class JITCompiler:
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
+                allocator.encode(asm.INT(3))
                 #TODO: ensure that this operator wasn't redefined
-                # self.tags.binary_operation("sub", mfunction, block, i+1)
+                self.tags.binary_operation("sub", mfunction, block, i+1)
 
-                allocator.encode(asm.POP(asm.r9))
-                allocator.encode(asm.POP(asm.r8))
-
-                # Make the sub and push the results
-                allocator.encode(asm.SUB(asm.r8, asm.r9))
-                allocator.encode(asm.PUSH(asm.r8))
+                # allocator.encode(asm.POP(asm.r9))
+                # allocator.encode(asm.POP(asm.r8))
+                #
+                # # Make the sub and push the results
+                # allocator.encode(asm.SUB(asm.r8, asm.r9))
+                # allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 pass
