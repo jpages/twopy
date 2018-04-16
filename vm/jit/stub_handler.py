@@ -2,10 +2,8 @@
 # Make the link between compiled assembly and high-level python functions
 # Handle the compilation of stub functions
 import cffi
-import math
 import peachpy.x86_64 as asm
 from . import objects
-from . import compiler
 
 # The following definitions must be top-level to facilitate the interface with C
 # Use the CFFI to define C functions which are callable from assembly
@@ -23,13 +21,13 @@ ffi.cdef("""
         void type_test_stub(uint64_t* rsp);
 
         // Python function callback
-        extern "Python+C" char* python_callback_bb_stub(uint64_t rsp);
+        extern "Python+C" void python_callback_bb_stub(uint64_t rsp);
         
         // Callback to trigger the compilation of a function
-        extern "Python+C" char* python_callback_function_stub(uint64_t, uint64_t, uint64_t);
+        extern "Python+C" void python_callback_function_stub(uint64_t, uint64_t, uint64_t);
 
         // Callback for type tests
-        extern "Python+C" uint64_t python_callback_type_stub(uint64_t, int, int);
+        extern "Python+C" void python_callback_type_stub(uint64_t, int, int);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -55,11 +53,11 @@ c_code = """
         #include <stdlib.h>
 
         // Function called to handle the compilation of stubs for basic blocks
-        static char* python_callback_bb_stub(uint64_t rsp);
+        static void python_callback_bb_stub(uint64_t rsp);
         
-        static char* python_callback_function_stub(uint64_t, uint64_t, uint64_t);
+        static void python_callback_function_stub(uint64_t, uint64_t, uint64_t);
         
-        static uint64_t python_callback_type_stub(uint64_t, int, int);
+        static void python_callback_type_stub(uint64_t, int, int);
 
         void bb_stub(uint64_t* rsp)
         {
@@ -314,7 +312,7 @@ class StubHandler:
         return address
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
-# stub_id : The identifier of the basic block to compile
+# rsp : The return address, use to identify which stub we must compile
 @ffi.def_extern()
 def python_callback_bb_stub(rsp):
 
@@ -337,9 +335,7 @@ def python_callback_bb_stub(rsp):
     stub.clean(rsp_address_patched)
 
     # Delete the entry
-    # del stubhandler_instance.stub_dictionary[rsp]
-
-    return ffi.cast("char*", rsp_address_patched)
+    del stubhandler_instance.stub_dictionary[rsp]
 
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
@@ -361,15 +357,12 @@ def python_callback_function_stub(name_id, code_id, return_address):
 
     stub.clean(return_address, function.allocator.code_address)
 
-    # TODO: now useless return
-    return ffi.cast("char*", function.allocator.code_address)
-
 @ffi.def_extern()
 def python_callback_type_stub(return_address, id_variable, type_value):
     stub = stubhandler_instance.stub_dictionary[return_address]
-    address = stub.callback_function(return_address, id_variable, type_value)
 
-    return address
+    stub.callback_function(return_address, id_variable, type_value)
+
 
 # Encode a value to a byte by forcing 8 bits minimum
 def encode_bytes(value):
