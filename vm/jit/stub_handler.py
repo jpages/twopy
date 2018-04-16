@@ -386,7 +386,6 @@ class Stub:
     # first_offset : offset of the first instruction newly compiled in the block
     def patch_instruction(self, first_offset):
 
-        print("PATCHING a " + str(self.instruction))
         if isinstance(self.instruction, asm.MOV):
             # Moving an address inside a register, we need to change the address here
 
@@ -595,8 +594,6 @@ class StubType(Stub):
 
     def encode_instructions(self, instructions):
 
-        jitcompiler_instance.global_allocator.encode_stub(asm.INT(3))
-
         # Encoding the test
         for i in instructions:
             self.mfunction.allocator.encode(i)
@@ -634,7 +631,7 @@ class StubType(Stub):
 
         # Align the stack on 16 bits
         self.mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
-        self.mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
+        #self.mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
         # self.mfunction.allocator.encode_stub(asm.SUB(asm.registers.rsp, 8))
         self.mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
 

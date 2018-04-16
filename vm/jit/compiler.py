@@ -225,28 +225,12 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
 
                 #TODO: ensure that this operator wasn't redefined
-                # self.tags.binary_operation("add", mfunction, block, i+1)
-                # Pop two values inside registers
-                allocator.encode(asm.POP(asm.r9))
-                allocator.encode(asm.POP(asm.r8))
-
-                # Make the sub and push the results
-                allocator.encode(asm.ADD(asm.r8, asm.r9))
-                allocator.encode(asm.PUSH(asm.r8))
-
+                self.tags.binary_operation("add", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
-                allocator.encode(asm.INT(3))
                 #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("sub", mfunction, block, i+1)
-
-                # allocator.encode(asm.POP(asm.r9))
-                # allocator.encode(asm.POP(asm.r8))
-                #
-                # # Make the sub and push the results
-                # allocator.encode(asm.SUB(asm.r8, asm.r9))
-                # allocator.encode(asm.PUSH(asm.r8))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 pass
@@ -420,9 +404,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
-                # if index != block.instructions.index(instruction):
-                #     self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
-                #     return return_offset
+                if index != block.instructions.index(instruction):
+                    self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
+                    return return_offset
                 # Otherwise compile the instruction, the test was executed
 
                 # COMPARE_OP can't be the last instruction of the block
@@ -540,6 +524,8 @@ class JITCompiler:
 
                 allocator.encode(asm.MOV(asm.r10, stub_address))
                 allocator.encode(asm.CALL(asm.r10))
+
+                context.decrease_stack_size()
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
                 pass
@@ -1051,6 +1037,7 @@ class Context:
     # Get the offset from the rsp for the local variable number nbvariable
     def get_offset(self, nbvariable):
         res = (8 * self.stack_size) + 8*(1 + nbvariable)
+
         return res
 
     # Initialize the virtual stack which represents types on the stack
@@ -1074,8 +1061,6 @@ class Context:
             if value == element[0] and type_info == objects.Types.Unknown:
                 pass
                 #print("Duplicated unknown value on the virtual stack : " + str(value))
-
-        #print(self.stack)
 
     # Pop a value from the virtual stack
     def pop_value(self):
