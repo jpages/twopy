@@ -717,6 +717,29 @@ class GlobalAllocator:
         # Create manipulable python arrays for these two sections
         self.python_arrays()
 
+    # Allocate an object with the given value
+    def allocate_object(self, value):
+
+        # Must return an address
+        size = len(bytes(value))
+        print("Size of the object " + str(size))
+
+        # SIZE    32 bits |      VALUE
+        encoded_size = size.to_bytes(32, "little")
+
+        offset_before = self.data_offset
+
+        # Write the size, then the value
+        self.data_offset = self.write_data(encoded_size, self.data_offset)
+
+        offset_string = self.data_offset
+        self.data_offset = self.write_data(value, self.data_offset)
+
+
+        print(self.data_section[offset_string])
+        print(encoded_size)
+
+
     # Create python array interface from C allocated arrays
     def python_arrays(self):
 
@@ -766,12 +789,11 @@ class GlobalAllocator:
         return offset
 
     # Write a data in the data section
-    def write_data(self, data):
-
-        self.encode(asm.MOV(asm.r10, stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)))
-        self.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10), data))
-
-        self.data_offset = self.data_offset + 1
+    def write_data(self, encoded, offset):
+        for val in encoded:
+            self.data_section[offset] = val.to_bytes(1, 'big')
+            offset = offset + 1
+        return offset
 
     # Disassemble the compiled assembly code
     def disassemble_asm(self):
@@ -838,6 +860,17 @@ class Allocator:
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
+
+            if isinstance(const_object, str):
+                print("Instruction " + str(instruction) + ", string value " + str(const_object))
+                print("Bytes " + str(const_object.encode()))
+
+                # Unicode encoding of the string
+                encoded_value = const_object.encode()
+                address = self.jitcompiler.global_allocator.allocate_object(encoded_value)
+
+                # Put the tag
+
 
             self.encode(asm.MOV(asm.r10, id(const_object)))
             self.encode(asm.PUSH(asm.r10))
