@@ -209,16 +209,7 @@ class JITCompiler:
                 pass
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
 
-                # Pop two values inside registers
-                allocator.encode(asm.POP(asm.r9))
-                allocator.encode(asm.POP(asm.r8))
-
-                # Untag the value to not duplicate the tag
-                ins = self.tags.untag_asm(asm.r8)
-                allocator.encode(ins)
-
-                allocator.encode(asm.IMUL(asm.r8, asm.r9))
-                allocator.encode(asm.PUSH(asm.r8))
+                self.tags.binary_operation("mul", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 pass

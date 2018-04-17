@@ -175,17 +175,24 @@ class TagHandler:
             context.decrease_stack_size()
             context.decrease_stack_size()
 
+        instructions.append(asm.POP(context.variables_allocation[1]))
+        instructions.append(asm.POP(context.variables_allocation[0]))
         if opname == "add":
-            instructions.append(asm.POP(context.variables_allocation[1]))
-            instructions.append(asm.POP(context.variables_allocation[0]))
             instructions.append(asm.ADD(reg0, reg1))
         elif opname == "sub":
-            instructions.append(asm.POP(context.variables_allocation[1]))
-            instructions.append(asm.POP(context.variables_allocation[0]))
             instructions.append(asm.SUB(reg0, reg1))
+        elif opname == "mul":
+            # Untag the value to not duplicate the tag
+            ins = self.untag_asm(context.variables_allocation[0])
+            instructions.append(ins)
+
+            instructions.append(asm.IMUL(reg0, reg1))
         else:
             print("Not yet implemented")
 
+        # For now, jump outside the code segment to crash the execution
+        # This need to be replaced with a proper overflow handling and a conversion to bignums
+        instructions.append(asm.JO(asm.operand.RIPRelativeOffset(-100000)))
         instructions.append(asm.PUSH(reg0))
 
         # FIXME
