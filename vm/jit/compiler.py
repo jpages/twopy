@@ -45,7 +45,7 @@ class JITCompiler:
         self.mainmodule = self.interpreter.mainmodule
 
         # Tagging objects
-        self.tags = objects.TagHandler()
+        self.tags = objects.TagHandler(self)
 
         # Allocate code and data sections
         self.global_allocator = GlobalAllocator(self)

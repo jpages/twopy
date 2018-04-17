@@ -46,6 +46,9 @@ ffi.cdef("""
         
         // twopy lib, print one boolean
         int twopy_library_print_boolean(int);
+        
+        // Print an error and exit
+        void twopy_error(int);
     """)
 
 c_code = """
@@ -154,6 +157,16 @@ c_code = """
             
             return value;
         }
+        
+        void twopy_error(int error_code)
+        {
+            if(error_code == 1)
+                printf("ERROR: overflow \\n");
+            else
+                printf("ERROR: %d\\n", error_code);
+            
+            exit(-1);
+        }
     """
 # C Sources
 ffi.set_source("stub_module", c_code)
@@ -182,6 +195,9 @@ class StubHandler:
 
         # TODO: temporary, association between stub ids and their data addresses
         self.data_addresses = {}
+
+        # The unique stub for printing errors during execution, will call a C function
+        self.stub_error = None
 
     # Compile a stub because of a branch instruction
     # mfunction : The current compiled function
@@ -310,6 +326,22 @@ class StubHandler:
             mfunction.allocator.encode_stub(asm.NOP())
 
         return address
+
+    # Compile a jump to an error
+    # error_code The code of the error sent to C
+    def compile_error_stub(self, error_code):
+        if not self.stub_error:
+            self.stub_error = StubError()
+
+        address = jitcompiler_instance.global_allocator.encode_stub(asm.MOV(asm.rdi, error_code))
+
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "twopy_error")))
+
+        jitcompiler_instance.global_allocator.encode_stub(asm.MOV(asm.r10, function_address))
+        jitcompiler_instance.global_allocator.encode_stub(asm.CALL(asm.r10))
+
+        return address
+
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # rsp : The return address, use to identify which stub we must compile
@@ -710,6 +742,11 @@ class StubType(Stub):
         self.clean(rsp_address_patched)
 
         return rsp_address_patched
+
+# Jump to this stub to print an error an stop the execution
+class StubError(Stub):
+    def __init__(self):
+        super().__init__()
 
 
 # Ceil without using the math library

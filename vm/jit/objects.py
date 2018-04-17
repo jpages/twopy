@@ -16,7 +16,8 @@ class TagHandler:
     # 00    int
     # 01    specials like char and boolean
     # 10    memory objects
-    def __init__(self):
+    def __init__(self, jit):
+        self.jit = jit
         #TODO: define relation betweens types and their tags
         pass
 
@@ -190,9 +191,24 @@ class TagHandler:
         else:
             print("Not yet implemented")
 
-        # For now, jump outside the code segment to crash the execution
+        # Get current instruction offset
+        offset = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.jit.global_allocator.code_section),
+                                              self.jit.global_allocator.code_offset)
+
+        encoded = []
+        for i in instructions:
+            encoded.append(i.encode())
+
+        # Adding the length of previous instructions in the list and the size of the JO
+        offset += len(encoded) + 14
+
+        # Jump to an error handler if overflow
+        address_error = stub_handler.stubhandler_instance.compile_error_stub(1)
+        diff = address_error - offset
+
+        # For now, jump to a stub which will print an error and exit
         # This need to be replaced with a proper overflow handling and a conversion to bignums
-        instructions.append(asm.JO(asm.operand.RIPRelativeOffset(-100000)))
+        instructions.append(asm.JO(asm.operand.RIPRelativeOffset(diff)))
         instructions.append(asm.PUSH(reg0))
 
         # FIXME
