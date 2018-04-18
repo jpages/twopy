@@ -722,22 +722,19 @@ class GlobalAllocator:
 
         # Must return an address
         size = len(bytes(value))
-        print("Size of the object " + str(size))
 
         # SIZE    32 bits |      VALUE
         encoded_size = size.to_bytes(32, "little")
 
-        offset_before = self.data_offset
+        # Save the address of this object
+        address = self.get_current_data_address()
 
         # Write the size, then the value
         self.data_offset = self.write_data(encoded_size, self.data_offset)
 
-        offset_string = self.data_offset
         self.data_offset = self.write_data(value, self.data_offset)
 
-
-        print(self.data_section[offset_string])
-        print(encoded_size)
+        return address
 
 
     # Create python array interface from C allocated arrays
@@ -862,22 +859,27 @@ class Allocator:
             const_object = self.function.consts[instruction.arguments]
 
             if isinstance(const_object, str):
-                print("Instruction " + str(instruction) + ", string value " + str(const_object))
-                print("Bytes " + str(const_object.encode()))
-
                 # Unicode encoding of the string
                 encoded_value = const_object.encode()
                 address = self.jitcompiler.global_allocator.allocate_object(encoded_value)
 
                 # Put the tag
+                tagged_address = self.jitcompiler.tags.tag_object(address)
 
+                # Move this value in a register
+                self.encode(asm.MOV(asm.r10, tagged_address))
+                self.encode(asm.PUSH(asm.r10))
 
-            self.encode(asm.MOV(asm.r10, id(const_object)))
-            self.encode(asm.PUSH(asm.r10))
+                self.jitcompiler.consts[tagged_address] = const_object
 
-            self.jitcompiler.consts[id(const_object)] = const_object
+                context.push_value(const_object, objects.Types.String)
+            else:
+                self.encode(asm.MOV(asm.r10, id(const_object)))
+                self.encode(asm.PUSH(asm.r10))
 
-            context.push_value(value, objects.Types.Unknown)
+                self.jitcompiler.consts[id(const_object)] = const_object
+
+                context.push_value(value, objects.Types.Unknown)
 
     # Create a pointer to the compiled function
     def create_function_pointer(self):

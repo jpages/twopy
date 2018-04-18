@@ -43,6 +43,14 @@ class TagHandler:
 
         return untag_value
 
+    def tag_object(self, value):
+        tag_value = value << 2
+        tag_value = tag_value | 3
+
+        return tag_value
+
+    #TODO: untag_function for objects
+
     # Untag a value in the given register
     def untag_asm(self, register):
         return asm.SHR(register, 2)
@@ -246,3 +254,4 @@ class Types(IntEnum):
     Int = 1
     Float = 2
     Bool = 3
+    String = 4

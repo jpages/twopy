@@ -154,7 +154,9 @@ c_code = """
                 return twopy_library_print_boolean(value);
             else if(tag == 0)
                 return twopy_library_print_integer(value);
-            
+            else
+                printf("ERROR: unknown value %ld\\n", value);
+
             return value;
         }
         
