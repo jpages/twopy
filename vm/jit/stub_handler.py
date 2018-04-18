@@ -47,6 +47,9 @@ ffi.cdef("""
         // twopy lib, print one boolean
         int twopy_library_print_boolean(int);
         
+        // twopy print, print a string encoded in unicode
+        uint64_t twopy_library_print_string(uint64_t);
+        
         // Print an error and exit
         void twopy_error(int);
     """)
@@ -145,6 +148,27 @@ c_code = """
             return value;
         }
 
+        uint64_t twopy_library_print_string(uint64_t value)
+        {
+            // Remove the tag to get the address of the object
+            uint64_t untag_address = value >> 2;
+            
+            // Get the size in the header
+            int size = ((uint32_t*)untag_address)[0];
+
+            // Create the pointer on the value
+            char* chars_array = ((char*)untag_address + 32);
+            
+            // Print characters one by one, the UTF-8 encoding will be automatically displayed
+            for(int i=0; i<size; i++)
+                printf("%c", chars_array[i]);
+            
+            // Print a newline as requested by python
+            printf("\\n");
+            
+            return value;
+        }
+
         long int twopy_print(long int value)
         {
             // Test the tag of the object
@@ -154,6 +178,8 @@ c_code = """
                 return twopy_library_print_boolean(value);
             else if(tag == 0)
                 return twopy_library_print_integer(value);
+            else if(tag == 3)
+                return twopy_library_print_string(value);
             else
                 printf("ERROR: unknown value %ld\\n", value);
 
