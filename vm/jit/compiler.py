@@ -620,6 +620,7 @@ class JITCompiler:
         else:
             self.nyi()
 
+    #TODO: too much code duplication with the previous function
     # Functions used to compile a comparison then a jump after (a if)
     # mfunction : Current compiled function
     # instruction : Current python Bytecode instruction
@@ -627,7 +628,44 @@ class JITCompiler:
     def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction):
         self.compile_cmp_beginning(mfunction)
 
-        self.nyi()
+        # first < second
+        if instruction.arguments == 0:
+            # The stubs must be compiled before the jumps
+            # Get the two following blocks
+            jump_block = None
+            notjump_block = None
+
+            # Locate the target of the jump in next basic blocks
+            for block in instruction.block.next:
+                # If we need to make the jump
+                if block.instructions[0].offset == next_instruction.arguments:
+                    jump_block = block
+                else:
+                    # Continue the execution in the second block
+                    notjump_block = block
+
+            # Compile stubs for each branch
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+        # first > second
+        elif instruction.arguments == 4:
+            # The stubs must be compiled before the jumps
+            # Get the two following blocks
+            jump_block = None
+            notjump_block = None
+
+            # Locate the target of the jump in next basic blocks
+            for block in instruction.block.next:
+                # If we need to make the jump
+                if block.instructions[0].offset == next_instruction.arguments:
+                    jump_block = block
+                else:
+                    # Continue the execution in the second block
+                    notjump_block = block
+
+            # Compile stubs for each branch
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+        else:
+            self.nyi()
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
