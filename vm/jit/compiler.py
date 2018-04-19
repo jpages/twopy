@@ -184,35 +184,35 @@ class JITCompiler:
                 # Just discard the TOS value
                 allocator.encode(asm.POP(asm.r10))
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_TWO):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.ROT_THREE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DUP_TOP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DUP_TOP_TWO):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.NOP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_POSITIVE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_NEGATIVE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_NOT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNARY_INVERT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MATRIX_MULTIPLY):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MATRIX_MULTIPLY):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_POWER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
 
                 self.tags.binary_operation("mul", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
 
                 #TODO: ensure that this operator wasn't redefined
@@ -224,21 +224,21 @@ class JITCompiler:
                 self.tags.binary_operation("sub", mfunction, block, i+1)
 
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_TRUE_DIVIDE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_FLOOR_DIVIDE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_TRUE_DIVIDE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AITER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ANEXT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BEFORE_ASYNC_WITH):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_ADD):
 
                 allocator.encode(asm.POP(asm.r9))
@@ -247,55 +247,55 @@ class JITCompiler:
                 allocator.encode(asm.ADD(asm.operand.MemoryOperand(asm.registers.rsp), asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_SUBTRACT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MULTIPLY):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_MODULO):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_SUBSCR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_SUBSCR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_LSHIFT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_RSHIFT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_AND):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_XOR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_OR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_POWER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ITER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_YIELD_FROM_ITER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_LSHIFT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_RSHIFT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_AND):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_XOR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_OR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BREAK_LOOP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_START):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
 
                 # Pop the current TOS (the value)
@@ -316,19 +316,19 @@ class JITCompiler:
                 allocator.encode(asm.JMP(asm.rbx))
 
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_STAR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ANNOTATIONS):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_VALUE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_BLOCK):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.END_FINALLY):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_EXCEPT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
                 # Store a name in the local environment
                 allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -341,21 +341,21 @@ class JITCompiler:
                 allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_SEQUENCE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.FOR_ITER):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.UNPACK_EX):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ATTR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_ATTR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_GLOBAL):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_GLOBAL):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CONST):
                 # We need to perform an allocation here
                 value = block.function.consts[instruction.arguments]
@@ -383,15 +383,15 @@ class JITCompiler:
                     allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_LIST):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SET):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
@@ -418,21 +418,21 @@ class JITCompiler:
                 # We already compiled the next instruction which is a branch, the block is fully compiled now
                 return return_offset
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_NAME):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_FORWARD):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_ABSOLUTE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_GLOBAL):
 
                 name = mfunction.names[instruction.arguments]
@@ -451,13 +451,13 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_LOOP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_EXCEPT):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_FAST):
 
                 context.push_value(mfunction.varnames[instruction.arguments])
@@ -466,13 +466,13 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ANNOTATION):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.RAISE_VARARGS):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION):
 
                 # Save the function address in r9
@@ -519,51 +519,51 @@ class JITCompiler:
                 context.decrease_stack_size()
 
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SLICE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLOSURE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_DEREF):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_DEREF):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_DEREF):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION_KW):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.CALL_FUNCTION_EX):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_WITH):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.EXTENDED_ARG):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LIST_APPEND):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SET_ADD):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.MAP_ADD):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_CLASSDEREF):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_LIST_UNPACK):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP_UNPACK):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP_UNPACK_WITH_CALL):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_SET_UNPACK):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_ASYNC_WITH):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.FORMAT_VALUE):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_CONST_KEY_MAP):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_STRING):
-                pass
+                self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_TUPLE_UNPACK_WITH_CALL):
-                pass
+                self.nyi()
 
         block.compiled = True
         block.first_offset = return_offset
@@ -618,7 +618,16 @@ class JITCompiler:
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
         else:
-            pass
+            self.nyi()
+
+    # Functions used to compile a comparison then a jump after (a if)
+    # mfunction : Current compiled function
+    # instruction : Current python Bytecode instruction
+    # next_instruction : The following instruction
+    def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction):
+        self.compile_cmp_beginning(mfunction)
+
+        self.nyi()
 
     def compile_cmp_beginning(self, mfunction):
         # Put both operand into registers
@@ -627,6 +636,10 @@ class JITCompiler:
         mfunction.allocator.encode(asm.POP(second_register))
         mfunction.allocator.encode(asm.POP(first_register))
         mfunction.allocator.encode(asm.CMP(first_register, second_register))
+
+    # Throw an exception if something is not yet implemented
+    def nyi(self):
+        raise RuntimeError("NOT YET IMPLEMENTED")
 
     # Define function for code allocation later
     def load_c_library(self):
@@ -853,7 +866,7 @@ class Allocator:
             context.push_value(value, objects.Types.Int)
         elif isinstance(value, float):
             # TODO: Encode a float
-            pass
+            self.nyi()
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.arguments]
@@ -1102,4 +1115,3 @@ class Context:
             if self.stack[i][0] == variable:
                 # element[1] = type_value
                 self.stack[i] = (variable, type_value)
-
