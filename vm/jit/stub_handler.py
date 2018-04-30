@@ -231,7 +231,8 @@ class StubHandler:
     # mfunction : The current compiled function
     # true_block : if the condition is true jump to this basic block
     # false_block : if the condition is false jump to this basic block
-    def compile_bb_stub(self, mfunction, true_block, false_block):
+    # test_intruction : the class of instruction to for the test
+    def compile_bb_stub(self, mfunction, true_block, false_block, test_instruction):
 
         # Save both offsets
         old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
@@ -240,7 +241,7 @@ class StubHandler:
         # And update the dictionary of ids and blocks
         # Compute the offset to the stub, by adding the size of the JL instruction
         offset = old_stub_offset - old_code_offset
-        peachpy_instruction = asm.JL(asm.operand.RIPRelativeOffset(offset - 6))
+        peachpy_instruction = test_instruction(asm.operand.RIPRelativeOffset(offset - 6))
 
         mfunction.allocator.encode(peachpy_instruction)
 

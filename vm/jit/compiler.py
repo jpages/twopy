@@ -598,7 +598,7 @@ class JITCompiler:
                     jump_block = block
 
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         # first > second
         elif instruction.arguments == 4:
             # The stubs must be compiled before the jumps
@@ -616,7 +616,7 @@ class JITCompiler:
                     jump_block = block
 
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         else:
             self.nyi()
 
@@ -641,11 +641,12 @@ class JITCompiler:
                 if block.instructions[0].offset == next_instruction.arguments:
                     jump_block = block
                 else:
-                    # Continue the execution in the second block
                     notjump_block = block
+                    # Continue the execution in the second block
 
+            print("NOT JUMP_BLOCK " + str(notjump_block.instructions))
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         # first > second
         elif instruction.arguments == 4:
             # The stubs must be compiled before the jumps
@@ -663,7 +664,7 @@ class JITCompiler:
                     notjump_block = block
 
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block)
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
         else:
             self.nyi()
 
@@ -1113,7 +1114,7 @@ class Context:
 
     # Get the offset from the rsp for the local variable number nbvariable
     def get_offset(self, nbvariable):
-        res = (8 * self.stack_size) + 8*(1 + nbvariable)
+        res = (8 * self.stack_size) + 8*(self.version.versioning.mfunction.argcount - nbvariable)
 
         return res
 
