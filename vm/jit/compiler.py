@@ -422,13 +422,35 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.IMPORT_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_FORWARD):
-                self.nyi()
+                # Locate the target of the jump
+                target_block = None
+                for b in block.next:
+                    # In case of empty blocks (this should not happened...)
+                    if len(b.instructions) == 0:
+                        continue
+
+                    if b.instructions[0].offset == instruction.absolute_target:
+                        target_block = b
+
+                self.stub_handler.compile_absolute_jump(mfunction, target_block)
+
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_FALSE_OR_POP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_IF_TRUE_OR_POP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.JUMP_ABSOLUTE):
-                self.nyi()
+                # Locate the target of the jump
+                target_block = None
+                for b in instruction.block.next:
+                    # In case of empty blocks (this should not happened...)
+                    if len(b.instructions) == 0:
+                        continue
+
+                    if b.instructions[0].offset == instruction.arguments:
+                        target_block = b
+
+                self.stub_handler.compile_absolute_jump(mfunction, target_block)
+
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_FALSE):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_JUMP_IF_TRUE):

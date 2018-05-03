@@ -227,6 +227,26 @@ class StubHandler:
         # The unique stub for printing errors during execution, will call a C function
         self.stub_error = None
 
+    # Compile a stub which jumps without condition to a block
+    # mfunction : current compiled function
+    # block : the target of the jump
+    def compile_absolute_jump(self, mfunction, block):
+
+        stub_label = "Stub_label_jump" + str(id(block))
+
+        old_code_offset = jitcompiler_instance.global_allocator.code_offset
+
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        address = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.stub_offset)
+
+        jump_instruction = asm.MOV(asm.r10, address)
+        mfunction.allocator.encode(jump_instruction)
+        mfunction.allocator.encode(asm.JMP(asm.r10))
+
+        # Now create the stub
+        stub = StubBB(block, jump_instruction, old_code_offset)
+        self.compile_stub(mfunction, stub)
+
     # Compile a stub because of a branch instruction
     # mfunction : The current compiled function
     # true_block : if the condition is true jump to this basic block
