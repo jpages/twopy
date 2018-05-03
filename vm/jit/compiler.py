@@ -503,7 +503,7 @@ class JITCompiler:
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
-                for i in range(0, instruction.block.function.argcount + 1):
+                for y in range(0, instruction.block.function.argcount + 1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
 
                 # The return value is in rax, push it back on the stack
@@ -511,7 +511,8 @@ class JITCompiler:
 
             elif isinstance(instruction, interpreter.simple_interpreter.MAKE_FUNCTION):
 
-                nbargs = 2 # The name and the code object
+                # The name and the code object
+                nbargs = 2
 
                 free_variables = None
                 if (instruction.arguments & 8) == 8:
