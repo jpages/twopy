@@ -359,7 +359,7 @@ class Function:
         # Association between jump instruction and their target
         jumps = {}
 
-        # Current is the current block, will be fill until a branching instruction
+        # Current is the current block, will be filled until a branching instruction
         current = self.start_basic_block
 
         for i in range(0, len(self.all_instructions)):
@@ -1124,7 +1124,15 @@ class JUMP_FORWARD(JumpInstruction):
     def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
         super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
 
-        self.absolute_target = self.offset + arguments
+        self.absolute_target = offset + arguments + size
+
+    def execute(self, interpreter):
+        super().execute(interpreter)
+
+        for block in self.block.next:
+            if block.instructions[0].offset == self.absolute_target:
+                block.execute(interpreter)
+                return
 
 class JUMP_IF_FALSE_OR_POP(JumpInstruction):
 
