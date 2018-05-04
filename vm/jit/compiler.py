@@ -639,7 +639,7 @@ class JITCompiler:
                     jump_block = block
 
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
         else:
             self.nyi()
 
@@ -664,10 +664,9 @@ class JITCompiler:
                 if block.instructions[0].offset == next_instruction.arguments:
                     jump_block = block
                 else:
-                    notjump_block = block
                     # Continue the execution in the second block
+                    notjump_block = block
 
-            print("NOT JUMP_BLOCK " + str(notjump_block.instructions))
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         # first > second
