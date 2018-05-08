@@ -173,8 +173,7 @@ class JITCompiler:
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block:
-            pass
-            # self.compile_prolog(mfunction)
+            self.compile_prolog(mfunction)
 
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
@@ -306,16 +305,19 @@ class JITCompiler:
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
+                # Remove local variables from the stack
+                if instruction.block.function.nb_pure_locals != 0:
+                    allocator.encode(asm.ADD(asm.registers.rsp, 8*instruction.block.function.nb_pure_locals))
+
                 # Saving return address in a register
                 allocator.encode(asm.POP(asm.rbx))
 
                 # Keep the stack size correct
-                for i in range(0, instruction.block.function.argcount + 1):
+                for i in range(0, instruction.block.function.argcount + 1 + instruction.block.function.nb_pure_locals):
                     allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
 
                 # Remove arguments and locals from the stack
                 to_depop = 8*(instruction.block.function.argcount +1)
-                # to_depop += 8*(mfunction.nlocals - mfunction.argcount)
 
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
 
@@ -506,9 +508,10 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
                 allocator.print_stack()
 
-                allocator.encode(asm.INT(3))
                 allocator.encode(asm.POP(asm.r10))
-                allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.registers.rsp + context.get_offset(instruction.arguments)), asm.r10))
+
+                operand = context.memory_location(instruction.arguments, mfunction.varnames[instruction.arguments])
+                allocator.encode(asm.MOV(operand, asm.r10))
 
                 allocator.print_stack()
 
@@ -729,15 +732,14 @@ class JITCompiler:
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
-        return
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
-        if not nb_locals > 0:
+        if nb_locals == 0:
             return
 
-        # for i in range(nb_locals):
-        mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
+        for i in range(nb_locals):
+            mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
 
         # Save some space on the stack for locals
         mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
@@ -1183,6 +1185,22 @@ class Context:
         res = (8 * self.stack_size) + 8*(self.version.versioning.mfunction.argcount - nbvariable)
 
         return res
+
+    # Return the memory location of a given variable as a PeachPy operand
+    # nb_variable : number of the variable in the function
+    # name : its name
+    def memory_location(self, nb_variable, name):
+        print("Trying to get the variable " + str(name) + " with number "+str(nb_variable))
+
+        # if we try to access a local which is not a parameter
+        if nb_variable > (self.version.versioning.mfunction.argcount-1):
+
+            # nb_variable = (self.version.versioning.mfunction.argcount-1) - nb_variable
+            res = (8 * self.stack_size) - 8 * (nb_variable)
+            print("Offset for a local " + str(res))
+            return asm.operand.MemoryOperand(asm.registers.rsp + res)
+        else:
+            return asm.operand.MemoryOperand(asm.registers.rsp + self.get_offset(nb_variable))
 
     # Initialize the virtual stack which represents types on the stack
     def initialize_stack(self):

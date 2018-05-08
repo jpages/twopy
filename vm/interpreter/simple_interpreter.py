@@ -294,6 +294,8 @@ class Function:
         self.module = module
         self.is_main = is_main
 
+        self.nb_pure_locals = nlocals - argcount
+
         # Environments are linked for each call
         self.environments = []
 
@@ -312,7 +314,6 @@ class Function:
         # If this value is set, then it's a method and receiver will be used as
         # self
         self.receiver = None
-
 
         # TODO: move this elsewhere
         if not interpreter.args.inter:

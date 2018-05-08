@@ -111,7 +111,7 @@ c_code = """
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
-            for(int i=-5; i!=5; i++)
+            for(int i=-1; i!=7; i++)
                 printf("\\t 0x%lx stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
         }
 
