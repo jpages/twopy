@@ -171,6 +171,11 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
+        # If we are compiling the first block of the function, compile the prolog
+        if block == mfunction.start_basic_block:
+            pass
+            # self.compile_prolog(mfunction)
+
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
             if i == 0:
@@ -308,8 +313,10 @@ class JITCompiler:
                 for i in range(0, instruction.block.function.argcount + 1):
                     allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
 
-                # Remove arguments from the stack
-                to_depop = 8*(instruction.block.function.argcount+1)
+                # Remove arguments and locals from the stack
+                to_depop = 8*(instruction.block.function.argcount +1)
+                # to_depop += 8*(mfunction.nlocals - mfunction.argcount)
+
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
 
                 # Finally returning by jumping
@@ -460,17 +467,26 @@ class JITCompiler:
                 name = mfunction.names[instruction.arguments]
 
                 context.push_value(name)
-                element = None
+
                 # Lookup in the global environment
                 if name in self.interpreter.global_environment:
+                    # Assume we have a regular function here for now
                     element = self.interpreter.global_environment[name]
+
+                    allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
+                    allocator.encode(asm.PUSH(asm.r9))
+                elif name in stub_handler.primitive_addresses:
+                    function_address = stub_handler.primitive_addresses[name]
+
+                    # Load the primitive function
+                    allocator.encode(asm.MOV(asm.r9, function_address))
+                    allocator.encode(asm.PUSH(asm.r9))
                 else:
                     # Lookup in its module to find a name
                     element = mfunction.module.lookup(name, False)
 
-                # Assume we have a function here for now
-                allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
-                allocator.encode(asm.PUSH(asm.r9))
+                    allocator.encode(asm.MOV(asm.r9, self.dict_compiled_functions[element]))
+                    allocator.encode(asm.PUSH(asm.r9))
 
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
                 self.nyi()
@@ -488,7 +504,15 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
-                self.nyi()
+                allocator.print_stack()
+
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.POP(asm.r10))
+                allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.registers.rsp + context.get_offset(instruction.arguments)), asm.r10))
+
+                allocator.print_stack()
+
+                # Store the variable in the correct position on the stack
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ANNOTATION):
@@ -502,6 +526,11 @@ class JITCompiler:
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
+
+                print("\nFunction " + str(mfunction))
+                print("Function.argcount " + str(mfunction.argcount))
+                print("Function.nlocals " + str(mfunction.nlocals))
+                print("Function.stacksize " + str(mfunction.stacksize))
 
                 for y in range(0, instruction.block.function.argcount + 1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
@@ -697,6 +726,21 @@ class JITCompiler:
         mfunction.allocator.encode(asm.POP(second_register))
         mfunction.allocator.encode(asm.POP(first_register))
         mfunction.allocator.encode(asm.CMP(first_register, second_register))
+
+    # Compile the prolog of a function, save some spaces for locals on the stack
+    def compile_prolog(self, mfunction):
+        return
+        # Compute the number of pure locals (not parameters)
+        nb_locals = mfunction.nlocals - mfunction.argcount
+
+        if not nb_locals > 0:
+            return
+
+        # for i in range(nb_locals):
+        mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
+
+        # Save some space on the stack for locals
+        mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
 
     # Throw an exception if something is not yet implemented
     def nyi(self):
@@ -960,7 +1004,7 @@ class Allocator:
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
         self.function_pointer = self.function_type(self.code_address)
 
-    # Get the local variable from the number in parameter
+    # Get the local variable from the number in parameter and store it in a register
     # argument : number of the variable
     # block : enclosing block for this access
     def get_local_variable(self, argument, block):
