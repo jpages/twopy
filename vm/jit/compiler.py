@@ -172,7 +172,8 @@ class JITCompiler:
         return_offset = 0
 
         # If we are compiling the first block of the function, compile the prolog
-        if block == mfunction.start_basic_block:
+        if block == mfunction.start_basic_block and index == 0:
+            # TODO: use the compile_prolog function in allocator to do this
             self.compile_prolog(mfunction)
 
         for i in range(index, len(block.instructions)):
@@ -307,7 +308,7 @@ class JITCompiler:
 
                 # Remove local variables from the stack
                 if instruction.block.function.nb_pure_locals != 0:
-                    allocator.encode(asm.ADD(asm.registers.rsp, 8*instruction.block.function.nb_pure_locals))
+                    allocator.encode(asm.ADD(asm.registers.rsp, (8*instruction.block.function.nb_pure_locals)))
 
                 # Saving return address in a register
                 allocator.encode(asm.POP(asm.rbx))
@@ -317,7 +318,7 @@ class JITCompiler:
                     allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
 
                 # Remove arguments and locals from the stack
-                to_depop = 8*(instruction.block.function.argcount +1)
+                to_depop = 8*(instruction.block.function.argcount + 1)
 
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
 
@@ -506,14 +507,10 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
 
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_FAST):
-                allocator.print_stack()
-
                 allocator.encode(asm.POP(asm.r10))
 
                 operand = context.memory_location(instruction.arguments, mfunction.varnames[instruction.arguments])
                 allocator.encode(asm.MOV(operand, asm.r10))
-
-                allocator.print_stack()
 
                 # Store the variable in the correct position on the stack
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_FAST):
@@ -529,11 +526,6 @@ class JITCompiler:
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
-
-                print("\nFunction " + str(mfunction))
-                print("Function.argcount " + str(mfunction.argcount))
-                print("Function.nlocals " + str(mfunction.nlocals))
-                print("Function.stacksize " + str(mfunction.stacksize))
 
                 for y in range(0, instruction.block.function.argcount + 1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
@@ -739,10 +731,11 @@ class JITCompiler:
             return
 
         for i in range(nb_locals):
-            mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
+            mfunction.allocator.encode(asm.PUSH(0))
+            # mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
 
         # Save some space on the stack for locals
-        mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
+        # mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
 
     # Throw an exception if something is not yet implemented
     def nyi(self):
@@ -1010,9 +1003,16 @@ class Allocator:
     # argument : number of the variable
     # block : enclosing block for this access
     def get_local_variable(self, argument, block):
-        offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
+        # If we try to load a pure local variable
+        if argument > (self.function.argcount-1):
+            # TODO: Factorize this code
+            argument = argument - (self.function.argcount - 1)
+            res = (8 * self.versioning.current_version().get_context_for_block(block).stack_size) - 8 * argument
+            self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + res)))
+        else:
+            offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
 
-        self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
+            self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
 
@@ -1190,14 +1190,11 @@ class Context:
     # nb_variable : number of the variable in the function
     # name : its name
     def memory_location(self, nb_variable, name):
-        print("Trying to get the variable " + str(name) + " with number "+str(nb_variable))
-
         # if we try to access a local which is not a parameter
         if nb_variable > (self.version.versioning.mfunction.argcount-1):
 
-            # nb_variable = (self.version.versioning.mfunction.argcount-1) - nb_variable
-            res = (8 * self.stack_size) - 8 * (nb_variable)
-            print("Offset for a local " + str(res))
+            nb_variable = nb_variable - (self.version.versioning.mfunction.argcount - 1)
+            res = (8 * self.stack_size) - 8 * nb_variable
             return asm.operand.MemoryOperand(asm.registers.rsp + res)
         else:
             return asm.operand.MemoryOperand(asm.registers.rsp + self.get_offset(nb_variable))
