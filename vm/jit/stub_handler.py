@@ -579,6 +579,41 @@ class Stub:
                     encoded[i + 2] = bytes[i]
 
             jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
+        elif isinstance(self.instruction, asm.JNE):
+            new_operand = new_operand = first_offset - self.position - len(self.instruction.encode())
+            if new_operand < 255 :
+                # We will encode the instruction
+                new_operand = first_offset - self.position - 2
+
+            new_instruction = asm.JNE(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            # Need to add some NOP instruction to fill the space left from the previous longer instruction
+            if len(encoded) < len(self.instruction.encode()):
+
+                diff = len(self.instruction.encode()) - len(encoded)
+
+                for i in range(diff):
+                    encoded += asm.NOP().encode()
+            else:
+                # If the previous instruction was a 32 bits offset, force the same length for the new one
+                encoded = bytearray(len(self.instruction.encode()))
+
+                # Force the 32 encoding of the JNE instruction
+                encoded[0] = 0x0F
+                encoded[1] = 0x85
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
+
+                size = custom_ceil(new_operand / 256)
+                bytes = new_operand.to_bytes(size, 'little')
+
+                for i in range(0, len(bytes)):
+                    encoded[i + 2] = bytes[i]
+
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         else:
             print("Not yet implemented patch")
 

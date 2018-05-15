@@ -332,7 +332,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_VALUE):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_BLOCK):
-                self.nyi()
+                # We don't need to implement this
+                pass
+                # self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.END_FINALLY):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_EXCEPT):
@@ -494,7 +496,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_LOOP):
-                self.nyi()
+                pass
+                # self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_EXCEPT):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
@@ -628,41 +631,29 @@ class JITCompiler:
     def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction):
         self.compile_cmp_beginning(mfunction)
 
+        # The stubs must be compiled before the jumps
+        # Get the two following blocks
+        jump_block = None
+        notjump_block = None
+
+        # Locate the target of the jump in next basic blocks
+        for block in instruction.block.next:
+            # If we need to make the jump
+            if block.instructions[0].offset == next_instruction.arguments:
+                notjump_block = block
+            else:
+                # Continue the execution in the second block
+                jump_block = block
+
         # first < second
         if instruction.arguments == 0:
-            # The stubs must be compiled before the jumps
-            # Get the two following blocks
-            jump_block = None
-            notjump_block = None
-
-            # Locate the target of the jump in next basic blocks
-            for block in instruction.block.next:
-                # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.arguments:
-                    notjump_block = block
-                else:
-                    # Continue the execution in the second block
-                    jump_block = block
-
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
+        # first != second
+        elif instruction.arguments == 3:
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
         # first > second
         elif instruction.arguments == 4:
-            # The stubs must be compiled before the jumps
-            # Get the two following blocks
-            jump_block = None
-            notjump_block = None
-
-            # Locate the target of the jump in next basic blocks
-            for block in instruction.block.next:
-                # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.arguments:
-                    notjump_block = block
-                else:
-                    # Continue the execution in the second block
-                    jump_block = block
-
-            # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
         else:
             self.nyi()
@@ -731,11 +722,10 @@ class JITCompiler:
             return
 
         for i in range(nb_locals):
-            mfunction.allocator.encode(asm.PUSH(0))
-            # mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
+            mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
 
         # Save some space on the stack for locals
-        # mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
+        mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
 
     # Throw an exception if something is not yet implemented
     def nyi(self):

@@ -87,7 +87,6 @@ class TagHandler:
     # mfunction : currently compiled function
     # block : the current block
     # next_index of the next instruction to compile, after the type-test
-    # TODO: for now only handle addition
     def binary_operation(self, opname, mfunction, block, next_index):
         instructions = []
 
