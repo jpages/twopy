@@ -332,9 +332,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_VALUE):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_BLOCK):
-                # We don't need to implement this
+                # We don't need to implement this for loops
                 pass
-                # self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.END_FINALLY):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.POP_EXCEPT):
@@ -496,8 +495,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.CONTINUE_LOOP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_LOOP):
+                # for now, we don't need to implement this instruction, the compilation will be made with jumps
                 pass
-                # self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_EXCEPT):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.SETUP_FINALLY):
