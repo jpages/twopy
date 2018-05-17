@@ -4,4 +4,7 @@ def foo(n):
         i += 1
     return i
 
+
 print(foo(10))
+
+#10

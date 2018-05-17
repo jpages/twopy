@@ -6,6 +6,7 @@ __pycache__/
 *.so
 stub_module.o
 stub_module.c
+.gdb_history
 
 # Distribution / packaging
 build/
