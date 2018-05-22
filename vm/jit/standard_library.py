@@ -214,8 +214,8 @@ class twopy_range(twopy_object):
         """ Return a reverse iterator. """
         pass
 
-    start = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
+    start = 0
 
-    step = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
+    step = 1
 
-    stop = property(lambda self: object(), lambda self, v: None, lambda self: None)  # default
+    stop = None
