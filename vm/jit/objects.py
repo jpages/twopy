@@ -1,13 +1,11 @@
-'''
-This module contains the representations used by the JIT compiler
-'''
+# This module contains the representations used by the JIT compiler
 
-import sys
+
 from enum import IntEnum
 import peachpy.x86_64 as asm
 
-from . import stub_handler
-from . import compiler
+from jit import stub_handler
+from jit import compiler
 
 # Define methods to tag and untag objects
 class TagHandler:
