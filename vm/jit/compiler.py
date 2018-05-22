@@ -70,6 +70,9 @@ class JITCompiler:
     # Compile the standard library
     def compile_std_lib(self):
 
+        if self.interpreter.args.no_std_lib:
+            return
+
         # Get the absolute path to the library file
         import os
         import sys
@@ -280,7 +283,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                self.nyi()
+                # self.nyi()
+                print("Suppose to load a function on the stack")
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):

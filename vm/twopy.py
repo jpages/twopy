@@ -27,6 +27,9 @@ def main():
     parser.add_argument("--maxvers", type=int,
                         help="Maximum number of generated versions for BBV.\n0 means infitine versions, default is 5.")
 
+    parser.add_argument("--no_std_lib", action="store_true",
+                        help="Do not compile the standard library of Twopy. Not much will be executable.")
+
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject
