@@ -3,6 +3,7 @@
 # Handle the compilation of stub functions
 import peachpy.x86_64 as asm
 from jit import objects
+from jit import ffi_definitions
 
 # Import of the generated C-FFI module
 from stub_module import ffi, lib
@@ -192,6 +193,17 @@ class StubHandler:
         jitcompiler_instance.global_allocator.encode_stub(asm.CALL(asm.r10))
 
         return address
+
+    # A stub to generate a class and its model
+    def compile_class_stub(self, mfunction):
+
+        # Push on the stack the address of the class' stub
+        mfunction.allocator.encode(asm.INT(3))
+        mfunction.allocator.encode(asm.MOV(asm.rdi, asm.registers.rsp))
+
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "class_stub")))
+        mfunction.allocator.encode(asm.MOV(asm.r10, function_address))
+        mfunction.allocator.encode(asm.PUSH(asm.r10))
 
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code

@@ -283,8 +283,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                # self.nyi()
-                print("Suppose to load a function on the stack")
+                self.stub_handler.compile_class_stub(mfunction)
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
@@ -1226,5 +1225,4 @@ class Context:
 
         for i in range(len(self.stack)):
             if self.stack[i][0] == variable:
-                # element[1] = type_value
                 self.stack[i] = (variable, type_value)

@@ -16,6 +16,9 @@ ffi.cdef("""
 
         // Stub for type-test
         void type_test_stub(uint64_t* rsp);
+        
+        // Stub for generating a class
+        void class_stub(uint64_t* rsp);
 
         // Python function callback
         extern "Python+C" void python_callback_bb_stub(uint64_t rsp);
@@ -103,6 +106,11 @@ c_code = """
             int type_value = (int)code_address[1];
 
             python_callback_type_stub(return_address_aligned, id_variable, type_value);
+        }
+        
+        void class_stub(uint64_t* rsp)
+        {
+            printf("Trigger of a class stub in C\\n");
         }
 
         void print_stack(uint64_t* rsp)
