@@ -10,7 +10,6 @@ import capstone
 
 import ctypes
 import mmap
-import copy
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
@@ -283,7 +282,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                self.stub_handler.compile_class_stub(mfunction)
+                # Do nothing here, the class will be constructed and loaded after
+                pass
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
@@ -772,7 +772,7 @@ class GlobalAllocator:
         self.code_size = 20000
 
         # Size of the data section
-        self.data_size = 200
+        self.data_size = 500
 
         # The next free zone in the data section
         self.data_offset = 0

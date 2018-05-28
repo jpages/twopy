@@ -194,6 +194,7 @@ class StubHandler:
 
         return address
 
+    # TODO: to remove ?
     # A stub to generate a class and its model
     def compile_class_stub(self, mfunction):
 
@@ -232,6 +233,7 @@ def python_callback_bb_stub(rsp):
     # Delete the entry
     del stubhandler_instance.stub_dictionary[rsp]
 
+
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
 def python_callback_function_stub(name_id, code_id, return_address):
@@ -252,6 +254,7 @@ def python_callback_function_stub(name_id, code_id, return_address):
 
     stub.clean(return_address, function.allocator.code_address)
 
+
 @ffi.def_extern()
 def python_callback_type_stub(return_address, id_variable, type_value):
     stub = stubhandler_instance.stub_dictionary[return_address]
@@ -262,6 +265,7 @@ def python_callback_type_stub(return_address, id_variable, type_value):
 # Encode a value to a byte by forcing 8 bits minimum
 def encode_bytes(value):
     return value.to_bytes(8 if value.bit_length() < 8 else value.bit_length(), "little")
+
 
 # Used to patch the code after the compilation of a stub
 class Stub:

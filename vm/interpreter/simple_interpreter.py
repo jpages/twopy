@@ -1551,7 +1551,8 @@ class BUILD_STRING(Instruction):
 class BUILD_TUPLE_UNPACK_WITH_CALL(Instruction):
     def execute(self, interpreter): print("NYI " + str(self))
 
-# Dictionnary between instruction classes and opcode numbers
+
+# Dictionary between instruction classes and opcode numbers
 dict_instructions = {
 1 : POP_TOP,
 2 : ROT_TWO,
@@ -1672,6 +1673,10 @@ dict_instructions = {
 156 : BUILD_CONST_KEY_MAP,
 157 : BUILD_STRING,
 158 : BUILD_TUPLE_UNPACK_WITH_CALL,
+
+# Special extensions to use pypy for starting twopy
+201 : LOAD_ATTR,
+202 : CALL_FUNCTION,
 }
 
 # Dictionnary between names and primitive functions
