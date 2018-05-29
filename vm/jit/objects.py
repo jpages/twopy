@@ -10,14 +10,16 @@ from jit import compiler
 # Define methods to tag and untag objects
 class TagHandler:
 
+    # Special value put on the stack to indicate we will make a class with MAKE_FUNCTION
+    class_canary = 0xFFFFFFFFFFFFFFFD
+
     # TAGS :
     # 00    int
     # 01    specials like char and boolean
     # 10    memory objects
     def __init__(self, jit):
         self.jit = jit
-        #TODO: define relation betweens types and their tags
-        pass
+        # TODO: define relation betweens types and their tags
 
     # Tag an integer
     def tag_integer(self, value):

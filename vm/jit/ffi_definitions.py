@@ -24,7 +24,7 @@ ffi.cdef("""
         extern "Python+C" void python_callback_bb_stub(uint64_t rsp);
 
         // Callback to trigger the compilation of a function
-        extern "Python+C" void python_callback_function_stub(uint64_t, uint64_t, uint64_t);
+        extern "Python+C" void python_callback_function_stub(uint64_t, uint64_t, uint64_t, uint64_t);
 
         // Callback for type tests
         extern "Python+C" void python_callback_type_stub(uint64_t, int, int);
@@ -61,7 +61,7 @@ c_code = """
         // Function called to handle the compilation of stubs for basic blocks
         static void python_callback_bb_stub(uint64_t rsp);
 
-        static void python_callback_function_stub(uint64_t, uint64_t, uint64_t);
+        static void python_callback_function_stub(uint64_t, uint64_t, uint64_t, uint64_t);
 
         static void python_callback_type_stub(uint64_t, int, int);
 
@@ -89,7 +89,7 @@ c_code = """
                 ;
 
             // Callback to python to trigger the compilation of the function
-            python_callback_function_stub(name_id, code_id, return_address);
+            python_callback_function_stub(name_id, code_id, return_address, rsp[3]);
         }
 
         // Handle compilation of a type-test stub

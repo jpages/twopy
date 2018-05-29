@@ -236,7 +236,7 @@ def python_callback_bb_stub(rsp):
 
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
-def python_callback_function_stub(name_id, code_id, return_address):
+def python_callback_function_stub(name_id, code_id, return_address, canary_value):
     # Generate the Function object in the model
     name = jitcompiler_instance.consts[name_id]
     code = jitcompiler_instance.consts[code_id]
@@ -252,7 +252,7 @@ def python_callback_function_stub(name_id, code_id, return_address):
     stub = stubhandler_instance.stub_dictionary[return_address]
     stub.data_address = stubhandler_instance.data_addresses[return_address]
 
-    stub.clean(return_address, function.allocator.code_address)
+    stub.clean(return_address, function.allocator.code_address, canary_value)
 
 
 @ffi.def_extern()
@@ -472,14 +472,18 @@ class StubFunction(Stub):
     # Write instructions to restore the context before returning to asm
     # return_address : where to jump after this stub
     # function_address : address of the newly compiled function, to put on TOS after returning
-    def clean(self, return_address, function_address):
+    # canary_value : if specified, indicate a special value on the stack which needs to be cleaned
+    def clean(self, return_address, function_address, canary_value=None):
         instructions = []
 
         # restore rsp
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
-        # Discard the two top values on the stack
-        instructions.append(asm.ADD(asm.registers.rsp, 24).encode())
+        if canary_value and canary_value == jitcompiler_instance.tags.class_canary:
+            instructions.append(asm.ADD(asm.registers.rsp, 40).encode())
+        else:
+            # Discard the three top values on the stack
+            instructions.append(asm.ADD(asm.registers.rsp, 24).encode())
 
         # Now push the function address
         instructions.append(asm.MOV(asm.rax, function_address).encode())

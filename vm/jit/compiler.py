@@ -282,8 +282,9 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
-                # Do nothing here, the class will be constructed and loaded after
-                pass
+                # We put a special value on the stack to indicate to further instructions that we need to
+                # build a class. This value will be discarded later
+                allocator.encode(asm.PUSH(self.tags.class_canary))
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
@@ -717,6 +718,9 @@ class JITCompiler:
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
+
+        print("First compilation of a function " + str(mfunction))
+
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
