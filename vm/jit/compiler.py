@@ -845,7 +845,6 @@ class GlobalAllocator:
 
         return address
 
-
     # Create python array interface from C allocated arrays
     def python_arrays(self):
 

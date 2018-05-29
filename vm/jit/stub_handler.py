@@ -243,6 +243,11 @@ def python_callback_function_stub(name_id, code_id, return_address, canary_value
 
     function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
 
+    # We need to generate a class
+    if canary_value and canary_value == jitcompiler_instance.tags.class_canary:
+        function.is_class = True
+        function.mclass = objects.JITClass(function, name)
+
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
 

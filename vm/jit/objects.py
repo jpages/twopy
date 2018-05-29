@@ -19,7 +19,7 @@ class TagHandler:
     # 10    memory objects
     def __init__(self, jit):
         self.jit = jit
-        # TODO: define relation betweens types and their tags
+        # TODO: define relation between types and their tags
 
     # Tag an integer
     def tag_integer(self, value):
@@ -221,6 +221,16 @@ class TagHandler:
         # FIXME
         if from_callback:
             context.increase_stack_size()
+
+
+# A runtime class
+class JITClass:
+    def __init__(self, mainfunc, name, *superclasses, metaclass=None):
+        self.main_function = mainfunc
+        self.name = name
+        self.superclasses = superclasses
+        self.metaclass = metaclass
+
 
 class Object:
     def __init__(self):
