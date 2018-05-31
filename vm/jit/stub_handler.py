@@ -13,6 +13,7 @@ jitcompiler_instance = None
 
 stubhandler_instance = None
 
+
 # Class for handle compilation of stubs, and ffi-related operations
 class StubHandler:
 
@@ -24,11 +25,14 @@ class StubHandler:
         # Dictionary between stub ids and blocks to compile
         self.stub_dictionary = {}
 
-        # TODO: temporary, association between stub ids and their data addresses
+        # Association between stub identifiers and their data addresses
         self.data_addresses = {}
 
         # The unique stub for printing errors during execution, will call a C function
         self.stub_error = None
+
+        # Addresses of the beginning of class stubs to identify them during a callback
+        self.class_stub_addresses = list()
 
     # Compile a stub which jumps without condition to a block
     # mfunction : current compiled function
@@ -197,15 +201,31 @@ class StubHandler:
     # TODO: to remove ?
     # A stub to generate a class and its model
     def compile_class_stub(self, mfunction):
-
         # Push on the stack the address of the class' stub
-        mfunction.allocator.encode(asm.INT(3))
-        mfunction.allocator.encode(asm.MOV(asm.rdi, asm.registers.rsp))
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        address_stub = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.stub_offset)
 
-        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "class_stub")))
-        mfunction.allocator.encode(asm.MOV(asm.r10, function_address))
+        mfunction.allocator.encode(asm.MOV(asm.r10, address_stub))
         mfunction.allocator.encode(asm.PUSH(asm.r10))
 
+        # Be able to find them in the collection during the later callback
+        self.class_stub_addresses.append(address_stub)
+
+        # Call the stub function
+        mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
+
+        function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "class_stub")))
+        mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
+        mfunction.allocator.encode_stub(asm.CALL(asm.r10))
+
+        offset = jitcompiler_instance.global_allocator.stub_offset
+
+        return_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section),
+                                         jitcompiler_instance.global_allocator.stub_offset)
+
+        # Indicate this offset correspond to the "return address" on the stub after the call to C returned
+        self.data_addresses[return_address] = offset
+        self.stub_dictionary[return_address] = StubClass()
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # rsp : The return address, use to identify which stub we must compile
@@ -243,8 +263,8 @@ def python_callback_function_stub(name_id, code_id, return_address, canary_value
 
     function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
 
-    # We need to generate a class
-    if canary_value and canary_value == jitcompiler_instance.tags.class_canary:
+    # We may need to generate a class
+    if canary_value in stubhandler_instance.class_stub_addresses:
         function.is_class = True
         function.mclass = objects.JITClass(function, name)
 
@@ -469,6 +489,7 @@ class StubBB(Stub):
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"
 
+
 # Stub to a function compilation
 class StubFunction(Stub):
     def __init__(self):
@@ -484,8 +505,9 @@ class StubFunction(Stub):
         # restore rsp
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
-        if canary_value and canary_value == jitcompiler_instance.tags.class_canary:
-            instructions.append(asm.ADD(asm.registers.rsp, 40).encode())
+        if canary_value in stubhandler_instance.class_stub_addresses:
+            instructions.append(asm.INT(3).encode())
+            instructions.append(asm.ADD(asm.registers.rsp, 32).encode())
         else:
             # Discard the three top values on the stack
             instructions.append(asm.ADD(asm.registers.rsp, 24).encode())
@@ -653,6 +675,16 @@ class StubType(Stub):
         self.clean(rsp_address_patched)
 
         return rsp_address_patched
+
+
+# A stub to handle the creation of a class
+class StubClass(Stub):
+    def __init__(self):
+
+        super().__init__()
+
+        print("Creation a of class stub")
+
 
 # Jump to this stub to print an error an stop the execution
 class StubError(Stub):
