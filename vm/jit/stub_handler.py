@@ -198,7 +198,6 @@ class StubHandler:
 
         return address
 
-    # TODO: to remove ?
     # A stub to generate a class and its model
     def compile_class_stub(self, mfunction):
         # Push on the stack the address of the class' stub
@@ -207,6 +206,10 @@ class StubHandler:
 
         mfunction.allocator.encode(asm.MOV(asm.r10, address_stub))
         mfunction.allocator.encode(asm.PUSH(asm.r10))
+
+        # Save the address after the PUSH to be able to jump there later
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        address_code = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.code_offset)
 
         # Be able to find them in the collection during the later callback
         self.class_stub_addresses.append(address_stub)
@@ -223,9 +226,18 @@ class StubHandler:
         return_address = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section),
                                          jitcompiler_instance.global_allocator.stub_offset)
 
+        stub = StubClass()
+        stub.data_address = offset
+        stub.return_address = address_code
+
         # Indicate this offset correspond to the "return address" on the stub after the call to C returned
         self.data_addresses[return_address] = offset
-        self.stub_dictionary[return_address] = StubClass()
+        self.stub_dictionary[return_address] = stub
+
+        # Reserve some space for the cleanup
+        for i in range(5):
+            mfunction.allocator.encode_stub(asm.NOP())
+
 
 # This function is called when a stub is executed, we must compile the appropriate block and replace some code
 # rsp : The return address, use to identify which stub we must compile
@@ -285,6 +297,17 @@ def python_callback_type_stub(return_address, id_variable, type_value):
     stub = stubhandler_instance.stub_dictionary[return_address]
 
     stub.callback_function(return_address, id_variable, type_value)
+
+
+@ffi.def_extern()
+def python_callback_class_stub(return_address):
+    stub = stubhandler_instance.stub_dictionary[return_address]
+
+    # Allocate the class and return its tagged values
+    class_address = jitcompiler_instance.global_allocator.allocate_class()
+
+    # Clean the stub and put the class address on the stack
+    stub.clean(class_address)
 
 
 # Encode a value to a byte by forcing 8 bits minimum
@@ -506,7 +529,6 @@ class StubFunction(Stub):
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
         if canary_value in stubhandler_instance.class_stub_addresses:
-            instructions.append(asm.INT(3).encode())
             instructions.append(asm.ADD(asm.registers.rsp, 32).encode())
         else:
             # Discard the three top values on the stack
@@ -680,10 +702,25 @@ class StubType(Stub):
 # A stub to handle the creation of a class
 class StubClass(Stub):
     def __init__(self):
-
         super().__init__()
 
-        print("Creation a of class stub")
+    # Write instructions to restore the context before returning to asm
+    # return_address : where to jump after this stub
+    # class_address : address of the created class, to put on TOS after returning
+    def clean(self, class_address):
+        instructions = []
+
+        # Now push the function address
+        instructions.append(asm.MOV(asm.rax, class_address).encode())
+        instructions.append(asm.PUSH(asm.rax).encode())
+
+        # Finally, jump to the correct destination
+        instructions.append(asm.MOV(asm.rax, self.return_address).encode())
+        instructions.append(asm.JMP(asm.rax).encode())
+
+        offset = self.data_address
+        for i in instructions:
+            offset = jitcompiler_instance.global_allocator.write_instruction(i, offset)
 
 
 # Jump to this stub to print an error an stop the execution
@@ -696,6 +733,7 @@ class StubError(Stub):
 def custom_ceil(n):
     res = int(n)
     return res if res == n or n < 0 else res+1
+
 
 twopy_primitives = [
 "twopy_abs",

@@ -215,6 +215,7 @@ def run(cmd, cwd):
     else:
         stdin.close()
     result = p.stdout.read()
+    p.stdout.close()
     code = p.wait()
     return (code,result)
 

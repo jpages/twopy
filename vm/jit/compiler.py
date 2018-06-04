@@ -786,6 +786,9 @@ class GlobalAllocator:
         self.code_section = None
         self.data_section = None
 
+        self.code_address = None
+        self.data_address = None
+
         # Future code address
         self.general_code_address = None
 
@@ -839,6 +842,30 @@ class GlobalAllocator:
         self.data_offset = self.write_data(value, self.data_offset)
 
         return address
+
+    # Allocate a new blank class object to be filled later
+    # TODO: get an indication on the size (number of methods) of the class
+    def allocate_class(self):
+
+        # TODO: Try to know the size of the the structure we need to allocate
+        # TODO: put a special value to know this is a class object
+
+        # Save the address of this object
+        address = self.get_current_data_address()
+
+        # TODO: for the test consider only 4 values inside the class
+        size = 4 * 64
+
+        # SIZE    32 bits |      Array of pointers
+        encoded_size = size.to_bytes(32, "little")
+
+        # Write the size, then the value
+        self.data_offset = self.write_data(encoded_size, self.data_offset)
+
+        # Put the tag to indicate a memory object
+        tagged_address = self.jitcompiler.tags.tag_object(address)
+
+        return tagged_address
 
     # Create python array interface from C allocated arrays
     def python_arrays(self):
