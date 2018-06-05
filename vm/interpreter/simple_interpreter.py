@@ -314,13 +314,7 @@ class Function:
         # If this value is set, then it's a method and receiver will be used as
         # self
         self.receiver = None
-
-        # TODO: move this elsewhere
-        if not interpreter.args.inter:
-            # For the JIT
-            self.allocator = None
-
-            interpreter.jitcompiler.compile_function(self)
+        self.allocator = None
 
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks

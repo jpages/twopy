@@ -711,16 +711,17 @@ class StubClass(Stub):
         instructions = []
 
         # Now push the function address
-        instructions.append(asm.MOV(asm.rax, class_address).encode())
-        instructions.append(asm.PUSH(asm.rax).encode())
+        instructions.append(asm.INT(3))
+        instructions.append(asm.MOV(asm.rax, class_address))
+        instructions.append(asm.PUSH(asm.rax))
 
         # Finally, jump to the correct destination
-        instructions.append(asm.MOV(asm.rax, self.return_address).encode())
-        instructions.append(asm.JMP(asm.rax).encode())
+        instructions.append(asm.MOV(asm.rax, self.return_address))
+        instructions.append(asm.JMP(asm.rax))
 
         offset = self.data_address
         for i in instructions:
-            offset = jitcompiler_instance.global_allocator.write_instruction(i, offset)
+            offset = jitcompiler_instance.global_allocator.write_instruction(i.encode(), offset)
 
 
 # Jump to this stub to print an error an stop the execution

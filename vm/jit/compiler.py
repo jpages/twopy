@@ -63,7 +63,8 @@ class JITCompiler:
         self.compile_std_lib()
 
         # Generate the main function and recursively other functions in module
-        self.interpreter.generate_function(self.maincode, "main", self.mainmodule, True)
+        mainfunc = self.interpreter.generate_function(self.maincode, "main", self.mainmodule, True)
+        self.compile_function(mainfunc)
 
     # Compile the standard library
     def compile_std_lib(self):
@@ -87,7 +88,6 @@ class JITCompiler:
 
         # For now we just have the print here
         if mfunction.name == "twopy_print":
-
             # Make a call to C for the print
 
             # Move the parameter inside rdi to respect the calling convention
@@ -114,13 +114,11 @@ class JITCompiler:
             mfunction.allocator.encode(asm.JMP(asm.rbx))
 
             stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
-        else:
-            print("Not yet implemented")
 
     # Compile the function  in parameter to binary code
     # return the code instance
     def compile_function(self, mfunction):
-        if mfunction.allocator != None:
+        if mfunction.allocator and mfunction.allocator is not None:
             return
         else:
 

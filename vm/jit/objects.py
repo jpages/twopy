@@ -15,7 +15,7 @@ class TagHandler:
 
     # TAGS :
     # 00    int
-    # 01    specials like char and boolean
+    # 01    boolean
     # 10    memory objects
     def __init__(self, jit):
         self.jit = jit
