@@ -345,9 +345,25 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
                 # If we are compiling a class, store the value inside the class and not in the global environment
                 if mfunction.is_class:
-                    # TODO: get the class address
-                    # Get a class address
-                    allocator.get_class_address(block)
+                    # Get the class address in a register
+                    register = allocator.get_class_address(block)
+
+                    # Update the model of the class
+                    mfunction.mclass.vtable.append(mfunction.names[instruction.arguments])
+
+                    # The position is the last added item to the vtable (*64 bits to get the correct position)
+                    offset = len(mfunction.mclass.vtable) * 8
+
+                    # Now store the value inside the class at the appropriate position
+                    # First, remove the tag and get the address of the class
+                    allocator.encode(asm.INT(3))
+                    allocator.encode(asm.SHR(register, 2))
+
+                    # Store TOS in rbx
+                    allocator.encode(asm.POP(asm.rbx))
+
+                    # Finally store the value in the class space
+                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(register + offset), asm.rbx))
                 else:
                     # Store a name in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))

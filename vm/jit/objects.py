@@ -10,9 +10,6 @@ from jit import compiler
 # Define methods to tag and untag objects
 class TagHandler:
 
-    # Special value put on the stack to indicate we will make a class with MAKE_FUNCTION
-    class_canary = 0xFFFFFFFFFFFFFFFD
-
     # TAGS :
     # 00    int
     # 01    boolean
@@ -230,6 +227,11 @@ class JITClass:
         self.name = name
         self.superclasses = superclasses
         self.metaclass = metaclass
+
+    # The vtable will contain all properties (class static variables and methods) of the class
+    # | method0 | method1 | attr2 | method3 |
+    # It is fill by the compilation of name stores
+    vtable = list()
 
 
 class Object:
