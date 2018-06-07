@@ -346,7 +346,8 @@ class JITCompiler:
                 # If we are compiling a class, store the value inside the class and not in the global environment
                 if mfunction.is_class:
                     # TODO: get the class address
-                    allocator.encode(asm.INT(3))
+                    # Get a class address
+                    allocator.get_class_address(block)
                 else:
                     # Store a name in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -721,22 +722,6 @@ class JITCompiler:
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
-        print("First compilation of the function " + str(mfunction))
-        print("is_class " + str(mfunction.is_class))
-
-        if mfunction.is_class:
-            mfunction.allocator.encode(asm.INT(3))
-
-            # Put the return address in rbx pointer in rax register
-            mfunction.allocator.encode(asm.POP(asm.rbx))
-
-            # Put the class address in rax
-            mfunction.allocator.encode(asm.POP(asm.rax))
-
-            # Push back the return address
-            mfunction.allocator.encode(asm.PUSH(asm.rbx))
-            mfunction.allocator.encode(asm.PUSH(asm.rax))
-
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
@@ -1036,6 +1021,39 @@ class Allocator:
     def create_function_pointer(self):
         self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
         self.function_pointer = self.function_type(self.code_address)
+
+    # Used to get the class address which is on the stack from the compilation context of a class-function
+    # Return the register with the value inside
+    # Below is a stack representation of a frame
+    # -----------------------
+    #   ...........
+    #   old context
+    # -----------------------
+    #   class address
+    # -----------------------
+    #   return address
+    # -----------------------
+    #   locals
+    # -----------------------
+    #   parameters
+    # -----------------------
+    #   current stack pointer
+    #
+    def get_class_address(self, block):
+        # Adding the stack size
+        offset = self.versioning.current_version().get_context_for_block(block).stack_size * 8
+
+        # And the number of arguments and locals
+        offset += self.function.nlocals * 8
+
+        # The return address
+        offset += 8
+
+        # Moving the result inside a register and return it
+        self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
+
+        return asm.rax
+
 
     # Get the local variable from the number in parameter and store it in a register
     # argument : number of the variable
