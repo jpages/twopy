@@ -116,7 +116,6 @@ c_code = """
         void class_stub(uint64_t* rsp)
         {
             python_callback_class_stub(rsp[-1]);
-            asm("INT3");
         }
 
         void print_stack(uint64_t* rsp)

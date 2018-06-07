@@ -269,6 +269,8 @@ def python_callback_bb_stub(rsp):
 # This function is called when a stub is executed, need to compile a function
 @ffi.def_extern()
 def python_callback_function_stub(name_id, code_id, return_address, canary_value):
+    print("Python callback function stub " + str(return_address))
+
     # Generate the Function object in the model
     name = jitcompiler_instance.consts[name_id]
     code = jitcompiler_instance.consts[code_id]
@@ -279,6 +281,9 @@ def python_callback_function_stub(name_id, code_id, return_address, canary_value
     if canary_value in stubhandler_instance.class_stub_addresses:
         function.is_class = True
         function.mclass = objects.JITClass(function, name)
+
+        # Add this class-function to the global collection
+        jitcompiler_instance.class_functions.append(function)
 
     # Trigger the compilation of the given function
     jitcompiler_instance.compile_function(function)
@@ -301,13 +306,25 @@ def python_callback_type_stub(return_address, id_variable, type_value):
 
 @ffi.def_extern()
 def python_callback_class_stub(return_address):
+    print("python callback class stub " + str(return_address))
+
     stub = stubhandler_instance.stub_dictionary[return_address]
 
     # Allocate the class and return its tagged values
     class_address = jitcompiler_instance.global_allocator.allocate_class()
 
+    # Find the last created class to call if after this stub
+    print("Latest created class " + str(jitcompiler_instance.class_functions[-1]))
+    last_function = jitcompiler_instance.class_functions[-1]
+    print(str(last_function.mclass))
+
+    address_class_function = jitcompiler_instance.dict_compiled_functions[last_function]
+    print("Latest created class " + str(address_class_function))
+
     # Clean the stub and put the class address on the stack
-    stub.clean(class_address)
+    stub.clean(class_address, address_class_function)
+
+    print("Class tagged address " + str(class_address))
 
 
 # Encode a value to a byte by forcing 8 bits minimum
@@ -707,13 +724,20 @@ class StubClass(Stub):
     # Write instructions to restore the context before returning to asm
     # return_address : where to jump after this stub
     # class_address : address of the created class, to put on TOS after returning
-    def clean(self, class_address):
+    # address_class_function : address of the class-function to call
+    def clean(self, class_address, address_class_function):
+        print("Cleaning of a StubClass")
         instructions = []
 
         # Now push the function address
         instructions.append(asm.INT(3))
         instructions.append(asm.MOV(asm.rax, class_address))
         instructions.append(asm.PUSH(asm.rax))
+
+        instructions.append(asm.MOV(asm.r10, address_class_function))
+        instructions.append(asm.CALL(asm.r10))
+
+        instructions.append(asm.INT(3))
 
         # Finally, jump to the correct destination
         instructions.append(asm.MOV(asm.rax, self.return_address))

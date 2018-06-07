@@ -48,6 +48,9 @@ class JITCompiler:
         # Allocate code and data sections
         self.global_allocator = GlobalAllocator(self)
 
+        # Collection of function which are classes
+        self.class_functions = list()
+
         # Default value for max versions of versioning
         self.maxvers = 5
         if self.interpreter.args.maxvers:
@@ -340,15 +343,20 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
-                # Store a name in the local environment
-                allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+                # If we are compiling a class, store the value inside the class and not in the global environment
+                if mfunction.is_class:
+                    # TODO: get the class address
+                    allocator.encode(asm.INT(3))
+                else:
+                    # Store a name in the local environment
+                    allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
-                # Write TOS at the instruction.arguments index in data_section
-                allocator.encode(asm.POP(asm.r10))
+                    # Write TOS at the instruction.arguments index in data_section
+                    allocator.encode(asm.POP(asm.r10))
 
-                # Offset of the instruction's argument + r9 value
-                memory_address = asm.r9 + (64*instruction.arguments)
-                allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
+                    # Offset of the instruction's argument + r9 value
+                    memory_address = asm.r9 + (64*instruction.arguments)
+                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
                 self.nyi()
@@ -713,6 +721,21 @@ class JITCompiler:
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
+        print("First compilation of the function " + str(mfunction))
+        print("is_class " + str(mfunction.is_class))
+
+        if mfunction.is_class:
+            mfunction.allocator.encode(asm.INT(3))
+
+            # Put the return address in rbx pointer in rax register
+            mfunction.allocator.encode(asm.POP(asm.rbx))
+
+            # Put the class address in rax
+            mfunction.allocator.encode(asm.POP(asm.rax))
+
+            # Push back the return address
+            mfunction.allocator.encode(asm.PUSH(asm.rbx))
+            mfunction.allocator.encode(asm.PUSH(asm.rax))
 
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
@@ -845,7 +868,7 @@ class GlobalAllocator:
     # TODO: get an indication on the size (number of methods) of the class
     def allocate_class(self):
 
-        # TODO: Try to know the size of the the structure we need to allocate
+        # TODO: Try to know the size of the structure we need to allocate
         # TODO: put a special value to know this is a class object
 
         # Save the address of this object
