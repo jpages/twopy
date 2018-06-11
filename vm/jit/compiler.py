@@ -356,7 +356,6 @@ class JITCompiler:
 
                     # Now store the value inside the class at the appropriate position
                     # First, remove the tag and get the address of the class
-                    allocator.encode(asm.INT(3))
                     allocator.encode(asm.SHR(register, 2))
 
                     # Store TOS in rbx

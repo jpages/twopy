@@ -30,7 +30,7 @@ ffi.cdef("""
         extern "Python+C" void python_callback_type_stub(uint64_t, int, int);
 
         // Callback for class creation
-        extern "Python+C" void python_callback_class_stub(uint64_t);
+        extern "Python+C" void python_callback_class_stub(uint64_t, uint64_t);
 
         // Print the stack from the stack pointer in parameter
         void print_stack(uint64_t* rsp);
@@ -68,7 +68,7 @@ c_code = """
 
         static void python_callback_type_stub(uint64_t, int, int);
 
-        static void python_callback_class_stub(uint64_t);
+        static void python_callback_class_stub(uint64_t, uint64_t);
 
         void bb_stub(uint64_t* rsp)
         {
@@ -114,8 +114,8 @@ c_code = """
         }
         
         void class_stub(uint64_t* rsp)
-        {
-            python_callback_class_stub(rsp[-1]);
+        {   
+            python_callback_class_stub(rsp[-1], rsp[0]);
         }
 
         void print_stack(uint64_t* rsp)
