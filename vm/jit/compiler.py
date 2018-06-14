@@ -50,9 +50,11 @@ class JITCompiler:
 
         # Collection of function which are classes
         self.class_functions = list()
+        self.class_names = list()
 
         # Default value for max versions of versioning
         self.maxvers = 5
+
         if self.interpreter.args.maxvers:
             self.maxvers = self.interpreter.args.maxvers
 
@@ -178,6 +180,10 @@ class JITCompiler:
             # TODO: use the compile_prolog function in allocator to do this
             self.compile_prolog(mfunction)
 
+            if mfunction.is_class:
+                # Store its name
+                self.class_names.append(mfunction.name)
+
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
             if i == 0:
@@ -283,6 +289,11 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_BUILD_CLASS):
                 self.stub_handler.compile_class_stub(mfunction)
+
+                # Get the following class name which should be a LOAD_CONST instruction
+                const_number = block.instructions[i + 2].arguments
+                name = block.function.consts[const_number]
+                self.class_names.append(name)
             elif isinstance(instruction, interpreter.simple_interpreter.YIELD_FROM):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_AWAITABLE):
@@ -400,8 +411,29 @@ class JITCompiler:
 
                 context.push_value(name, objects.Types.Unknown)
 
+                # Determine what we need to load
+                # LOAD_NAME for a class can be followed by two categories of opcodes:
+                # - LOAD_ATTR or STORE_ATTR
+                # - CALL_FUNCTION
+                # In the first case, we must load the class structure
+                # In the second case, we have to load the __init__ method
+                if name in self.class_names:
+                    if isinstance(block.instructions[i + 1], interpreter.simple_interpreter.LOAD_ATTR) or \
+                            isinstance(block.instructions[i + 1], interpreter.simple_interpreter.STORE_ATTR):
+                        allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+                        # Offset of the instruction's argument + r9 value
+                        memory_address = asm.r9 + (64 * instruction.arguments)
+                        allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+
+                        allocator.encode(asm.PUSH(asm.r10))
+                    else:
+                        # Construct the instance
+                        # Locate the init method for the class
+                        pass
+
                 # We are loading something from builtins
-                if name in stub_handler.primitive_addresses:
+                elif name in stub_handler.primitive_addresses:
                     function_address = stub_handler.primitive_addresses[name]
 
                     allocator.encode(asm.MOV(asm.r9, function_address))
@@ -835,7 +867,7 @@ class GlobalAllocator:
         if self.data_size > 0:
             # Allocate data segment
             data_address = self.jitcompiler.mmap_function(None, self.data_size,
-                                                          mmap.PROT_READ | mmap.PROT_WRITE,
+                                                          mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
                                                           mmap.MAP_ANON | mmap.MAP_PRIVATE,
                                                           -1, 0)
             if data_address == -1:

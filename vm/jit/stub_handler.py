@@ -215,7 +215,6 @@ class StubHandler:
         self.class_stub_addresses.append(address_stub)
 
         # Call the stub function
-        # mfunction.allocator.encode_stub(asm.INT(3))
         mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
         function_address = int(ffi.cast("intptr_t", ffi.addressof(lib, "class_stub")))
