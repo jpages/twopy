@@ -623,8 +623,6 @@ class StubType(Stub):
 
         # Align the stack on 16 bits
         self.mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
-        #self.mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
-        # self.mfunction.allocator.encode_stub(asm.SUB(asm.registers.rsp, 8))
         self.mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
 
         self.mfunction.allocator.encode_stub(asm.MOV(reg_id, function_address))
