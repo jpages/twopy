@@ -6,7 +6,10 @@ This module contains code relative to memory allocation and garbage collection
 import capstone
 import mmap
 
+import peachpy.x86_64 as asm
+
 from . import stub_handler
+
 
 # Handle allocation of the general code section
 class GlobalAllocator:
@@ -130,12 +133,13 @@ class GlobalAllocator:
         return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)
 
     # Encode and store in memory one instruction
-    # instruction = the asm.Instruction to encode
-    def encode(self, instruction, function):
+    # instruction : The asm.Instruction to encode
+    # mfunction : Current compiled function
+    def encode(self, instruction, mfunction=None):
         encoded = instruction.encode()
 
-        if function.allocator != None:
-            function.allocator.versioning.current_version().new_instruction(instruction)
+        if mfunction.allocator is not None:
+            mfunction.allocator.versioning.current_version().new_instruction(instruction)
 
         # Store each byte in memory and update code_offset
         self.code_offset = self.write_instruction(encoded, self.code_offset)
@@ -174,10 +178,26 @@ class GlobalAllocator:
 
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes(self.code_section), self.code_address):
-            #Print labels
-            #if i.address in self.jump_labels:
-            #    print(str(self.jump_labels[i.address]) + " " + str(hex(i.address)))
             print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
-
         print("\n")
+
+
+# Handle the runtime allocation
+# Maintain a pointer to the next free zone
+class RuntimeAllocator:
+    def __init__(self, global_allocator):
+        self.global_allocator = global_allocator
+
+        # The register where the allocation pointer is stored
+        self.register_allocation = asm.r15
+
+    # Compile a sequence of code to initialize the allocation pointer
+    def init_allocation_pointer(self):
+        # We need to put a value inside the designated register
+        encoded = asm.MOV(self.register_allocation, self.global_allocator.data_address).encode()
+        self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
+
+    # Allocate an object with a given size and return the tagged address in a register
+    def allocate_object_with_size(self, size):
+        pass
 

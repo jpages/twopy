@@ -44,6 +44,9 @@ class JITCompiler:
         # Allocate code and data sections
         self.global_allocator = allocator.GlobalAllocator(self)
 
+        # The dynamic memory allocator (will be initialized during the compilation of main function)
+        self.runtime_allocator = None
+
         # Collection of function which are classes
         self.class_functions = list()
         self.class_names = list()
@@ -836,6 +839,10 @@ class Allocator:
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.is_main:
             self.compile_prolog()
+
+            # Initialize the Memory allocator
+            self.jitcompiler.runtime_allocator = allocator.RuntimeAllocator(self.jitcompiler.global_allocator)
+            self.jitcompiler.runtime_allocator.init_allocation_pointer()
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
