@@ -435,7 +435,11 @@ class JITCompiler:
                         memory_address = asm.r9 + (64 * instruction.arguments)
                         allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
                         allocator.encode(asm.SHR(asm.r10, 2))
-                        allocator.encode(asm.PUSH(asm.r10))
+
+                        # Get the second field in the structure
+                        allocator.encode(asm.ADD(asm.r10, 8))
+                        allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.r10)))
+                        allocator.encode(asm.PUSH(asm.r9))
 
                 # We are loading something from builtins
                 elif name in stub_handler.primitive_addresses:
