@@ -47,6 +47,8 @@ class GlobalAllocator:
         # Allocate the code segment in C
         self.allocate_code_segment()
 
+        self.runtime_allocator = None
+
     # Allocate an executable segment of code
     def allocate_code_segment(self):
 
@@ -63,7 +65,7 @@ class GlobalAllocator:
         if self.data_size > 0:
             # Allocate data segment
             data_address = self.jitcompiler.mmap_function(None, self.data_size,
-                                                          mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+                                                          mmap.PROT_READ | mmap.PROT_WRITE,
                                                           mmap.MAP_ANON | mmap.MAP_PRIVATE,
                                                           -1, 0)
             if data_address == -1:
@@ -93,9 +95,11 @@ class GlobalAllocator:
         return address
 
     # Allocate a new blank class object to be filled later
+    # Each word of a class is 64 bits
+    # | header | new_instance | method1 | method2 | ...
+    # The second field is a pointer to the new_instance code for this class
     # TODO: get an indication on the size (number of methods) of the class
     def allocate_class(self):
-
         # TODO: Try to know the size of the structure we need to allocate
 
         # Save the address of this object
@@ -105,15 +109,32 @@ class GlobalAllocator:
         size = 4 * 64
 
         # SIZE    64 bits |      Array of pointers
-        encoded_size = size.to_bytes(64, "little")
+        encoded_size = size.to_bytes(8, "little")
 
-        # Write the size, then the value
+        # Write the size
         self.data_offset = self.write_data(encoded_size, self.data_offset)
 
         # Put the tag to indicate a memory object
         tagged_address = self.jitcompiler.tags.tag_object(address)
 
+        # Now we need to store the pointer to the new instance code inside the class
+        new_instance_address = self.compile_new_instance(address)
+
+        encoded_pointer = new_instance_address.to_bytes(8, "little")
+        self.data_offset = self.write_data(encoded_pointer, self.data_offset)
+
         return tagged_address
+
+    # Compile code to make a new instance of a class.
+    # A pointer to this code is returned
+    # class_address : The non-tagged address of the class
+    def compile_new_instance(self, class_address):
+        code_address = self.get_current_address()
+
+        # Move the object's address inside rax
+        self.runtime_allocator.allocate_instance(class_address)
+
+        return code_address
 
     # Create python array interface from C allocated arrays
     def python_arrays(self):
@@ -188,6 +209,8 @@ class RuntimeAllocator:
     def __init__(self, global_allocator):
         self.global_allocator = global_allocator
 
+        global_allocator.runtime_allocator = self
+
         # The register where the allocation pointer is stored
         self.register_allocation = asm.r15
 
@@ -200,4 +223,17 @@ class RuntimeAllocator:
     # Allocate an object with a given size and return the tagged address in a register
     def allocate_object_with_size(self, size):
         pass
+
+    # Allocate an Object and return its pointer
+    def allocate_instance(self, class_address):
+        instructions = []
+
+        instructions.append(asm.INT(3))
+        instructions.append(asm.NOP())
+
+        offset = self.global_allocator.code_offset
+        for i in instructions:
+            offset = self.global_allocator.write_instruction(i.encode(), offset)
+
+        self.global_allocator.code_offset = offset
 

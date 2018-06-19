@@ -358,11 +358,11 @@ class JITCompiler:
                     # Get the class address in a register
                     register = allocator.get_class_address(block)
 
+                    # The position is the last added item to the vtable (*8 bytes to get the correct position)
+                    offset = len(mfunction.mclass.vtable) * 8
+
                     # Update the model of the class
                     mfunction.mclass.vtable.append(mfunction.names[instruction.arguments])
-
-                    # The position is the last added item to the vtable (*64 bits to get the correct position)
-                    offset = len(mfunction.mclass.vtable) * 8
 
                     # Now store the value inside the class at the appropriate position
                     # First, remove the tag and get the address of the class
@@ -427,9 +427,15 @@ class JITCompiler:
 
                         allocator.encode(asm.PUSH(asm.r10))
                     else:
-                        # Construct the instance
-                        # Locate the init method for the class
-                        pass
+                        # Construct the instance, call new_instance for this class
+                        allocator.encode(asm.INT(3))
+                        allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+                        # Offset of the instruction's argument + r9 value
+                        memory_address = asm.r9 + (64 * instruction.arguments)
+                        allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+                        allocator.encode(asm.SHR(asm.r10, 2))
+                        allocator.encode(asm.PUSH(asm.r10))
 
                 # We are loading something from builtins
                 elif name in stub_handler.primitive_addresses:
