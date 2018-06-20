@@ -253,6 +253,8 @@ class RuntimeAllocator:
 
         instructions.extend(tag_instructions)
         instructions.append(asm.POP(asm.rbx))
+        instructions.append(asm.ADD(asm.registers.rsp, 8))
+
         # TODO: clean the stack from __init__() parameters here
         instructions.append(asm.JMP(asm.rbx))
 

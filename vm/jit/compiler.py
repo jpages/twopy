@@ -428,7 +428,6 @@ class JITCompiler:
                         allocator.encode(asm.PUSH(asm.r10))
                     else:
                         # Construct the instance, call new_instance for this class
-                        allocator.encode(asm.INT(3))
                         allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
                         # Offset of the instruction's argument + r9 value
