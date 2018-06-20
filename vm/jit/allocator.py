@@ -217,7 +217,9 @@ class RuntimeAllocator:
     # Compile a sequence of code to initialize the allocation pointer
     def init_allocation_pointer(self):
         # We need to put a value inside the designated register
-        encoded = asm.MOV(self.register_allocation, self.global_allocator.data_address).encode()
+        address_beginning = self.global_allocator.data_address + 256
+
+        encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
 
     # Allocate an object with a given size and return the tagged address in a register
@@ -225,11 +227,34 @@ class RuntimeAllocator:
         pass
 
     # Allocate an Object and return its pointer
+    # The code must follow the calling convention and clean the stack before returning
+    # TODO: If this class has a definition for __init__() compile it
     def allocate_instance(self, class_address):
         instructions = []
 
         instructions.append(asm.INT(3))
-        instructions.append(asm.NOP())
+
+        # Move the next available address into rax to return it
+        instructions.append(asm.MOV(asm.rax, self.register_allocation))
+
+        # Construct the header with the size of the object
+        size = 2
+        instructions.append(asm.MOV(asm.operand.MemoryOperand(asm.r15), size))
+
+        # Put a pointer to the class address in the second field
+        instructions.append(asm.MOV(asm.r10, class_address))
+        instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation + 8), asm.r10))
+
+        # Increment the allocation pointer
+        instructions.append(asm.ADD(self.register_allocation, 8*2))
+
+        # Finally, tag the address inside rax before returning
+        tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
+
+        instructions.extend(tag_instructions)
+        instructions.append(asm.POP(asm.rbx))
+        # TODO: clean the stack from __init__() parameters here
+        instructions.append(asm.JMP(asm.rbx))
 
         offset = self.global_allocator.code_offset
         for i in instructions:

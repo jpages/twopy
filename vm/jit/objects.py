@@ -46,6 +46,11 @@ class TagHandler:
 
         return tag_value
 
+    def tag_object_asm(self, register):
+        instructions = [asm.SHL(register, 2), asm.OR(register, 3)]
+
+        return instructions
+
     #TODO: untag_function for objects
 
     # Untag a value in the given register

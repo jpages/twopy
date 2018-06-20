@@ -314,9 +314,7 @@ def python_callback_class_stub(return_address, address_after):
 
     address_class_function = jitcompiler_instance.dict_compiled_functions[last_function]
 
-    # TODO: do something here
     stub.return_address = address_after
-    # stub.return_address = return_address
 
     # Clean the stub and put the class address on the stack
     stub.clean(class_address, address_class_function)
