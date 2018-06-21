@@ -52,6 +52,9 @@ ffi.cdef("""
 
         // twopy print, print a string encoded in unicode
         uint64_t twopy_library_print_string(uint64_t);
+        
+        // twopy print, default print method for an object
+        uint64_t twopy_library_print_object(uint64_t);
 
         // Print an error and exit
         void twopy_error(int);
@@ -178,6 +181,24 @@ c_code = """
 
             return value;
         }
+        
+        uint64_t twopy_library_print_object(uint64_t value)
+        {
+            uint64_t untag_address = value >> 2;
+            
+            // Get the class address in the object after the header
+            uint64_t* class_address = untag_address+8;
+            
+            uint64_t class_structure = *(class_address);
+
+            printf("Untagged address %ld\\n", untag_address);
+            printf("Class address %ld\\n", class_address);
+            printf("Class structure %lx\\n", class_structure);
+            
+            printf("<object at 0x%lx>\\n", untag_address);
+            
+            return value;
+        }
 
         long int twopy_print(long int value)
         {
@@ -188,6 +209,8 @@ c_code = """
                 return twopy_library_print_boolean(value);
             else if(tag == 0)
                 return twopy_library_print_integer(value);
+            else if(tag == 2)
+                return twopy_library_print_object(value);
             else if(tag == 3)
                 return twopy_library_print_string(value);
             else

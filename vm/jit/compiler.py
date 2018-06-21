@@ -884,7 +884,7 @@ class Allocator:
                 address = self.jitcompiler.global_allocator.allocate_object(encoded_value)
 
                 # Put the tag
-                tagged_address = self.jitcompiler.tags.tag_object(address)
+                tagged_address = self.jitcompiler.tags.tag_string(address)
 
                 # Move this value in a register
                 self.encode(asm.MOV(asm.r10, tagged_address))
@@ -894,6 +894,7 @@ class Allocator:
 
                 context.push_value(const_object, objects.Types.String)
             else:
+                # TODO: don't do that for string object, only for code objects
                 self.encode(asm.MOV(asm.r10, id(const_object)))
                 self.encode(asm.PUSH(asm.r10))
 

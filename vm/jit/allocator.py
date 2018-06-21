@@ -75,25 +75,6 @@ class GlobalAllocator:
         # Create manipulable python arrays for these two sections
         self.python_arrays()
 
-    # Allocate an object with the given value
-    def allocate_object(self, value):
-
-        # Must return an address
-        size = len(bytes(value))
-
-        # SIZE    32 bits |      VALUE
-        encoded_size = size.to_bytes(32, "little")
-
-        # Save the address of this object
-        address = self.get_current_data_address()
-
-        # Write the size, then the value
-        self.data_offset = self.write_data(encoded_size, self.data_offset)
-
-        self.data_offset = self.write_data(value, self.data_offset)
-
-        return address
-
     # Allocate a new blank class object to be filled later
     # Each word of a class is 64 bits
     # | header | new_instance | method1 | method2 | ...
@@ -124,6 +105,26 @@ class GlobalAllocator:
         self.data_offset = self.write_data(encoded_pointer, self.data_offset)
 
         return tagged_address
+
+    # Allocate an object with the given value
+    # Return the address of the encoded object
+    def allocate_object(self, value):
+
+        # Must return an address
+        size = len(bytes(value))
+
+        # SIZE    32 bits |      VALUE
+        encoded_size = size.to_bytes(32, "little")
+
+        # Save the address of this object
+        address = self.get_current_data_address()
+
+        # Write the size, then the value
+        self.data_offset = self.write_data(encoded_size, self.data_offset)
+
+        self.data_offset = self.write_data(value, self.data_offset)
+
+        return address
 
     # Compile code to make a new instance of a class.
     # A pointer to this code is returned

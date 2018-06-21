@@ -14,6 +14,7 @@ class TagHandler:
     # 00    int
     # 01    boolean
     # 10    memory objects
+    # 11    strings
     def __init__(self, jit):
         self.jit = jit
         # TODO: define relation between types and their tags
@@ -42,12 +43,18 @@ class TagHandler:
 
     def tag_object(self, value):
         tag_value = value << 2
+        tag_value = tag_value | 2
+
+        return tag_value
+
+    def tag_string(self, value):
+        tag_value = value << 2
         tag_value = tag_value | 3
 
         return tag_value
 
     def tag_object_asm(self, register):
-        instructions = [asm.SHL(register, 2), asm.OR(register, 3)]
+        instructions = [asm.SHL(register, 2), asm.OR(register, 2)]
 
         return instructions
 
