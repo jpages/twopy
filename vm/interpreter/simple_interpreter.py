@@ -76,6 +76,9 @@ class SimpleInterpreter:
 
         self.functions.append(function)
 
+        if self.args.verbose:
+            print(dis.dis(code))
+
         # Increment the global function id
         self.global_id_function += 1
 
