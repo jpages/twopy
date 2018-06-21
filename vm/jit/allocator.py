@@ -233,8 +233,6 @@ class RuntimeAllocator:
     def allocate_instance(self, class_address):
         instructions = []
 
-        instructions.append(asm.INT(3))
-
         # Move the next available address into rax to return it
         instructions.append(asm.MOV(asm.rax, self.register_allocation))
 

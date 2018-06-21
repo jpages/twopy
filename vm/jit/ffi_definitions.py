@@ -176,9 +176,6 @@ c_code = """
             for(int i=0; i<size; i++)
                 printf("%c", chars_array[i]);
 
-            // Print a newline as requested by python
-            printf("\\n");
-
             return value;
         }
         
@@ -187,15 +184,21 @@ c_code = """
             uint64_t untag_address = value >> 2;
             
             // Get the class address in the object after the header
-            uint64_t* class_address = untag_address+8;
+            uint64_t* class_address = ((uint64_t*)untag_address)+1;
             
             uint64_t class_structure = *(class_address);
 
-            printf("Untagged address %ld\\n", untag_address);
-            printf("Class address %ld\\n", class_address);
-            printf("Class structure %lx\\n", class_structure);
+            //printf("Class structure 0x%lx\\n", class_structure);
             
-            printf("<object at 0x%lx>\\n", untag_address);
+            //TODO: Print the name of the module and class
+            // Get the string containing the class name
+            uint64_t string_value = *(((uint64_t*)class_structure)+3);            
+            
+            printf("<");           
+            twopy_library_print_string(string_value);
+
+            // then print the address
+            printf(" object at 0x%lx>\\n", untag_address);
             
             return value;
         }
@@ -212,7 +215,13 @@ c_code = """
             else if(tag == 2)
                 return twopy_library_print_object(value);
             else if(tag == 3)
-                return twopy_library_print_string(value);
+            {
+                uint64_t res = twopy_library_print_string(value);
+                // Print a newline as requested by python
+                printf("\\n");
+                
+                return res;
+            }
             else
                 printf("ERROR: unknown value %ld\\n", value);
 
