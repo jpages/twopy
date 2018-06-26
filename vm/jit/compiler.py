@@ -118,6 +118,10 @@ class JITCompiler:
             mfunction.allocator.encode(asm.JMP(asm.rbx))
 
             stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
+        else:
+            # Storing the real name of the primitive instead of the twopy name
+            short_name = mfunction.name.replace("twopy_", "")
+            stub_handler.primitive_addresses[short_name] = mfunction.allocator.code_address
 
     # Compile the function  in parameter to binary code
     # return the code instance
@@ -465,7 +469,8 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
-                self.nyi()
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.NOP())
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
@@ -1175,3 +1180,85 @@ class Context:
         for i in range(len(self.stack)):
             if self.stack[i][0] == variable:
                 self.stack[i] = (variable, type_value)
+
+
+# Static offsets for some primitive functions
+# This implements a "static" dispatch for the following names
+primitive_offsets_functions = {
+    "__twopy__abs": abs,
+    "__twopy__dict": dict,
+    "__twopy__help": help,
+    "__twopy__min": min,
+    "__twopy__setattr": setattr,
+    "__twopy__all": all,
+    "__twopy__dir": dir,
+    "__twopy__hex": hex,
+    "__twopy__next": next,
+    "__twopy__slice": slice,
+    "__twopy__any": any,
+    "__twopy__divmod": divmod,
+    "__twopy__id": id,
+    "__twopy__object": object,
+    "__twopy__sorted": sorted,
+    "__twopy__ascii": ascii,
+    "__twopy__enumerate": enumerate,
+    "__twopy__input": input,
+    "__twopy__oct": oct,
+    "__twopy__staticmethod": staticmethod,
+    "__twopy__bin": bin,
+    "__twopy__eval": eval,
+    "__twopy__int": int,
+    "__twopy__open": open,
+    "__twopy__str": str,
+    "__twopy__bool": bool,
+    "__twopy__exec": exec,
+    "__twopy__isinstance": isinstance,
+    "__twopy__ord": ord,
+    "__twopy__sum": sum,
+    "__twopy__bytearray": bytearray,
+    "__twopy__filter": filter,
+    "__twopy__issubclass": issubclass,
+    "__twopy__pow": pow,
+    "__twopy__super": super,
+    "__twopy__bytes": bytes,
+    "__twopy__float": float,
+    "__twopy__iter": 2,
+    "__twopy__print": print,
+    "__twopy__tuple": tuple,
+    "__twopy__callable": callable,
+    "__twopy__format": format,
+    "__twopy__len": len,
+    "__twopy__property": property,
+    "__twopy__type": type,
+    "__twopy__chr": chr,
+    "__twopy__frozenset": frozenset,
+    "__twopy__list": list,
+    "__twopy__range": range,
+    "__twopy__vars": vars,
+    "__twopy__classmethod": classmethod,
+    "__twopy__getattr": getattr,
+    "__twopy__locals": locals,
+    "__twopy__repr": repr,
+    "__twopy__zip": zip,
+    "__twopy__globals": globals,
+    "__twopy__map": map,
+    "__twopy__reversed": reversed,
+    "__twopy____import__": __import__,
+    "__twopy__complex": complex,
+    "__twopy__hasattr": hasattr,
+    "__twopy__max": max,
+    "__twopy__round": round,
+    "__twopy__hash": hash,
+    "__twopy__delattr": delattr,
+    "__twopy__memoryview": memoryview,
+    "__twopy__set": set,
+}
+
+
+# Primitive offsets for some attributes in builtins classes
+primitive_offsets_attributes = {
+    # Range class
+    "__twopy_range_start": 1,
+    "__twopy_range_step": 2,
+    "__twopy_range_stop": 3,
+}
