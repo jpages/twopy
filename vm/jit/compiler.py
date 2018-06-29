@@ -14,6 +14,7 @@ from . import objects
 from . import allocator
 import interpreter.simple_interpreter
 
+
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
     # For now keep a SimpleInterpreter instance
@@ -122,6 +123,9 @@ class JITCompiler:
             # Storing the real name of the primitive instead of the twopy name
             short_name = mfunction.name.replace("twopy_", "")
             stub_handler.primitive_addresses[short_name] = mfunction.allocator.code_address
+
+            # Force the compilation of these functions
+            self.compile_instructions(mfunction, mfunction.start_basic_block)
 
     # Compile the function  in parameter to binary code
     # return the code instance
@@ -285,7 +289,24 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.INPLACE_POWER):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ITER):
-                self.nyi()
+                # TOS = iter(TOS)
+                # We need to call the method iter() on the top on stack
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.POP(asm.r10))
+
+                # Remove the tag
+                untag_instruction = self.tags.untag_asm(asm.r10)
+                allocator.encode(untag_instruction)
+
+                # Get the class pointer
+                allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
+
+                # Make the static call to the method __twopy__iter in this class
+                iter_offset = primitive_offsets_functions["__twopy__iter"]
+                print("Iter_offset " + str(iter_offset))
+                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (iter_offset*8))))
+
             elif isinstance(instruction, interpreter.simple_interpreter.GET_YIELD_FROM_ITER):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.PRINT_EXPR):
@@ -357,6 +378,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
+                print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 # If we are compiling a class, store the value inside the class and not in the global environment
                 if mfunction.is_class:
                     # Get the class address in a register
@@ -387,6 +409,11 @@ class JITCompiler:
                     # Offset of the instruction's argument + r9 value
                     memory_address = asm.r9 + (64*instruction.arguments)
                     allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
+
+                    name = mfunction.names[instruction.arguments]
+                    if name in self.class_names:
+                        # Keep track on primitive class addresses
+                        stub_handler.primitive_addresses[name] = 64*instruction.arguments + allocator.data_address
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_NAME):
                 self.nyi()
@@ -421,29 +448,7 @@ class JITCompiler:
                 # In the first case, we must load the class structure
                 # In the second case, we have to load the __init__ method
                 if name in self.class_names:
-                    if isinstance(block.instructions[i + 1], interpreter.simple_interpreter.LOAD_ATTR) or \
-                            isinstance(block.instructions[i + 1], interpreter.simple_interpreter.STORE_ATTR):
-                        allocator.encode(asm.MOV(asm.r9, allocator.data_address))
-
-                        # Offset of the instruction's argument + r9 value
-                        memory_address = asm.r9 + (64 * instruction.arguments)
-                        allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
-
-                        allocator.encode(asm.PUSH(asm.r10))
-                    else:
-                        # Construct the instance, call new_instance for this class
-                        allocator.encode(asm.MOV(asm.r9, allocator.data_address))
-
-                        # Offset of the instruction's argument + r9 value
-                        memory_address = asm.r9 + (64 * instruction.arguments)
-                        allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
-                        allocator.encode(asm.SHR(asm.r10, 2))
-
-                        # Get the second field in the structure
-                        allocator.encode(asm.ADD(asm.r10, 8))
-                        allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.r10)))
-                        allocator.encode(asm.PUSH(asm.r9))
-
+                    self.compile_load_class(allocator, block, i, instruction)
                 # We are loading something from builtins
                 elif name in stub_handler.primitive_addresses:
                     function_address = stub_handler.primitive_addresses[name]
@@ -470,7 +475,10 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
                 allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
                 allocator.encode(asm.NOP())
+
+                # TODO: handle the cases with static dispatch
             elif isinstance(instruction, interpreter.simple_interpreter.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
@@ -540,8 +548,15 @@ class JITCompiler:
 
                 context.push_value(name)
 
-                # Lookup in the global environment
-                if name in self.interpreter.global_environment:
+                # Test if we need to load a class
+                if name in stub_handler.primitive_addresses and ("twopy_"+name) in self.class_names:
+                    print("NAME LOAD_GLOBAL " + str(name))
+                    allocator.encode(asm.INT(3))
+                    allocator.encode(asm.INT(3))
+                    allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
+                    allocator.encode(asm.PUSH(asm.r10))
+                elif name in self.interpreter.global_environment:
+                    # Lookup in the global environment
                     # Assume we have a regular function here for now
                     element = self.interpreter.global_environment[name]
 
@@ -686,6 +701,30 @@ class JITCompiler:
         block.first_offset = return_offset
 
         return return_offset
+
+    def compile_load_class(self, allocator, block, i, instruction):
+        if isinstance(block.instructions[i + 1], interpreter.simple_interpreter.LOAD_ATTR) or \
+                isinstance(block.instructions[i + 1], interpreter.simple_interpreter.STORE_ATTR):
+            allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+            # Offset of the instruction's argument + r9 value
+            memory_address = asm.r9 + (64 * instruction.arguments)
+            allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+
+            allocator.encode(asm.PUSH(asm.r10))
+        else:
+            # Construct the instance, call new_instance for this class
+            allocator.encode(asm.MOV(asm.r9, allocator.data_address))
+
+            # Offset of the instruction's argument + r9 value
+            memory_address = asm.r9 + (64 * instruction.arguments)
+            allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
+            allocator.encode(asm.SHR(asm.r10, 2))
+
+            # Get the second field in the structure
+            allocator.encode(asm.ADD(asm.r10, 8))
+            allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.r10)))
+            allocator.encode(asm.PUSH(asm.r9))
 
     # Compare operators
     compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
@@ -1255,10 +1294,11 @@ primitive_offsets_functions = {
 }
 
 
-# Primitive offsets for some attributes in builtins classes
+# Primitive offsets for some properties in builtins classes
 primitive_offsets_attributes = {
     # Range class
-    "__twopy_range_start": 1,
-    "__twopy_range_step": 2,
-    "__twopy_range_stop": 3,
+    "__twopy__iter": 1,
+    "__twopy_range_start": 2,
+    "__twopy_range_step": 3,
+    "__twopy_range_stop": 4,
 }
