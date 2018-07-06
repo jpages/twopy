@@ -708,10 +708,8 @@ class JITCompiler:
         else:
             # Construct the instance, call new_instance for this class
             #FIXME: this may be wrong, get the next free address in const space instead
-            allocator.encode(asm.INT(3))
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
-            print("COMPILE LOAD CLASS + NEW INSTANCE")
             # Offset of the instruction's argument + r9 value
             memory_address = asm.r9 + (64 * instruction.arguments)
             allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
@@ -1027,7 +1025,6 @@ class Allocator:
     def compile_prolog(self):
         offset_before = self.jitcompiler.global_allocator.code_offset
 
-        self.encode(asm.INT(3))
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))

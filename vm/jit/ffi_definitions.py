@@ -200,7 +200,6 @@ c_code = """
             // then print the address
             printf(" object at 0x%lx>\\n", untag_address);
             
-            asm("INT3");
             return value;
         }
 
