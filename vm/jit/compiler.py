@@ -110,10 +110,8 @@ class JITCompiler:
             # Saving return address in a register
             mfunction.allocator.encode(asm.POP(asm.rbx))
 
-            # Clean the stack and remove parameters on this call
-            for i in range(0, mfunction.argcount + 1):
-                # Remove print parameters
-                mfunction.allocator.encode(asm.POP(asm.r10))
+            # Remove print parameters
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8*(mfunction.argcount+1)))
 
             # Finally returning by jumping
             mfunction.allocator.encode(asm.JMP(asm.rbx))
@@ -291,8 +289,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.GET_ITER):
                 # TOS = iter(TOS)
                 # We need to call the method iter() on the top on stack
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
                 allocator.encode(asm.POP(asm.r10))
 
                 # Remove the tag
@@ -378,7 +374,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.HAVE_ARGUMENT):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_NAME):
-                print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 # If we are compiling a class, store the value inside the class and not in the global environment
                 if mfunction.is_class:
                     # Get the class address in a register
@@ -441,16 +436,18 @@ class JITCompiler:
 
                 context.push_value(name, objects.Types.Unknown)
 
-                # Determine what we need to load
-                # LOAD_NAME for a class can be followed by two categories of opcodes:
-                # - LOAD_ATTR or STORE_ATTR
-                # - CALL_FUNCTION
-                # In the first case, we must load the class structure
-                # In the second case, we have to load the __init__ method
-                if name in self.class_names:
+                if name == "__name__":
+                    self.compile_load_special(mfunction, name)
+                elif name in self.class_names:
+                    # Determine what we need to load
+                    # LOAD_NAME for a class can be followed by two categories of opcodes:
+                    # - LOAD_ATTR or STORE_ATTR
+                    # - CALL_FUNCTION
+                    # In the first case, we must load the class structure
+                    # In the second case, we have to load the __init__ method
                     self.compile_load_class(allocator, block, i, instruction)
-                # We are loading something from builtins
                 elif name in stub_handler.primitive_addresses:
+                    # We are loading something from builtins
                     function_address = stub_handler.primitive_addresses[name]
 
                     allocator.encode(asm.MOV(asm.r9, function_address))
@@ -474,7 +471,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BUILD_MAP):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.LOAD_ATTR):
-                allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.NOP())
 
@@ -550,9 +546,6 @@ class JITCompiler:
 
                 # Test if we need to load a class
                 if name in stub_handler.primitive_addresses and ("twopy_"+name) in self.class_names:
-                    print("NAME LOAD_GLOBAL " + str(name))
-                    allocator.encode(asm.INT(3))
-                    allocator.encode(asm.INT(3))
                     allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
                     allocator.encode(asm.PUSH(asm.r10))
                 elif name in self.interpreter.global_environment:
@@ -714,8 +707,11 @@ class JITCompiler:
             allocator.encode(asm.PUSH(asm.r10))
         else:
             # Construct the instance, call new_instance for this class
+            #FIXME: this may be wrong, get the next free address in const space instead
+            allocator.encode(asm.INT(3))
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
+            print("COMPILE LOAD CLASS + NEW INSTANCE")
             # Offset of the instruction's argument + r9 value
             memory_address = asm.r9 + (64 * instruction.arguments)
             allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
@@ -832,6 +828,23 @@ class JITCompiler:
 
         # Save some space on the stack for locals
         mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8*nb_locals))
+
+    # Compilation of special loaded values (__name__ for example)
+    # TODO: add something when import is used in the JIT
+    def compile_load_special(self, mfunction, name):
+        if name == "__name__":
+            # Need to determine in which file we are (main one or not)
+            # Unicode encoding of the string
+            value = "__main__"
+            encoded_value = value.encode()
+            address = self.global_allocator.allocate_object(encoded_value)
+
+            # Put the tag
+            tagged_address = self.tags.tag_string(address)
+
+            # Move this value in a register
+            mfunction.allocator.encode(asm.MOV(asm.r10, tagged_address))
+            mfunction.allocator.encode(asm.PUSH(asm.r10))
 
     # Throw an exception if something is not yet implemented
     def nyi(self):
@@ -1014,6 +1027,7 @@ class Allocator:
     def compile_prolog(self):
         offset_before = self.jitcompiler.global_allocator.code_offset
 
+        self.encode(asm.INT(3))
         # Save rbp
         self.encode(asm.PUSH(asm.rbp))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))

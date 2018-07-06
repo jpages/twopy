@@ -456,8 +456,8 @@ class Stub:
 
             jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JNE):
-            new_operand = new_operand = first_offset - self.position - len(self.instruction.encode())
-            if new_operand < 255 :
+            new_operand = first_offset - self.position - len(self.instruction.encode())
+            if new_operand < 255:
                 # We will encode the instruction
                 new_operand = first_offset - self.position - 2
 

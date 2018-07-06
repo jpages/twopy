@@ -187,19 +187,20 @@ c_code = """
             uint64_t* class_address = ((uint64_t*)untag_address)+1;
             
             uint64_t class_structure = *(class_address);
-
-            //printf("Class structure 0x%lx\\n", class_structure);
             
-            //TODO: Print the name of the module and class
-            // Get the string containing the class name
-            uint64_t string_value = *(((uint64_t*)class_structure)+3);            
+            // Get the strings containing the file and class name
+            uint64_t file_name = *(((uint64_t*)class_structure)+2); 
+            uint64_t class_name = *(((uint64_t*)class_structure)+3);            
             
             printf("<");           
-            twopy_library_print_string(string_value);
+            twopy_library_print_string(file_name);
+            printf(".");
+            twopy_library_print_string(class_name);
 
             // then print the address
             printf(" object at 0x%lx>\\n", untag_address);
             
+            asm("INT3");
             return value;
         }
 
