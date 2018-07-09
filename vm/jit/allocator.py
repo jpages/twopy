@@ -20,7 +20,7 @@ class GlobalAllocator:
         self.code_size = 20000
 
         # Size of the data section
-        self.data_size = 500
+        self.data_size = 1000
 
         # The next free zone in the data section
         self.data_offset = 0
