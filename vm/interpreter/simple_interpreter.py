@@ -511,7 +511,7 @@ class Instruction:
         s = str(self.__class__) + ", offset = " + str(self.offset)
         s += ", opcode = " + str(self.opcode_number)
         s += ", opcode_string = " + self.opcode_string
-        s += ", arguments = %s" + str(self.arguments)
+        s += ", argument = " + str(self.arguments)
 
         return s
 

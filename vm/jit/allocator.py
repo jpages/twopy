@@ -251,6 +251,16 @@ class RuntimeAllocator:
         tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
 
         instructions.extend(tag_instructions)
+
+        # Now call the __init__() method of the class
+        init_offset = 4
+        instructions.append(asm.INT(3))
+
+        # Push the object on the stack
+        instructions.append(asm.PUSH(asm.rax))
+        instructions.append(asm.ADD(asm.r10, 8*init_offset))
+        instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
+
         instructions.append(asm.POP(asm.rbx))
         instructions.append(asm.ADD(asm.registers.rsp, 8))
 
