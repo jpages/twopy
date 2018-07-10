@@ -4,6 +4,7 @@ This module contains the JIT compiler
 
 import sys
 import ctypes
+from types import *
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
@@ -337,7 +338,6 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.WITH_CLEANUP_FINISH):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.RETURN_VALUE):
-
                 # Pop the current TOS (the value)
                 allocator.encode(asm.POP(asm.rax))
 
@@ -355,7 +355,12 @@ class JITCompiler:
                 # Remove arguments and locals from the stack
                 to_depop = 8*(instruction.block.function.argcount + 1)
 
+                if "__init__" in mfunction.name:
+                    # Keep self to return it
+                    to_depop -= 16
+
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
+                allocator.encode(asm.POP(asm.rax))
 
                 # Finally returning by jumping
                 allocator.encode(asm.JMP(asm.rbx))
@@ -428,7 +433,9 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.r10))
 
                 # The value
-                allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.registers.rsp)))
+                allocator.encode(asm.POP(asm.r11))
+
+                # TODO: Do the store
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_ATTR):
                 self.nyi()
@@ -829,12 +836,6 @@ class JITCompiler:
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
-        # Number of parameters is counted without the self in python
-        if mfunction.name == "Dog.__init__":
-            print(mfunction.argcount)
-            mfunction.allocator.versioning.current_version().get_context_for_block(
-                mfunction.start_basic_block).increase_stack_size()
-
         if nb_locals == 0:
             return
 
@@ -860,6 +861,24 @@ class JITCompiler:
             # Move this value in a register
             mfunction.allocator.encode(asm.MOV(asm.r10, tagged_address))
             mfunction.allocator.encode(asm.PUSH(asm.r10))
+
+    # Get the __init__ Function from a class definition
+    # Return the __init__ function if any, or None if no definition is provided
+    # mfunction: the class-function in which we will search the init
+    def locate_init(self, mfunction):
+
+        code_init = None
+
+        # Force the creation of the __init__ function if any
+        for const in mfunction.consts:
+            if isinstance(const, CodeType):
+                code_init = const
+
+        if code_init is None:
+            return None
+
+        # Generate the init and return it
+        return self.interpreter.generate_function(code_init, mfunction.name+"__init__", self.mainmodule, False)
 
     # Throw an exception if something is not yet implemented
     def nyi(self):

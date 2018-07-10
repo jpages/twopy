@@ -306,11 +306,11 @@ def python_callback_type_stub(return_address, id_variable, type_value):
 def python_callback_class_stub(return_address, address_after):
     stub = stubhandler_instance.stub_dictionary[return_address]
 
-    # Allocate the class and return its tagged values
-    class_address = jitcompiler_instance.global_allocator.allocate_class()
-
     # Find the last created class to call if after this stub
     last_function = jitcompiler_instance.class_functions[-1]
+
+    # Allocate the class and return its tagged values
+    class_address = jitcompiler_instance.global_allocator.allocate_class(last_function)
 
     address_class_function = jitcompiler_instance.dict_compiled_functions[last_function]
 

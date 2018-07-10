@@ -76,12 +76,15 @@ class GlobalAllocator:
         self.python_arrays()
 
     # Allocate a new blank class object to be filled later
+    # mfunction: the function of the class
     # Each word of a class is 64 bits
     # | header | new_instance | method1 | method2 | ...
     # The second field is a pointer to the new_instance code for this class
     # TODO: get an indication on the size (number of methods) of the class
-    def allocate_class(self):
+    def allocate_class(self, mfunction):
         # TODO: Try to know the size of the structure we need to allocate
+
+        init_function = self.jitcompiler.locate_init(mfunction)
 
         # Save the address of this object
         address = self.get_current_data_address()
@@ -99,7 +102,7 @@ class GlobalAllocator:
         tagged_address = self.jitcompiler.tags.tag_object(address)
 
         # Now we need to store the pointer to the new instance code inside the class
-        new_instance_address = self.compile_new_instance(address)
+        new_instance_address = self.compile_new_instance(address, init_function)
 
         encoded_pointer = new_instance_address.to_bytes(8, "little")
         self.data_offset = self.write_data(encoded_pointer, self.data_offset)
@@ -129,11 +132,12 @@ class GlobalAllocator:
     # Compile code to make a new instance of a class.
     # A pointer to this code is returned
     # class_address : The non-tagged address of the class
-    def compile_new_instance(self, class_address):
+    # init_function : if any, the Function object for the __init__ definition
+    def compile_new_instance(self, class_address, init_function):
         code_address = self.get_current_address()
 
         # Move the object's address inside rax
-        self.runtime_allocator.allocate_instance(class_address)
+        self.runtime_allocator.allocate_instance(class_address, init_function)
 
         return code_address
 
@@ -229,8 +233,10 @@ class RuntimeAllocator:
 
     # Allocate an Object and return its pointer
     # The code must follow the calling convention and clean the stack before returning
+    # class_adress : the address of the class
+    # init_function : if an __init__ is defined, its corresponding Function or None if no definition is provided
     # TODO: If this class has a definition for __init__() compile it
-    def allocate_instance(self, class_address):
+    def allocate_instance(self, class_address, init_function):
         instructions = []
 
         # Move the next available address into rax to return it
@@ -253,18 +259,26 @@ class RuntimeAllocator:
         instructions.extend(tag_instructions)
 
         # Now call the __init__() method of the class
-        init_offset = 4
-        instructions.append(asm.INT(3))
+        if init_function is not None:
+            init_offset = 4
+            instructions.append(asm.INT(3))
 
-        # Push the object on the stack
-        instructions.append(asm.PUSH(asm.rax))
-        instructions.append(asm.ADD(asm.r10, 8*init_offset))
-        instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
+            # Save the return address of the current call
+            instructions.append(asm.POP(asm.rbx))
+
+            # Push the object on the stack
+            instructions.append(asm.POP(asm.r8))
+            instructions.append(asm.PUSH(asm.rbx))
+
+            # Push back parameters
+            instructions.append(asm.PUSH(asm.rax))
+            instructions.append(asm.PUSH(asm.r8))
+
+            # Make the call to init
+            instructions.append(asm.ADD(asm.r10, 8*init_offset))
+            instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
         instructions.append(asm.POP(asm.rbx))
-        instructions.append(asm.ADD(asm.registers.rsp, 8))
-
-        # TODO: clean the stack from __init__() parameters here
         instructions.append(asm.JMP(asm.rbx))
 
         offset = self.global_allocator.code_offset
