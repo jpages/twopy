@@ -428,6 +428,7 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ATTR):
                 print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
                 allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
 
                 # The object
                 allocator.encode(asm.POP(asm.r10))
@@ -436,6 +437,9 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.r11))
 
                 # TODO: Do the store
+                if mfunction.names[instruction.arguments] == "name":
+                    allocator.encode(asm.SHR(asm.r10, 2))
+                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10+2*8), asm.r11))
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_ATTR):
                 self.nyi()

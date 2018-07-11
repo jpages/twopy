@@ -235,7 +235,6 @@ class RuntimeAllocator:
     # The code must follow the calling convention and clean the stack before returning
     # class_adress : the address of the class
     # init_function : if an __init__ is defined, its corresponding Function or None if no definition is provided
-    # TODO: If this class has a definition for __init__() compile it
     def allocate_instance(self, class_address, init_function):
         instructions = []
 
@@ -251,14 +250,14 @@ class RuntimeAllocator:
         instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation + 8), asm.r10))
 
         # Increment the allocation pointer
-        instructions.append(asm.ADD(self.register_allocation, 8*2))
+        instructions.append(asm.ADD(self.register_allocation, 8*5))
 
         # Finally, tag the address inside rax before returning
         tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
 
         instructions.extend(tag_instructions)
 
-        # Now call the __init__() method of the class
+        # Now call the __init__() method of the class if any
         if init_function is not None:
             init_offset = 4
             instructions.append(asm.INT(3))

@@ -113,7 +113,6 @@ class SimpleInterpreter:
     def current_function(self):
         return self.functions_called[-1]
 
-
     ''' Generate a new class and return it
         func = main function of the class
         name = class name
@@ -148,7 +147,6 @@ class SimpleInterpreter:
 
 
 class MModule:
-    pass
     '''
     Represent a python module, contain code
     self.code = Code Object of the module
