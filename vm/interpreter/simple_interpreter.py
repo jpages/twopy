@@ -49,6 +49,9 @@ class SimpleInterpreter:
         # The Jit compiler instance, will be set by the launcher
         self.jitcompiler = None
 
+        # Association between a Code object and a Function object to avoid duplication
+        self.code_to_function = dict()
+
     # Iterate over opcodes and execute the code
     def execute(self):
         # Precompile the code by generating proper instructions and basic blocks
@@ -69,11 +72,15 @@ class SimpleInterpreter:
     # is_main : true if the function is top-level of a module
     def generate_function(self, code, name, module, is_main):
 
+        if code in self.code_to_function:
+            return self.code_to_function[code]
+
         function = Function(self.global_id_function, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
     name, dis.get_instructions(code), self, module, is_main)
 
+        self.code_to_function[code] = function
         self.functions.append(function)
 
         if self.args.verbose:
