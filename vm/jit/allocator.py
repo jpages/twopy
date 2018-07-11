@@ -258,6 +258,7 @@ class RuntimeAllocator:
         instructions.extend(tag_instructions)
 
         # Now call the __init__() method of the class if any
+        # TODO: handle __init__ with more than 1 parameters
         if init_function is not None:
             init_offset = 4
 
@@ -277,6 +278,10 @@ class RuntimeAllocator:
             instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
         instructions.append(asm.POP(asm.rbx))
+
+        # Clean the stack to remove the class
+        instructions.append(asm.ADD(asm.registers.rsp, 8))
+
         instructions.append(asm.JMP(asm.rbx))
 
         offset = self.global_allocator.code_offset
