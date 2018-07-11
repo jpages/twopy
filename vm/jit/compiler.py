@@ -360,7 +360,9 @@ class JITCompiler:
                     to_depop -= 16
 
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
-                allocator.encode(asm.POP(asm.rax))
+
+                if "__init__" in mfunction.name:
+                    allocator.encode(asm.POP(asm.rax))
 
                 # Finally returning by jumping
                 allocator.encode(asm.JMP(asm.rbx))
@@ -427,8 +429,7 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ATTR):
                 print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
+                # allocator.encode(asm.INT(3))
 
                 # The object
                 allocator.encode(asm.POP(asm.r10))
@@ -437,9 +438,9 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.r11))
 
                 # TODO: Do the store
-                if mfunction.names[instruction.arguments] == "name":
-                    allocator.encode(asm.SHR(asm.r10, 2))
-                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10+2*8), asm.r11))
+                # if mfunction.names[instruction.arguments] == "name":
+                    # allocator.encode(asm.SHR(asm.r10, 2))
+                    # allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10+2*8), asm.r11))
 
             elif isinstance(instruction, interpreter.simple_interpreter.DELETE_ATTR):
                 self.nyi()
@@ -729,7 +730,6 @@ class JITCompiler:
         else:
             # Construct the instance, call new_instance for this class
             #FIXME: this may be wrong, get the next free address in const space instead
-            allocator.encode(asm.INT(3))
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
             # Offset of the instruction's argument + r9 value

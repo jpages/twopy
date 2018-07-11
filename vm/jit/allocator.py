@@ -260,7 +260,6 @@ class RuntimeAllocator:
         # Now call the __init__() method of the class if any
         if init_function is not None:
             init_offset = 4
-            instructions.append(asm.INT(3))
 
             # Save the return address of the current call
             instructions.append(asm.POP(asm.rbx))
