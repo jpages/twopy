@@ -420,14 +420,10 @@ class Function:
                 if len(old_block.instructions) >= 2 and isinstance(old_block.instructions[-2], GET_ITER):
 
                     if old_block in old_block.next:
-                        print(len(old_block.next))
                         old_block.next.remove(old_block)
-                        print(len(old_block.next))
 
                     if old_block in old_block.previous:
-                        print(len(old_block.previous))
                         old_block.previous.remove(old_block)
-                        print(len(old_block.previous))
 
 
     # If called, this Function is the main one of the class in parameter
@@ -525,6 +521,8 @@ class Instruction:
 
         # The function of this Instruction
         self.function = None
+
+        self.compiled = 0
 
     def __repr__(self):
         s = str(self.__class__) + ", offset = " + str(self.offset)

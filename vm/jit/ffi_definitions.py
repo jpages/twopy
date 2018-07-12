@@ -224,7 +224,7 @@ c_code = """
             }
             else
                 printf("ERROR: unknown value %ld\\n", value);
-
+            
             return value;
         }
 

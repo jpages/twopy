@@ -229,19 +229,17 @@ class JITCompiler:
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MULTIPLY):
 
                 self.tags.binary_operation("mul", mfunction, block, i+1)
-
+                # return return_offset
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_ADD):
 
                 #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("add", mfunction, block, i+1)
-
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBTRACT):
 
                 #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("sub", mfunction, block, i+1)
-
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_SUBSCR):
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.BINARY_FLOOR_DIVIDE):
@@ -301,10 +299,19 @@ class JITCompiler:
 
                 # Make the static call to the method __twopy__iter in this class
                 iter_offset = primitive_offsets_functions["__twopy__iter"]
-                print("Iter_offset " + str(iter_offset))
+
+                # print("Iter_offset " + str(iter_offset) + " in function " + str(id(mfunction)))
+                # print("Compiling block with id " + str(id(block)) +" and instructions ")
+                # print(block.instructions)
+                #
+                # for next_block in block.next:
+                #     print("Next block " + str(next_block))
+
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
-                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (iter_offset*8))))
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
+                # allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (iter_offset*8))))
 
             elif isinstance(instruction, interpreter.simple_interpreter.GET_YIELD_FROM_ITER):
                 self.nyi()
@@ -429,7 +436,7 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, interpreter.simple_interpreter.STORE_ATTR):
                 print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
-                # allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
 
                 # The object
                 allocator.encode(asm.POP(asm.r10))
