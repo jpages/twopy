@@ -416,6 +416,20 @@ class Function:
 
                 jump.block.link_to(old_block)
 
+                # Finally, the old block must not be linked with itself but with the new one
+                if len(old_block.instructions) >= 2 and isinstance(old_block.instructions[-2], GET_ITER):
+
+                    if old_block in old_block.next:
+                        print(len(old_block.next))
+                        old_block.next.remove(old_block)
+                        print(len(old_block.next))
+
+                    if old_block in old_block.previous:
+                        print(len(old_block.previous))
+                        old_block.previous.remove(old_block)
+                        print(len(old_block.previous))
+
+
     # If called, this Function is the main one of the class in parameter
     def as_class(self, mclass):
         self.mclass = mclass
