@@ -5,6 +5,7 @@ import dis
 import importlib
 
 import frontend
+from frontend import model
 
 # The singleton of the Interpreter
 simple_interpreter_instance = None
@@ -20,7 +21,7 @@ class SimpleInterpreter:
     def __init__(self, maincode, subdirectory, args):
         # The main CodeObject
         self.maincode = maincode
-        self.mainmodule = MModule(maincode)
+        self.mainmodule = model.MModule(maincode)
 
         # All loaded modules
         self.modules = []
@@ -75,7 +76,7 @@ class SimpleInterpreter:
         if code in self.code_to_function:
             return self.code_to_function[code]
 
-        function = Function(self.global_id_function, code.co_argcount,
+        function = model.Function(self.global_id_function, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
     name, dis.get_instructions(code), self, module, is_main)
@@ -120,7 +121,7 @@ class SimpleInterpreter:
         metaclass = The metaclass
     '''
     def make_class(self, func, name, *bases, metaclass=None, **kwds):
-        return MClass(self, func, name, bases, metaclass, kwds)
+        return model.MClass(self, func, name, bases, metaclass, kwds)
 
     # Print the current stack from bottom to top
     def print_stack(self):
@@ -145,763 +146,504 @@ class SimpleInterpreter:
         else:
             return self.stack.pop()
 
-
-class MModule:
-    '''
-    Represent a python module, contain code
-    self.code = Code Object of the module
-    '''
-    def __init__(self, code):
-        self.code = code
-
-        # All functions defined in this module
-        self.functions = []
-
-        # The corresponding python Module
-        self.pythonmodule = None
-
-    # Add a new compiled function to the module
-    def add_function(self, function):
-        self.functions.append(function)
-
-    def lookup(self, name, is_main):
-        for fun in self.functions:
-            # We are not looking for top-level functions
-            if fun.name == name and not fun.is_main:
-                return fun
-
-        assert "Function not found"
-
-# The class of python classes
-class MClass:
-
-    def __init__(self, interpreter, mainfunc, name, *superclasses, metaclass=None, **kwds):
-        self.mainfunction = mainfunc
-        self.name = name
-        self.superclasses = superclasses
-        self.metaclass = metaclass
-        self.kwds = kwds
-
-        self.interpreter = interpreter
-
-        # All instances of this class, beware of memory here
-        self.instances = []
-
-        # For now, implement methods with a simple dictionnary between name and functions
-        self.methods = {}
-
-        # Now execute this class and fill the environment
-        env = {}
-        env["__name__"] = name
-
-        mainfunc.as_class(self)
-
-        mainfunc.environments.append(env)
-        interpreter.environments.append(env)
-
-        # Make the call
-        mainfunc.execute(interpreter)
-
-    # Add an attribute "tos" named "name" to this class
-    def add_attribute(self, name, attr):
-        # We are adding a method to the class
-        if isinstance(attr, Function):
-            self.methods[name] = attr
-        else:
-            # TODO: maybe do something here
-            pass
-
-    # Create a return a new Instance of this class
-    def new_instance(self, *attrs):
-        mobject = MObject(self, attrs)
-
-        self.instances.append(mobject)
-
-        # Now we need to call the constructor of the class for this object
-        # Get and execute the constructor
-        init = self.methods["__init__"]
-        env = {}
-
-        # Construct environment for the call
-        init.environments.append(env)
-        self.interpreter.environments.append(env)
-
-        # adding self to arguments of the constructor
-        args = []
-        args.append(mobject)
-        for el in attrs: args.append(el)
-
-        # Fill the environment
-        for i in range(0, len(args)):
-            env[init.varnames[i]] = args[i]
-
-        # Call the initializer
-        init.execute(self.interpreter)
-
-        # Remove the None value on the top of stack
-        self.interpreter.pop()
-
-        return mobject
-
-# An instance of a MClass
-class MObject:
-    def __init__(self, mclass, *attrs):
-        self.mclass = mclass
-
-        # TODO: better implementation of attributes
-        self.attributes = {}
-
-    # Return the property corresponding to the name in parameter
-    def get_property(self, name):
-        # Look in the class for a method
-        if name in self.mclass.methods:
-            return self.mclass.methods[name]
-        else:
-            return self.attributes[name]
-
-    # Set the value for the attribute named "name"
-    def set_attribute(self, name, value):
-        self.attributes[name] = value
-
-class Function:
-    '''
-    Represent a function
-
-    self.id_function = Identifier of the function, used to make calls
-    self.argcount = number of arguments
-    self.kwonlyargcount = number of keyword arguments
-    self.nlocals = number of local variables
-    self.stacksize = virtual machine stack space required
-    self.consts = tuple of constants used in the bytecode
-    self.names = tuple of names of local variables
-    self.varnames = tuple of names of arguments and local variables
-    self.freevars = tuple of names of variables used by parent scope
-    self.cellvars = tuple of names of variables used by child scopes
-    self.name = Function name
-    self.iterator = Iterator over Instructions
-    self.interpreter = The interpreter instance
-    self.module = The Module instance in which this function was defined
-    self.is_main = True if the function is top-level of a module
-    '''
-    def __init__(self, id_function, argcount, kwonlyargcount,
-                nlocals, stacksize, consts, names, varnames, freevars,
-                cellvars, name, iterator, interpreter, module, is_main):
-        self.id_function = id_function
-        self.argcount = argcount
-        self.kwonlyargcount = kwonlyargcount
-        self.nlocals = nlocals
-        self.stacksize = stacksize
-        self.consts = consts
-        self.names = names
-        self.varnames = varnames
-        self.freevars = freevars
-        self.cellvars = cellvars
-        self.name = name
-        self.iterator = iterator
-        self.interpreter = interpreter
-        self.module = module
-        self.is_main = is_main
-
-        self.nb_pure_locals = nlocals - argcount
-
-        # Environments are linked for each call
-        self.environments = []
-
-        self.generate_instructions()
-        self.generate_basic_blocks()
-
-        # Dictionnary of freecells and their values
-        self.closure = {}
-
-        # Add the current function to the module
-        module.add_function(self)
-
-        # Indicate if this Function is a Class
-        self.is_class = False
-
-        # If this value is set, then it's a method and receiver will be used as
-        # self
-        self.receiver = None
-        self.allocator = None
-
-    def generate_instructions(self):
-        # temporary, all instructions of the function without basic blocks
-        self.all_instructions = []
-
-        temp_instructions = []
-        for o in self.iterator:
-            temp_instructions.append(o)
-
-        # The next opcode, to compute size of instructions
-        next_op = None
-
-        # Iterate over opcodes and create Instruction classes
-        for i in range(0, len(temp_instructions)):
-            op = temp_instructions[i]
-
-            if i < len(temp_instructions)-1:
-                next_op = temp_instructions[i+1]
-
-            size = next_op.offset - op.offset
-
-            if self.interpreter.args.verbose:
-                print(str(op) + ", size " + str(size))
-
-            instruction = dict_instructions[op.opcode](op.offset,
-            op.opcode, op.opname, op.arg, op.is_jump_target, size)
-
-            instruction.function = self
-
-            self.all_instructions.append(instruction)
-
-    # Generate basic blocks in the function
-    def generate_basic_blocks(self):
-        # The entry point of the function
-        self.start_basic_block = BasicBlock(self)
-
-        # Association between jump instruction and their target
-        jumps = {}
-
-        # Current is the current block, will be filled until a branching instruction
-        current = self.start_basic_block
-
-        for i in range(0, len(self.all_instructions)):
-            instruction = self.all_instructions[i]
-            current.add_instruction(instruction)
-
-            if instruction.is_branch():
-                # Finish the current block and create a new one
-                new_block = BasicBlock(self)
-                current.link_to(new_block)
-                current = new_block
-
-            if instruction.is_jump():
-                # Save this instruction and its target
-                jumps[instruction.absolute_target] = instruction
-
-        # Now we need to reiterate over instructions to associate jumps to their targets
-        for i in range(0, len(self.all_instructions)):
-            instruction = self.all_instructions[i]
-
-            # Put the target of a jump in a new block with its following
-            # instructions (if any) and link all blocks
-            if instruction.offset in jumps:
-                jump = jumps[instruction.offset]
-                old_block = instruction.block
-
-                new_block = BasicBlock(self)
-                for next_block in instruction.block.next:
-                    new_block.link_to(next_block)
-
-                instruction.block.link_to(new_block)
-
-                # Append to the jump block the new block
-                jump.block.link_to(new_block)
-
-                # Now split the previous block
-                temp_instructions = []
-                for i in range(instruction.block.instructions.index(instruction), len(instruction.block.instructions)):
-                    temp_instructions.append(instruction.block.instructions[i])
-
-                for t in temp_instructions:
-                    old_block.instructions.remove(t)
-                    new_block.add_instruction(t)
-
-                # The old block must jump to the newly created block
-                target = new_block.instructions[0].offset
-
-                # Add a new fake jump with special values
-                jump = JUMP_ABSOLUTE(-1, 113, "JUMP_ABSOLUTE", target, False, 3)
-                old_block.add_instruction(jump)
-
-                jump.block.link_to(old_block)
-
-                # Finally, the old block must not be linked with itself but with the new one
-                if len(old_block.instructions) >= 2 and isinstance(old_block.instructions[-2], GET_ITER):
-
-                    if old_block in old_block.next:
-                        old_block.next.remove(old_block)
-
-                    if old_block in old_block.previous:
-                        old_block.previous.remove(old_block)
-
-
-    # If called, this Function is the main one of the class in parameter
-    def as_class(self, mclass):
-        self.mclass = mclass
-
-        self.is_class = True
-
-    # Print the current Function and its basic blocks
-    def __repr__(self):
-        s = "Function " + (self.name)
-
-        return s
-
-    # Execute the current function
-    def execute(self, interpreter):
-
-        interpreter.functions_called.append(self)
-
-        # Entry block
-        self.start_basic_block.execute(interpreter)
-
-class BasicBlock:
-    '''
-        Represent a basic block : a sequence of instructions without a jump
-        until the end. Basic blocks are link together and form a graph
-
-        self.function = The function
-        self.previous = previous basic blocks
-        self.next = next basic blocks
-        instructions = the list of instructions in order
-    '''
-    def __init__(self, fun):
-        self.function = fun
-        self.previous = set()
-        self.next = set()
-        self.instructions = []
-
-        # Used for the JIT
-        self.compiled = False
-
-    def add_instruction(self, instruction):
-        # type: (object) -> object
-        self.instructions.append(instruction)
-        instruction.block = self
-
-    # Link the self basic block to next
-    # self will be a predecessor of next
-    def link_to(self, next_bb):
-        self.next.add(next_bb)
-        next_bb.previous.add(self)
-
-    # Execute all instructions in this block
-    def execute(self, interpreter):
-        for instruction in self.instructions:
-            instruction.execute(interpreter)
-
-    def __repr__(self):
-        s = "previous : "
-        for p in self.previous:
-            s += str(id(p)) + ", "
-
-        s += "\n" + "next : "
-        for n in self.next:
-            s += (str(id(n))) + ", "
-
-        s += "\n"
-        for instruction in self.instructions:
-            s += str(instruction) + "\n"
-        return s
-
-# The root of all instructions
-class Instruction:
-    '''
-    Represents an instruction based on an opcode from bytecode
-
-        self.offset = offset of the opcode from the beginning of the function
-        self.opcode_number = number of the opcode
-        self.opcode_string = string with opcode name
-        self.arguments = Python object with argument, will be None for
-                        opcodes without arguments
-        self.is_jump_target = True is this instruction is a jump target
-        self.size = number of bytes used by the opcode
-    '''
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        self.offset = offset
-        self.opcode_number = opcode_number
-        self.opcode_string = opcode_string
-        self.arguments = arguments
-        self.is_jump_target = is_jump_target
-        self.size = size
-
-        # The basic block containing this instruction
-        self.block = None
-
-        # The function of this Instruction
-        self.function = None
-
-        self.compiled = 0
-
-    def __repr__(self):
-        s = str(self.__class__) + ", offset = " + str(self.offset)
-        s += ", opcode = " + str(self.opcode_number)
-        s += ", opcode_string = " + self.opcode_string
-        s += ", argument = " + str(self.arguments)
-
-        return s
-
-    # Return true if self is a branching instruction, false otherwise
-    def is_branch(self):
-        return isinstance(self, BranchInstruction)
-
-    # Return true if self is a jumping instruction, false otherwise
-    def is_jump(self):
-        return isinstance(self, JumpInstruction)
-
-    # Execute this instruction in interpretation mode
-    def execute(self, interpreter):
-        if interpreter.args.verbose :
-            print("Execution of : " + str(self.__class__) + " args " + str(self.arguments) + " in " + str(self.function))
-
-# A particular class which breaks the control flow of a basic block by branching
-class BranchInstruction(Instruction):
-    pass
-
-# A Branching instruction that can change the bytecode counter either by a
-# relative or an absolute offset
-class JumpInstruction(BranchInstruction):
-    pass
-
-    # Compute absolute_target, the absolute target of the jump of this Instruction
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = -1
-
-    def __repr__(self):
-        s = super().__repr__()
-        s += ", absolute_target " + str(self.absolute_target)
-
-        return s
-
-# All instruction classes
-class POP_TOP(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        interpreter.pop()
-
-class ROT_TWO(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        first = interpreter.pop()
-        second = interpreter.pop()
-
-        interpreter.push(first)
-        interpreter.push(second)
-
-class ROT_THREE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class DUP_TOP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class DUP_TOP_TWO(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class NOP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class UNARY_POSITIVE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class UNARY_NEGATIVE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class UNARY_NOT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class UNARY_INVERT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BINARY_MATRIX_MULTIPLY(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class INPLACE_MATRIX_MULTIPLY(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BINARY_POWER(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+    # Dispatch of instructions
+    def execute_instruction(self, instruction):
+        if isinstance(instruction, model.POP_TOP):
+            self.POP_TOP()
+        elif isinstance(instruction, model.ROT_TWO):
+            self.ROT_TWO()
+        elif isinstance(instruction, model.ROT_THREE):
+            self.ROT_THREE()
+        elif isinstance(instruction, model.DUP_TOP):
+            self.DUP_TOP()
+        elif isinstance(instruction, model.DUP_TOP_TWO):
+            self.DUP_TOP_TWO()
+        elif isinstance(instruction, model.NOP):
+            self.NOP()
+        elif isinstance(instruction, model.UNARY_POSITIVE):
+            self.UNARY_POSITIVE()
+        elif isinstance(instruction, model.UNARY_NEGATIVE):
+            self.UNARY_NEGATIVE()
+        elif isinstance(instruction, model.UNARY_NOT):
+            self.UNARY_NOT()
+        elif isinstance(instruction, model.UNARY_INVERT):
+            self.UNARY_INVERT()
+        elif isinstance(instruction, model.BINARY_MATRIX_MULTIPLY):
+            self.BINARY_MATRIX_MULTIPLY()
+        elif isinstance(instruction, model.INPLACE_MATRIX_MULTIPLY):
+            self.INPLACE_MATRIX_MULTIPLY()
+        elif isinstance(instruction, model.BINARY_POWER):
+            self.BINARY_POWER()
+        elif isinstance(instruction, model.BINARY_MULTIPLY):
+            self.BINARY_MULTIPLY()
+        elif isinstance(instruction, model.BINARY_MODULO):
+            self.BINARY_MODULO()
+        elif isinstance(instruction, model.BINARY_ADD):
+            self.BINARY_ADD()
+        elif isinstance(instruction, model.BINARY_SUBTRACT):
+            self.BINARY_SUBTRACT()
+        elif isinstance(instruction, model.BINARY_SUBSCR):
+            self.BINARY_SUBSCR()
+        elif isinstance(instruction, model.BINARY_FLOOR_DIVIDE):
+            self.BINARY_FLOOR_DIVIDE()
+        elif isinstance(instruction, model.BINARY_TRUE_DIVIDE):
+            self.BINARY_TRUE_DIVIDE()
+        elif isinstance(instruction, model.INPLACE_FLOOR_DIVIDE):
+            self.INPLACE_FLOOR_DIVIDE()
+        elif isinstance(instruction, model.INPLACE_TRUE_DIVIDE):
+            self.INPLACE_TRUE_DIVIDE()
+        elif isinstance(instruction, model.GET_AITER):
+            self.GET_AITER()
+        elif isinstance(instruction, model.GET_ANEXT):
+            self.GET_ANEXT()
+        elif isinstance(instruction, model.BEFORE_ASYNC_WITH):
+            self.BEFORE_ASYNC_WITH()
+        elif isinstance(instruction, model.INPLACE_ADD):
+            self.INPLACE_ADD()
+        elif isinstance(instruction, model.INPLACE_SUBTRACT):
+            self.INPLACE_SUBTRACT()
+        elif isinstance(instruction, model.INPLACE_MULTIPLY):
+            self.INPLACE_MULTIPLY()
+        elif isinstance(instruction, model.INPLACE_MODULO):
+            self.INPLACE_MODULO()
+        elif isinstance(instruction, model.STORE_SUBSCR):
+            self.STORE_SUBSCR()
+        elif isinstance(instruction, model.DELETE_SUBSCR):
+            self.DELETE_SUBSCR()
+        elif isinstance(instruction, model.BINARY_LSHIFT):
+            self.BINARY_LSHIFT()
+        elif isinstance(instruction, model.BINARY_RSHIFT):
+            self.BINARY_RSHIFT()
+        elif isinstance(instruction, model.BINARY_AND):
+            self.BINARY_AND()
+        elif isinstance(instruction, model.BINARY_XOR):
+            self.BINARY_XOR()
+        elif isinstance(instruction, model.BINARY_OR):
+            self.BINARY_OR()
+        elif isinstance(instruction, model.INPLACE_POWER):
+            self.INPLACE_POWER()
+        elif isinstance(instruction, model.GET_ITER):
+            self.GET_ITER()
+        elif isinstance(instruction, model.GET_YIELD_FROM_ITER):
+            self.GET_YIELD_FROM_ITER()
+        elif isinstance(instruction, model.PRINT_EXPR):
+            self.PRINT_EXPR()
+        elif isinstance(instruction, model.LOAD_BUILD_CLASS):
+            self.LOAD_BUILD_CLASS()
+        elif isinstance(instruction, model.YIELD_FROM):
+            self.YIELD_FROM()
+        elif isinstance(instruction, model.GET_AWAITABLE):
+            self.GET_AWAITABLE()
+        elif isinstance(instruction, model.INPLACE_LSHIFT):
+            self.INPLACE_LSHIFT()
+        elif isinstance(instruction, model.INPLACE_RSHIFT):
+            self.INPLACE_RSHIFT()
+        elif isinstance(instruction, model.INPLACE_AND):
+            self.INPLACE_AND()
+        elif isinstance(instruction, model.INPLACE_XOR):
+            self.INPLACE_XOR()
+        elif isinstance(instruction, model.INPLACE_OR):
+            self.INPLACE_OR()
+        elif isinstance(instruction, model.BREAK_LOOP):
+            self.BREAK_LOOP()
+        elif isinstance(instruction, model.WITH_CLEANUP_START):
+            self.WITH_CLEANUP_START()
+        elif isinstance(instruction, model.WITH_CLEANUP_FINISH):
+            self.WITH_CLEANUP_FINISH()
+        elif isinstance(instruction, model.RETURN_VALUE):
+            self.RETURN_VALUE()
+        elif isinstance(instruction, model.IMPORT_STAR):
+            self.IMPORT_STAR()
+        elif isinstance(instruction, model.SETUP_ANNOTATIONS):
+            self.SETUP_ANNOTATIONS()
+        elif isinstance(instruction, model.YIELD_VALUE):
+            self.YIELD_VALUE()
+        elif isinstance(instruction, model.POP_BLOCK):
+            self.POP_BLOCK()
+        elif isinstance(instruction, model.END_FINALLY):
+            self.END_FINALLY()
+        elif isinstance(instruction, model.POP_EXCEPT):
+            self.POP_EXCEPT()
+        elif isinstance(instruction, model.HAVE_ARGUMENT):
+            self.HAVE_ARGUMENT()
+        elif isinstance(instruction, model.STORE_NAME):
+            self.STORE_NAME()
+        elif isinstance(instruction, model.DELETE_NAME):
+            self.DELETE_NAME()
+        elif isinstance(instruction, model.UNPACK_SEQUENCE):
+            self.UNPACK_SEQUENCE()
+        elif isinstance(instruction, model.FOR_ITER):
+            self.FOR_ITER()
+        elif isinstance(instruction, model.UNPACK_EX):
+            self.UNPACK_EX()
+        elif isinstance(instruction, model.STORE_ATTR):
+            self.STORE_ATTR()
+        elif isinstance(instruction, model.DELETE_ATTR):
+            self.DELETE_ATTR()
+        elif isinstance(instruction, model.STORE_GLOBAL):
+            self.STORE_GLOBAL()
+        elif isinstance(instruction, model.DELETE_GLOBAL):
+            self.DELETE_GLOBAL()
+        elif isinstance(instruction, model.LOAD_CONST):
+            self.LOAD_CONST()
+        elif isinstance(instruction, model.LOAD_NAME):
+            self.LOAD_NAME()
+        elif isinstance(instruction, model.BUILD_TUPLE):
+            self.BUILD_TUPLE()
+        elif isinstance(instruction, model.BUILD_LIST):
+            self.BUILD_LIST()
+        elif isinstance(instruction, model.BUILD_SET):
+            self.BUILD_SET()
+        elif isinstance(instruction, model.BUILD_MAP):
+            self.BUILD_MAP()
+        elif isinstance(instruction, model.LOAD_ATTR):
+            self.LOAD_ATTR()
+        elif isinstance(instruction, model.COMPARE_OP):
+            self.COMPARE_OP()
+        elif isinstance(instruction, model.IMPORT_NAME):
+            self.IMPORT_NAME()
+        elif isinstance(instruction, model.IMPORT_FROM):
+            self.IMPORT_FROM()
+        elif isinstance(instruction, model.JUMP_FORWARD):
+            self.JUMP_FORWARD()
+        elif isinstance(instruction, model.JUMP_IF_FALSE_OR_POP):
+            self.JUMP_IF_FALSE_OR_POP()
+        elif isinstance(instruction, model.JUMP_IF_TRUE_OR_POP):
+            self.JUMP_IF_TRUE_OR_POP()
+        elif isinstance(instruction, model.JUMP_ABSOLUTE):
+            self.JUMP_ABSOLUTE()
+        elif isinstance(instruction, model.POP_JUMP_IF_FALSE):
+            self.POP_JUMP_IF_FALSE()
+        elif isinstance(instruction, model.POP_JUMP_IF_TRUE):
+            self.POP_JUMP_IF_TRUE()
+        elif isinstance(instruction, model.LOAD_GLOBAL):
+            self.LOAD_GLOBAL()
+        elif isinstance(instruction, model.CONTINUE_LOOP):
+            self.CONTINUE_LOOP()
+        elif isinstance(instruction, model.SETUP_LOOP):
+            self.SETUP_LOOP()
+        elif isinstance(instruction, model.SETUP_EXCEPT):
+            self.SETUP_EXCEPT()
+        elif isinstance(instruction, model.SETUP_FINALLY):
+            self.SETUP_FINALLY()
+        elif isinstance(instruction, model.LOAD_FAST):
+            self.LOAD_FAST()
+        elif isinstance(instruction, model.STORE_FAST):
+            self.STORE_FAST()
+        elif isinstance(instruction, model.DELETE_FAST):
+            self.DELETE_FAST()
+        elif isinstance(instruction, model.STORE_ANNOTATION):
+            self.STORE_ANNOTATION()
+        elif isinstance(instruction, model.RAISE_VARARGS):
+            self.RAISE_VARARGS()
+        elif isinstance(instruction, model.CALL_FUNCTION):
+            self.CALL_FUNCTION()
+        elif isinstance(instruction, model.MAKE_FUNCTION):
+            self.MAKE_FUNCTION()
+        elif isinstance(instruction, model.BUILD_SLICE):
+            self.BUILD_SLICE()
+        elif isinstance(instruction, model.LOAD_CLOSURE):
+            self.LOAD_CLOSURE()
+        elif isinstance(instruction, model.LOAD_DEREF):
+            self.LOAD_DEREF()
+        elif isinstance(instruction, model.STORE_DEREF):
+            self.STORE_DEREF()
+        elif isinstance(instruction, model.DELETE_DEREF):
+            self.DELETE_DEREF()
+        elif isinstance(instruction, model.CALL_FUNCTION_KW):
+            self.CALL_FUNCTION_KW()
+        elif isinstance(instruction, model.CALL_FUNCTION_EX):
+            self.CALL_FUNCTION_EX()
+        elif isinstance(instruction, model.SETUP_WITH):
+            self.SETUP_WITH()
+        elif isinstance(instruction, model.EXTENDED_ARG):
+            self.EXTENDED_ARG()
+        elif isinstance(instruction, model.LIST_APPEND):
+            self.LIST_APPEND()
+        elif isinstance(instruction, model.SET_ADD):
+            self.SET_ADD()
+        elif isinstance(instruction, model.MAP_ADD):
+            self.MAP_ADD()
+        elif isinstance(instruction, model.LOAD_CLASSDEREF):
+            self.LOAD_CLASSDEREF()
+        elif isinstance(instruction, model.BUILD_LIST_UNPACK):
+            self.BUILD_LIST_UNPACK()
+        elif isinstance(instruction, model.BUILD_MAP_UNPACK):
+            self.BUILD_MAP_UNPACK()
+        elif isinstance(instruction, model.BUILD_MAP_UNPACK_WITH_CALL):
+            self.BUILD_MAP_UNPACK_WITH_CALL()
+        elif isinstance(instruction, model.BUILD_TUPLE_UNPACK):
+            self.BUILD_TUPLE_UNPACK()
+        elif isinstance(instruction, model.BUILD_SET_UNPACK):
+            self.BUILD_SET_UNPACK()
+        elif isinstance(instruction, model.SETUP_ASYNC_WITH):
+            self.SETUP_ASYNC_WITH()
+        elif isinstance(instruction, model.FORMAT_VALUE):
+            self.FORMAT_VALUE()
+        elif isinstance(instruction, model.BUILD_CONST_KEY_MAP):
+            self.BUILD_CONST_KEY_MAP()
+        elif isinstance(instruction, model.BUILD_STRING):
+            self.BUILD_STRING()
+        elif isinstance(instruction, model.BUILD_TUPLE_UNPACK_WITH_CALL):
+            self.BUILD_TUPLE_UNPACK_WITH_CALL()
+
+    def POP_TOP(self):
+
+        self.pop()
+
+    def ROT_TWO(self):
+
+
+        first = self.pop()
+        second = self.pop()
+
+        self.push(first)
+        self.push(second)
+
+    def ROT_THREE(self): print("NYI " + str(self))
+
+    def DUP_TOP(self): print("NYI " + str(self))
+
+    def DUP_TOP_TWO(self): print("NYI " + str(self))
+
+    def NOP(self): print("NYI " + str(self))
+
+    def UNARY_POSITIVE(self): print("NYI " + str(self))
+
+    def UNARY_NEGATIVE(self): print("NYI " + str(self))
+
+    def UNARY_NOT(self): print("NYI " + str(self))
+
+    def UNARY_INVERT(self): print("NYI " + str(self))
+
+    def BINARY_MATRIX_MULTIPLY(self): print("NYI " + str(self))
+
+    def INPLACE_MATRIX_MULTIPLY(self): print("NYI " + str(self))
+
+    def BINARY_POWER(self, interpreter):
+
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = pow(tos1, tos)
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_MULTIPLY(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_MULTIPLY(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 * tos
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_MODULO(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_MODULO(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 % tos
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_ADD(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_ADD(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 + tos
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_SUBTRACT(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_SUBTRACT(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 - tos
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_SUBSCR(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_SUBSCR(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1[tos]
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_FLOOR_DIVIDE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_FLOOR_DIVIDE(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 // tos
-        interpreter.push(val)
+        self.push(val)
 
-class BINARY_TRUE_DIVIDE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_TRUE_DIVIDE(self):
 
-        tos = interpreter.pop()
-        tos1 = interpreter.pop()
+
+        tos = self.pop()
+        tos1 = self.pop()
 
         val = tos1 / tos
-        interpreter.push(val)
+        self.push(val)
 
-class INPLACE_FLOOR_DIVIDE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_FLOOR_DIVIDE(self): print("NYI " + str(self))
 
-class INPLACE_TRUE_DIVIDE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_TRUE_DIVIDE(self): print("NYI " + str(self))
 
-class GET_AITER(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def GET_AITER(self): print("NYI " + str(self))
 
-class GET_ANEXT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def GET_ANEXT(self): print("NYI " + str(self))
 
-class BEFORE_ASYNC_WITH(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BEFORE_ASYNC_WITH(self): print("NYI " + str(self))
 
-class INPLACE_ADD(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def INPLACE_ADD(self):
 
-        second = interpreter.pop()
-        first = interpreter.pop()
 
-        interpreter.push(first + second)
+        second = self.pop()
+        first = self.pop()
 
-class INPLACE_SUBTRACT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+        self.push(first + second)
 
-class INPLACE_MULTIPLY(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def INPLACE_SUBTRACT(self): print("NYI " + str(self))
 
-        second = interpreter.pop()
-        first = interpreter.pop()
+    def INPLACE_MULTIPLY(self):
 
-        interpreter.push(first * second)
 
-class INPLACE_MODULO(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+        second = self.pop()
+        first = self.pop()
 
-class STORE_SUBSCR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+        self.push(first * second)
 
-class DELETE_SUBSCR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_MODULO(self): print("NYI " + str(self))
 
-class BINARY_LSHIFT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def STORE_SUBSCR(self): print("NYI " + str(self))
 
-class BINARY_RSHIFT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def DELETE_SUBSCR(self): print("NYI " + str(self))
 
-class BINARY_AND(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BINARY_LSHIFT(self): print("NYI " + str(self))
 
-class BINARY_XOR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BINARY_RSHIFT(self): print("NYI " + str(self))
 
-class BINARY_OR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BINARY_AND(self): print("NYI " + str(self))
 
-class INPLACE_POWER(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BINARY_XOR(self): print("NYI " + str(self))
 
-class GET_ITER(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def BINARY_OR(self): print("NYI " + str(self))
+
+    def INPLACE_POWER(self): print("NYI " + str(self))
+
+    def GET_ITER(self):
+
 
         # Create an iterator from the TOS object and push it on the stack
-        tos = interpreter.pop()
-        interpreter.push(iter(tos))
+        tos = self.pop()
+        self.push(iter(tos))
 
-class GET_YIELD_FROM_ITER(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def GET_YIELD_FROM_ITER(self): print("NYI " + str(self))
 
-class PRINT_EXPR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def PRINT_EXPR(self): print("NYI " + str(self))
 
-class LOAD_BUILD_CLASS(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def LOAD_BUILD_CLASS(self):
+
 
         # Push the function which will make the class
-        interpreter.push(interpreter.make_class)
+        self.push(interpreter.make_class)
 
-class YIELD_FROM(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def YIELD_FROM(self): print("NYI " + str(self))
 
-class GET_AWAITABLE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def GET_AWAITABLE(self): print("NYI " + str(self))
 
-class INPLACE_LSHIFT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_LSHIFT(self): print("NYI " + str(self))
 
-class INPLACE_RSHIFT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_RSHIFT(self): print("NYI " + str(self))
 
-class INPLACE_AND(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_AND(self): print("NYI " + str(self))
 
-class INPLACE_XOR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_XOR(self): print("NYI " + str(self))
 
-class INPLACE_OR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def INPLACE_OR(self): print("NYI " + str(self))
 
-class BREAK_LOOP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BREAK_LOOP(self): print("NYI " + str(self))
 
-class WITH_CLEANUP_START(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def WITH_CLEANUP_START(self): print("NYI " + str(self))
 
-class WITH_CLEANUP_FINISH(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def WITH_CLEANUP_FINISH(self): print("NYI " + str(self))
 
-class RETURN_VALUE(BranchInstruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def RETURN_VALUE(self):
 
-        tos = interpreter.pop()
+
+        tos = self.pop()
 
         # Reset the environment of the call
-        interpreter.current_function().environments.pop()
-        interpreter.environments.pop()
-        interpreter.functions_called.pop()
+        self.current_function().environments.pop()
+        self.environments.pop()
+        self.functions_called.pop()
 
         # Push again the result
-        interpreter.push(tos)
+        self.push(tos)
 
-class IMPORT_STAR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def IMPORT_STAR(self): print("NYI " + str(self))
 
-class SETUP_ANNOTATIONS(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def SETUP_ANNOTATIONS(self): print("NYI " + str(self))
 
-class YIELD_VALUE(BranchInstruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        interpreter.print_stack()
+    def YIELD_VALUE(self):
         #TODO
-        tos = interpreter.pop()
+        self.print_stack()
+        tos = self.pop()
 
         print("TOS of a YIELD " + str(tos))
         print("Class of TOS " + str(tos.__class__))
         print("Instructions in block " + str(self.block.instructions))
 
-        interpreter.current_function().environments.pop()
-        interpreter.environments.pop()
-        interpreter.functions_called.pop()
+        self.current_function().environments.pop()
+        self.environments.pop()
+        self.functions_called.pop()
 
-        interpreter.push(tos)
+        self.push(tos)
 
-class POP_BLOCK(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def POP_BLOCK(self):
         # In the current model, this instruction is already handled
+        pass
 
-class END_FINALLY(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def END_FINALLY(self): print("NYI " + str(self))
 
-class POP_EXCEPT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def POP_EXCEPT(self): print("NYI " + str(self))
 
-class HAVE_ARGUMENT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def HAVE_ARGUMENT(self): print("NYI " + str(self))
 
-class STORE_NAME(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        tos = interpreter.pop()
-        name = interpreter.current_function().names[self.arguments]
+    def STORE_NAME(self):
+        tos = self.pop()
+        name = self.current_function().names[self.arguments]
 
         # If tos is the main function of a class, we are in fact
         # adding a property to this class here, special treatment
-        if interpreter.current_function().is_class:
-            interpreter.current_function().mclass.add_attribute(name, tos)
+        if self.current_function().is_class:
+            self.current_function().mclass.add_attribute(name, tos)
 
         # # If we are in the top level of the program
         if self.function.is_main and self.function.name == "main":
             # also make a global store
-            interpreter.global_environment[name] = tos
+            self.global_environment[name] = tos
 
-        interpreter.current_function().environments[-1][name] = tos
+        self.current_function().environments[-1][name] = tos
 
-class DELETE_NAME(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def DELETE_NAME(self): print("NYI " + str(self))
 
-class UNPACK_SEQUENCE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def UNPACK_SEQUENCE(self):
         # Unpack tuple items and push them on the stack right to left
-        tos = interpreter.pop()
+        tos = self.pop()
         for item in reversed(tos):
-            interpreter.push(item)
+            self.push(item)
 
-class FOR_ITER(JumpInstruction):
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = offset + arguments + size
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def FOR_ITER(self):
         # TOS is an iterator
-        tos = interpreter.pop()
+        tos = self.pop()
 
         need_jump = False
 
@@ -910,8 +652,8 @@ class FOR_ITER(JumpInstruction):
             value = tos.__next__()
 
             # Push back the iterator and the yield value
-            interpreter.push(tos)
-            interpreter.push(value)
+            self.push(tos)
+            self.push(value)
         except StopIteration:
             # If it is exhausted, make a jump
             need_jump = True
@@ -930,183 +672,151 @@ class FOR_ITER(JumpInstruction):
         else:
             notjump_block.execute(interpreter)
 
-class UNPACK_EX(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def UNPACK_EX(self): print("NYI " + str(self))
 
-class STORE_ATTR(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def STORE_ATTR(self):
         # Get the attribute and the value and set it
-        obj = interpreter.pop()
-        value = interpreter.pop()
-        name = interpreter.current_function().names[self.arguments]
+        obj = self.pop()
+        value = self.pop()
+        name = self.current_function().names[self.arguments]
 
         obj.set_attribute(name, value)
 
-        interpreter.push(value)
+        self.push(value)
 
-class DELETE_ATTR(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def DELETE_ATTR(self): print("NYI " + str(self))
 
-class STORE_GLOBAL(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def STORE_GLOBAL(self): print("NYI " + str(self))
 
-class DELETE_GLOBAL(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def DELETE_GLOBAL(self): print("NYI " + str(self))
 
-class LOAD_CONST(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        loaded_value = interpreter.current_function().consts[self.arguments]
-        interpreter.push(loaded_value)
+    def LOAD_CONST(self):
+        loaded_value = self.current_function().consts[self.arguments]
+        self.push(loaded_value)
 
         # If we load a Code Object, disassemble it
         if isinstance(loaded_value, CodeType):
-            if interpreter.args.verbose:
+            if self.args.verbose:
                 dis.dis(loaded_value)
 
-class LOAD_NAME(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        name = str(interpreter.current_function().names[self.arguments])
+    def LOAD_NAME(self):
+        name = str(self.current_function().names[self.arguments])
 
         # try to find the name in local environments
-        if name in interpreter.current_function().environments[-1]:
-            interpreter.push(interpreter.current_function().environments[-1][name])
+        if name in self.current_function().environments[-1]:
+            self.push(self.current_function().environments[-1][name])
         else:
             # Lookup in the global environment
-            interpreter.push(interpreter.global_environment[name])
+            self.push(self.global_environment[name])
 
-class BUILD_TUPLE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def BUILD_TUPLE(self):
         res = []
         for i in range(0, self.arguments):
-            res.append(interpreter.pop())
+            res.append(self.pop())
 
         res.reverse()
-        interpreter.push(tuple(res))
+        self.push(tuple(res))
 
-class BUILD_LIST(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def BUILD_LIST(self):
         res = []
         for i in range(0, self.arguments):
-            res.append(interpreter.pop())
+            res.append(self.pop())
         res.reverse()
 
-        interpreter.push(res)
+        self.push(res)
 
-class BUILD_SET(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def BUILD_SET(self):
         res = set()
         for i in range(0, self.arguments):
-            res.add(interpreter.pop())
+            res.add(self.pop())
 
-        interpreter.push(res)
+        self.push(res)
 
-class BUILD_MAP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BUILD_MAP(self): print("NYI " + str(self))
 
-class LOAD_ATTR(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        tos = interpreter.pop()
-        name = interpreter.current_function().names[self.arguments]
+    def LOAD_ATTR(self):
+        tos = self.pop()
+        name = self.current_function().names[self.arguments]
 
         # Lookup a name in a python module object
-        if isinstance(tos, MModule):
+        if isinstance(tos, model.MModule):
             # Special case for a Module
             fun = tos.lookup(name, False)
-            interpreter.push(fun)
-        elif isinstance(tos, MObject):
+            self.push(fun)
+        elif isinstance(tos, model.MObject):
             # Access to an attribute of the model
             res = tos.get_property(name)
 
             # Two cases here, we accessed to a method or an attribute value
-            if isinstance(res, Function):
+            if isinstance(res, model.Function):
                 # If it's a function, we will make a method called later
                 # Set the object at the receiver of the method for later
                 res.receiver = tos
 
-            interpreter.push(res)
+            self.push(res)
         else:
              # Access to an attribute
             attr = getattr(tos, name)
-            interpreter.push(attr)
+            self.push(attr)
 
-def op_lesser(first, second):
-    return first < second
+    def op_lesser(first, second):
+        return first < second
 
-def op_lesser_eq(first, second):
-    return first <= second
+    def op_lesser_eq(first, second):
+        return first <= second
 
-def op_eq(first, second):
-    return first == second
+    def op_eq(first, second):
+        return first == second
 
-def op_noteq(first, second):
-    return first != second
+    def op_noteq(first, second):
+        return first != second
 
-def op_greater(first, second):
-    return first > second
+    def op_greater(first, second):
+        return first > second
 
-def op_greater_eq(first, second):
-    return first >= second
+    def op_greater_eq(first, second):
+        return first >= second
 
-def op_in(first, second):
-    return first in second
+    def op_in(first, second):
+        return first in second
 
-def op_notin(first, second):
-    return first not in second
+    def op_notin(first, second):
+        return first not in second
 
-def op_is(first, second):
-    return first is second
+    def op_is(first, second):
+        return first is second
 
-def op_notis(first, second):
-    return not(first is second)
+    def op_notis(first, second):
+        return not(first is second)
 
-# TODO
-def op_exception_match(first, second):
-    print("NYI")
-    quit()
+    # TODO
+    def op_exception_match(first, second):
+        print("NYI")
+        quit()
 
-# TODO
-def op_bad(first, second):
-    print("NYI")
-    quit()
+    # TODO
+    def op_bad(first, second):
+        print("NYI")
+        quit()
 
-compare_functions = (op_lesser, op_lesser_eq, op_eq, op_noteq, op_greater,
-op_greater_eq, op_in, op_notin, op_is, op_notis, op_exception_match, op_bad)
+    compare_functions = (op_lesser, op_lesser_eq, op_eq, op_noteq, op_greater,
+    op_greater_eq, op_in, op_notin, op_is, op_notis, op_exception_match, op_bad)
 
-class COMPARE_OP(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        second = interpreter.pop()
-        first = interpreter.pop()
+    def COMPARE_OP(self):
+        second = self.pop()
+        first = self.pop()
 
         # Perform the test and push the result on the stack
         res = compare_functions[self.arguments](first, second)
-        interpreter.push(res)
+        self.push(res)
 
-class IMPORT_NAME(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        module_name = interpreter.current_function().names[self.arguments]
-        from_list = interpreter.pop()
-        level = interpreter.pop()
+    def IMPORT_NAME(self):
+        module_name = self.current_function().names[self.arguments]
+        from_list = self.pop()
+        level = self.pop()
 
         # Add the subdirectory to the path to import
-        module_name = interpreter.subdirectory + "." + module_name
+        module_name = self.subdirectory + "." + module_name
 
         # Find the module file
         spec = importlib.util.find_spec(module_name)
@@ -1115,51 +825,32 @@ class IMPORT_NAME(Instruction):
         pythonmodule = importlib.util.module_from_spec(spec)
 
         # Now we need to execute this module, start by compiling it
-        co = frontend.compiler.compile_import(pythonmodule.__file__, interpreter.args)
+        co = frontend.compiler.compile_import(pythonmodule.__file__, self.args)
 
         module = MModule(co)
-        interpreter.modules.append(module)
+        self.modules.append(module)
 
         # Generate a function for the module
-        fun = interpreter.generate_function(co, interpreter.current_function().names[self.arguments], module, True)
+        fun = self.generate_function(co, self.current_function().names[self.arguments], module, True)
 
         env = {}
-        interpreter.environments.append(env)
+        self.environments.append(env)
         fun.environments.append(env)
 
         fun.execute(interpreter)
 
-        interpreter.push(module)
+        self.push(module)
 
-class IMPORT_FROM(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def IMPORT_FROM(self): print("NYI " + str(self))
 
-class JUMP_FORWARD(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = offset + arguments + size
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def JUMP_FORWARD(self):
         for block in self.block.next:
             if block.instructions[0].offset == self.absolute_target:
                 block.execute(interpreter)
                 return
 
-class JUMP_IF_FALSE_OR_POP(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = arguments
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        value = interpreter.pop()
+    def JUMP_IF_FALSE_OR_POP(self):
+        value = self.pop()
         jump_block = None
         notjump_block = None
 
@@ -1173,22 +864,13 @@ class JUMP_IF_FALSE_OR_POP(JumpInstruction):
                 notjump_block = block
 
         if not value:
-            interpreter.push(value)
+            self.push(value)
             jump_block.execute(interpreter)
         else:
             notjump_block.execute(interpreter)
 
-class JUMP_IF_TRUE_OR_POP(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = arguments
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        value = interpreter.pop()
+    def JUMP_IF_TRUE_OR_POP(self):
+        value = self.pop()
         jump_block = None
         notjump_block = None
 
@@ -1202,40 +884,21 @@ class JUMP_IF_TRUE_OR_POP(JumpInstruction):
                 notjump_block = block
 
         if value:
-            interpreter.push(value)
+            self.push(value)
             jump_block.execute(interpreter)
         else:
             notjump_block.execute(interpreter)
 
-class JUMP_ABSOLUTE(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = arguments
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def JUMP_ABSOLUTE(self):
         for block in self.block.next:
             # Make the jump
             if block.instructions[0].offset == self.arguments:
                 block.execute(interpreter)
                 return
-
         # TODO: We should have jump before, put an assertion here
 
-class POP_JUMP_IF_FALSE(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = arguments
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        value = interpreter.pop()
+    def POP_JUMP_IF_FALSE(self):
+        value = self.pop()
         jump_block = None
         notjump_block = None
 
@@ -1253,17 +916,8 @@ class POP_JUMP_IF_FALSE(JumpInstruction):
         else:
             notjump_block.execute(interpreter)
 
-class POP_JUMP_IF_TRUE(JumpInstruction):
-
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
-
-        self.absolute_target = arguments
-
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        value = interpreter.pop()
+    def POP_JUMP_IF_TRUE(self):
+        value = self.pop()
         jump_block = None
         notjump_block = None
 
@@ -1281,72 +935,52 @@ class POP_JUMP_IF_TRUE(JumpInstruction):
         else:
             notjump_block.execute(interpreter)
 
-class LOAD_GLOBAL(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        name = interpreter.current_function().names[self.arguments]
+    def LOAD_GLOBAL(self):
+        name = self.current_function().names[self.arguments]
 
         # Lookup in the global environment
-        if name in interpreter.global_environment:
-            interpreter.push(interpreter.global_environment[name])
+        if name in self.global_environment:
+            self.push(self.global_environment[name])
         else:
             # Lookup in its module to find a name
-            interpreter.push(self.function.module.lookup(name, False))
+            self.push(self.function.module.lookup(name, False))
 
-class CONTINUE_LOOP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def CONTINUE_LOOP(self): print("NYI " + str(self))
 
-class SETUP_LOOP(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def SETUP_LOOP(self):
         # For now, do nothing, the end of the loop wild discard the block
+        pass
 
-class SETUP_EXCEPT(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def SETUP_EXCEPT(self): print("NYI " + str(self))
 
-class SETUP_FINALLY(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def SETUP_FINALLY(self): print("NYI " + str(self))
 
-class LOAD_FAST(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        varname = interpreter.current_function().varnames[self.arguments]
-        for env in reversed(interpreter.current_function().environments):
+    def LOAD_FAST(self):
+        varname = self.current_function().varnames[self.arguments]
+        for env in reversed(self.current_function().environments):
             if varname in env:
-                interpreter.push(env[varname])
+                self.push(env[varname])
                 return
 
-class STORE_FAST(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def LOAD_FAST(self):
+        value = self.pop()
+        varname = self.current_function().varnames[self.arguments]
 
-        value = interpreter.pop()
-        varname = interpreter.current_function().varnames[self.arguments]
+        self.current_function().environments[-1][varname] = value
 
-        interpreter.current_function().environments[-1][varname] = value
+    def DELETE_FAST(self): print("NYI " + str(self))
 
-class DELETE_FAST(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def STORE_ANNOTATION(self): print("NYI " + str(self))
 
-class STORE_ANNOTATION(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def RAISE_VARARGS(self): print("NYI " + str(self))
 
-class RAISE_VARARGS(BranchInstruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-#TODO: factorize with other call functions
-class CALL_FUNCTION(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    #TODO: factorize with other call functions
+    def CALL_FUNCTION(self):
         # Default arguments
         args = []
         for i in range(0, self.arguments):
             # Pop all arguments of the call and put them in environment
-            args.append(interpreter.pop())
+            args.append(self.pop())
 
         # Put arguments in right order
         args.reverse()
@@ -1355,10 +989,10 @@ class CALL_FUNCTION(Instruction):
         env = {}
 
         # TOS is now the function to call
-        function = interpreter.pop()
+        function = self.pop()
         if isinstance(function, MClass):
             # We have to make a new instance of a class
-            interpreter.push(function.new_instance(args))
+            self.push(function.new_instance_interpreter(args))
             return
         elif isinstance(function, Function):
             args_call = len(args)
@@ -1370,11 +1004,11 @@ class CALL_FUNCTION(Instruction):
                 args.insert(0, function.receiver)
         else:
             # Special case of a call to a primitive function
-            interpreter.push(function(*args))
+            self.push(function(*args))
             return
 
         function.environments.append(env)
-        interpreter.environments.append(env)
+        self.environments.append(env)
 
         # Initialize the environment for the function call
         for i in range(0, len(args)):
@@ -1384,95 +1018,81 @@ class CALL_FUNCTION(Instruction):
         # Make the call
         function.execute(interpreter)
 
-class MAKE_FUNCTION(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        function_name = interpreter.pop()
-        code = interpreter.pop()
+    def MAKE_FUNCTION(self):
+        function_name = self.pop()
+        code = self.pop()
 
         #TODO
         free_variables = None
         if (self.arguments & 8) == 8:
             # Making a closure, tuple of free variables
-            free_variables = interpreter.pop()
+            free_variables = self.pop()
 
         if (self.arguments & 4) == 4:
             # Annotation dictionnary
-            annotations = interpreter.pop()
+            annotations = self.pop()
 
         if (self.arguments & 2) == 2:
             # keyword only default arguments
-            keyword_only = interpreter.pop()
+            keyword_only = self.pop()
 
         if (self.arguments & 1) == 1:
             # default arguments
-            default = interpreter.pop()
+            default = self.pop()
 
         # Generate a new Function Object
         # TODO: check the module of the function
-        fun = interpreter.generate_function(code, function_name, interpreter.modules[-1], False)
+        fun = self.generate_function(code, function_name, self.modules[-1], False)
 
         # Fill the closure
         if free_variables != None:
             for value in free_variables:
-                for env in reversed(interpreter.current_function().environments):
+                for env in reversed(self.current_function().environments):
                     if value in env:
                         fun.closure[value] = env[value]
 
         # Push the Function object on the stack
-        interpreter.push(fun)
+        self.push(fun)
 
-class BUILD_SLICE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def BUILD_SLICE(self): print("NYI " + str(self))
 
-class LOAD_CLOSURE(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def LOAD_CLOSURE(self):
         # Search the name of the variable
         varname = None
-        if self.arguments < len(interpreter.current_function().cellvars):
-            varname = interpreter.current_function().cellvars[self.arguments]
+        if self.arguments < len(self.current_function().cellvars):
+            varname = self.current_function().cellvars[self.arguments]
         else:
-            i = self.arguments - len(interpreter.current_function().cellvars)
-            varname = interpreter.current_function().cellvars[i]
+            i = self.arguments - len(self.current_function().cellvars)
+            varname = self.current_function().cellvars[i]
 
-        interpreter.push(varname)
+        self.push(varname)
 
-class LOAD_DEREF(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
+    def LOAD_DEREF(self):
         # TODO: Flat representation of closures
         varname = None
-        if self.arguments < len(interpreter.current_function().cellvars):
-            varname = interpreter.current_function().cellvars[self.arguments]
+        if self.arguments < len(self.current_function().cellvars):
+            varname = self.current_function().cellvars[self.arguments]
         else:
-            varname = interpreter.current_function().freevars[self.arguments]
+            varname = self.current_function().freevars[self.arguments]
 
-        if varname not in interpreter.current_function().closure:
+        if varname not in self.current_function().closure:
             # Lookup in environment
-            for env in reversed(interpreter.current_function().environments):
+            for env in reversed(self.current_function().environments):
                 if varname in env:
-                    interpreter.push(env[varname])
+                    self.push(env[varname])
                     return
         else:
             # Get the value in the closure
-            interpreter.push(interpreter.current_function().closure[varname])
+            self.push(self.current_function().closure[varname])
 
-class STORE_DEREF(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def STORE_DEREF(self): print("NYI " + str(self))
 
-class DELETE_DEREF(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def DELETE_DEREF(self): print("NYI " + str(self))
 
-class CALL_FUNCTION_KW(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
+    def CALL_FUNCTION_KW(self):
 
         # TOS is a tuple for keywords
-        keywords_tuple = interpreter.pop()
+        keywords_tuple = self.pop()
         print("keywords tuple " + str(keywords_tuple))
         print(len(keywords_tuple))
 
@@ -1480,7 +1100,7 @@ class CALL_FUNCTION_KW(Instruction):
         env = {}
 
         for element in keywords_tuple:
-            env[element] = interpreter.pop()
+            env[element] = self.pop()
 
         print("env with keywords " + str(env))
 
@@ -1488,16 +1108,16 @@ class CALL_FUNCTION_KW(Instruction):
         args = []
         for i in range(0, self.arguments - len(keywords_tuple)):
             # Pop all arguments of the call and put them in environment
-            args.append(interpreter.pop())
+            args.append(self.pop())
 
         # Put positionnal arguments in right order
         args.reverse()
 
         # TOS is now the function to call
-        function = interpreter.pop()
-        if not isinstance(function, Function):
+        function = self.pop()
+        if not isinstance(function, model.Function):
             # Special case of a call to a primitive function
-            interpreter.push(function(*args))
+            self.push(function(*args))
             return
 
         # Initialize the environment for the function call
@@ -1505,193 +1125,49 @@ class CALL_FUNCTION_KW(Instruction):
             env[function.varnames[i]] = args[i]
 
         function.environments.append(env)
-        interpreter.environments.append(env)
+        self.environments.append(env)
 
         # Make the call
         function.execute(interpreter)
 
-class CALL_FUNCTION_EX(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def CALL_FUNCTION_EX(self): print("NYI " + str(self))
 
-class SETUP_WITH(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def SETUP_WITH(self): print("NYI " + str(self))
 
-class EXTENDED_ARG(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def EXTENDED_ARG(self): print("NYI " + str(self))
 
-class LIST_APPEND(Instruction):
-    def execute(self, interpreter):
-        super().execute(interpreter)
-
-        tos = interpreter.pop()
-        list.append(interpreter.stack[-self.arguments], tos)
-
-class SET_ADD(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class MAP_ADD(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class LOAD_CLASSDEREF(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_LIST_UNPACK(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_MAP_UNPACK(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_MAP_UNPACK_WITH_CALL(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_TUPLE_UNPACK(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_SET_UNPACK(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class SETUP_ASYNC_WITH(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class FORMAT_VALUE(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_CONST_KEY_MAP(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_STRING(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
-
-class BUILD_TUPLE_UNPACK_WITH_CALL(Instruction):
-    def execute(self, interpreter): print("NYI " + str(self))
+    def LIST_APPEND(self):
 
 
-# Dictionary between instruction classes and opcode numbers
-dict_instructions = {
-1 : POP_TOP,
-2 : ROT_TWO,
-3 : ROT_THREE,
-4 : DUP_TOP,
-5 : DUP_TOP_TWO,
-9 : NOP,
-10 : UNARY_POSITIVE,
-11 : UNARY_NEGATIVE,
-12 : UNARY_NOT,
-15 : UNARY_INVERT,
-16 : BINARY_MATRIX_MULTIPLY,
-17 : INPLACE_MATRIX_MULTIPLY,
-19 : BINARY_POWER,
-20 : BINARY_MULTIPLY,
-22 : BINARY_MODULO,
-23 : BINARY_ADD,
-24 : BINARY_SUBTRACT,
-25 : BINARY_SUBSCR,
-26 : BINARY_FLOOR_DIVIDE,
-27 : BINARY_TRUE_DIVIDE,
-28 : INPLACE_FLOOR_DIVIDE,
-29 : INPLACE_TRUE_DIVIDE,
-50 : GET_AITER,
-51 : GET_ANEXT,
-52 : BEFORE_ASYNC_WITH,
-55 : INPLACE_ADD,
-56 : INPLACE_SUBTRACT,
-57 : INPLACE_MULTIPLY,
-59 : INPLACE_MODULO,
-60 : STORE_SUBSCR,
-61 : DELETE_SUBSCR,
-62 : BINARY_LSHIFT,
-63 : BINARY_RSHIFT,
-64 : BINARY_AND,
-65 : BINARY_XOR,
-66 : BINARY_OR,
-67 : INPLACE_POWER,
-68 : GET_ITER,
-69 : GET_YIELD_FROM_ITER,
-70 : PRINT_EXPR,
-71 : LOAD_BUILD_CLASS,
-72 : YIELD_FROM,
-73 : GET_AWAITABLE,
-75 : INPLACE_LSHIFT,
-76 : INPLACE_RSHIFT,
-77 : INPLACE_AND,
-78 : INPLACE_XOR,
-79 : INPLACE_OR,
-80 : BREAK_LOOP,
-81 : WITH_CLEANUP_START,
-82 : WITH_CLEANUP_FINISH,
-83 : RETURN_VALUE,
-84 : IMPORT_STAR,
-85 : SETUP_ANNOTATIONS,
-86 : YIELD_VALUE,
-87 : POP_BLOCK,
-88 : END_FINALLY,
-89 : POP_EXCEPT,
-90 : HAVE_ARGUMENT,
-90 : STORE_NAME,
-91 : DELETE_NAME,
-92 : UNPACK_SEQUENCE,
-93 : FOR_ITER,
-94 : UNPACK_EX,
-95 : STORE_ATTR,
-96 : DELETE_ATTR,
-97 : STORE_GLOBAL,
-98 : DELETE_GLOBAL,
-100 : LOAD_CONST,
-101 : LOAD_NAME,
-102 : BUILD_TUPLE,
-103 : BUILD_LIST,
-104 : BUILD_SET,
-105 : BUILD_MAP,
-106 : LOAD_ATTR,
-107 : COMPARE_OP,
-108 : IMPORT_NAME,
-109 : IMPORT_FROM,
-110 : JUMP_FORWARD,
-111 : JUMP_IF_FALSE_OR_POP,
-112 : JUMP_IF_TRUE_OR_POP,
-113 : JUMP_ABSOLUTE,
-114 : POP_JUMP_IF_FALSE,
-115 : POP_JUMP_IF_TRUE,
-116 : LOAD_GLOBAL,
-119 : CONTINUE_LOOP,
-120 : SETUP_LOOP,
-121 : SETUP_EXCEPT,
-122 : SETUP_FINALLY,
-124 : LOAD_FAST,
-125 : STORE_FAST,
-126 : DELETE_FAST,
-127 : STORE_ANNOTATION,
-130 : RAISE_VARARGS,
-131 : CALL_FUNCTION,
-132 : MAKE_FUNCTION,
-133 : BUILD_SLICE,
-135 : LOAD_CLOSURE,
-136 : LOAD_DEREF,
-137 : STORE_DEREF,
-138 : DELETE_DEREF,
-141 : CALL_FUNCTION_KW,
-142 : CALL_FUNCTION_EX,
-143 : SETUP_WITH,
-144 : EXTENDED_ARG,
-145 : LIST_APPEND,
-146 : SET_ADD,
-147 : MAP_ADD,
-148 : LOAD_CLASSDEREF,
-149 : BUILD_LIST_UNPACK,
-150 : BUILD_MAP_UNPACK,
-151 : BUILD_MAP_UNPACK_WITH_CALL,
-152 : BUILD_TUPLE_UNPACK,
-153 : BUILD_SET_UNPACK,
-154 : SETUP_ASYNC_WITH,
-155 : FORMAT_VALUE,
-156 : BUILD_CONST_KEY_MAP,
-157 : BUILD_STRING,
-158 : BUILD_TUPLE_UNPACK_WITH_CALL,
+        tos = self.pop()
+        list.append(self.stack[-self.arguments], tos)
 
-# Special extensions to use pypy for starting twopy
-201 : LOAD_ATTR,
-202 : CALL_FUNCTION,
-}
+    def SET_ADD(self): print("NYI " + str(self))
+
+    def MAP_ADD(self): print("NYI " + str(self))
+
+    def LOAD_CLASSDEREF(self): print("NYI " + str(self))
+
+    def BUILD_LIST_UNPACK(self): print("NYI " + str(self))
+
+    def BUILD_MAP_UNPACK(self): print("NYI " + str(self))
+
+    def BUILD_MAP_UNPACK_WITH_CALL(self): print("NYI " + str(self))
+
+    def BUILD_TUPLE_UNPACK(self): print("NYI " + str(self))
+
+    def BUILD_SET_UNPACK(self): print("NYI " + str(self))
+
+    def SETUP_ASYNC_WITH(self): print("NYI " + str(self))
+
+    def FORMAT_VALUE(self): print("NYI " + str(self))
+
+    def BUILD_CONST_KEY_MAP(self): print("NYI " + str(self))
+
+    def BUILD_STRING(self): print("NYI " + str(self))
+
+    def BUILD_TUPLE_UNPACK_WITH_CALL(self): print("NYI " + str(self))
+
 
 # Dictionnary between names and primitive functions
 primitives = {
