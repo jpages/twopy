@@ -436,7 +436,7 @@ class JITCompiler:
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
             elif isinstance(instruction, model.STORE_ATTR):
-                print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
+                # print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
                 allocator.encode(asm.INT(3))
 
                 # The object

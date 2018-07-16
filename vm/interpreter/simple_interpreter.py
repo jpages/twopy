@@ -475,14 +475,14 @@ class SimpleInterpreter:
         val = tos1[tos]
         self.push(val)
 
-    def BINARY_FLOOR_DIVIDE(self):
+    def BINARY_FLOOR_DIVIDE(self, instruction):
         tos = self.pop()
         tos1 = self.pop()
 
         val = tos1 // tos
         self.push(val)
 
-    def BINARY_TRUE_DIVIDE(self):
+    def BINARY_TRUE_DIVIDE(self, instruction):
         tos = self.pop()
         tos1 = self.pop()
 
@@ -586,7 +586,7 @@ class SimpleInterpreter:
 
         print("TOS of a YIELD " + str(tos))
         print("Class of TOS " + str(tos.__class__))
-        print("Instructions in block " + str(self.block.instructions))
+        print("Instructions in block " + str(instruction.block.instructions))
 
         self.current_function().environments.pop()
         self.environments.pop()
@@ -646,7 +646,7 @@ class SimpleInterpreter:
             need_jump = True
 
         # Find the next block depending of the iterator
-        for block in self.block.next:
+        for block in instruction.block.next:
             if block.instructions[0].offset == instruction.absolute_target:
                 # Make the jump
                 jump_block = block
@@ -788,7 +788,7 @@ class SimpleInterpreter:
     def IMPORT_FROM(self, instruction): print("NYI " + str(self))
 
     def JUMP_FORWARD(self, instruction):
-        for block in self.block.next:
+        for block in instruction.block.next:
             if block.instructions[0].offset == instruction.absolute_target:
                 self.execute_block(block)
                 return
@@ -799,7 +799,7 @@ class SimpleInterpreter:
         notjump_block = None
 
         # Locate the target of the jump in next basic blocks
-        for block in self.block.next:
+        for block in instruction.block.next:
             # If we need to make the jump
             if block.instructions[0].offset == instruction.arguments:
                 jump_block = block
@@ -819,7 +819,7 @@ class SimpleInterpreter:
         notjump_block = None
 
         # Locate the target of the jump in next basic blocks
-        for block in self.block.next:
+        for block in instruction.block.next:
             # If we need to make the jump
             if block.instructions[0].offset == instruction.arguments:
                 jump_block = block
@@ -834,7 +834,7 @@ class SimpleInterpreter:
             self.execute_block(notjump_block)
 
     def JUMP_ABSOLUTE(self, instruction):
-        for block in self.block.next:
+        for block in instruction.block.next:
             # Make the jump
             if block.instructions[0].offset == instruction.arguments:
                 self.execute_block(block)
@@ -847,7 +847,7 @@ class SimpleInterpreter:
         notjump_block = None
 
         # Locate the target of the jump in next basic blocks
-        for block in self.block.next:
+        for block in instruction.block.next:
             # If we need to make the jump
             if block.instructions[0].offset == instruction.arguments:
                 jump_block = block
@@ -866,7 +866,7 @@ class SimpleInterpreter:
         notjump_block = None
 
         # Locate the target of the jump in next basic blocks
-        for block in self.block.next:
+        for block in instruction.block.next:
             # If we need to make the jump
             if block.instructions[0].offset == instruction.arguments:
                 jump_block = block
@@ -906,7 +906,7 @@ class SimpleInterpreter:
                 self.push(env[varname])
                 return
 
-    def LOAD_FAST(self, instruction):
+    def STORE_FAST(self, instruction):
         value = self.pop()
         varname = self.current_function().varnames[instruction.arguments]
 
