@@ -1,5 +1,5 @@
 '''
-This module contains the JIT compiler
+This module contains the JIT compiler core
 '''
 
 import sys
@@ -14,7 +14,6 @@ from frontend import model
 from . import stub_handler
 from . import objects
 from . import allocator
-# import interpreter.simple_interpreter
 
 
 # Handle all operations related to JIT compilation of the code
@@ -56,6 +55,9 @@ class JITCompiler:
 
         # Default value for max versions of versioning
         self.maxvers = 5
+
+        # Association between name of a class and the address of its initializer (allocation + init)
+        self.initializer_addresses = dict()
 
         if self.interpreter.args.maxvers:
             self.maxvers = self.interpreter.args.maxvers
@@ -171,6 +173,7 @@ class JITCompiler:
 
         allocator = mfunction.allocator
 
+        # TODO: refactorization to delete this, a block must be ended on a type-test
         # Do not compile an already compiled block, except if index is set
         if block.compiled and index == 0:
             return block.first_offset
@@ -230,7 +233,6 @@ class JITCompiler:
             elif isinstance(instruction, model.BINARY_MULTIPLY):
 
                 self.tags.binary_operation("mul", mfunction, block, i+1)
-                # return return_offset
             elif isinstance(instruction, model.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_ADD):
@@ -396,6 +398,7 @@ class JITCompiler:
                     # Get the class address in a register
                     register = allocator.get_class_address(block)
 
+                    allocator.encode(asm.INT(3))
                     # The position is the last added item to the vtable (*8 bytes to get the correct position)
                     offset = len(mfunction.mclass.vtable) * 8
 
@@ -411,7 +414,14 @@ class JITCompiler:
 
                     # Finally store the value in the class space
                     allocator.encode(asm.MOV(asm.operand.MemoryOperand(register + offset), asm.rbx))
+
+                    # Increment the class static allocator to no write on an already defined class later
+                    self.global_allocator.class_offset += 8
+
+                    print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 else:
+                    name = mfunction.names[instruction.arguments]
+
                     # Store a name in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
@@ -422,7 +432,6 @@ class JITCompiler:
                     memory_address = asm.r9 + (64*instruction.arguments)
                     allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
 
-                    name = mfunction.names[instruction.arguments]
                     if name in self.class_names:
                         # Keep track on primitive class addresses
                         stub_handler.primitive_addresses[name] = 64*instruction.arguments + allocator.data_address
@@ -576,8 +585,18 @@ class JITCompiler:
 
                 # Test if we need to load a class
                 if name in stub_handler.primitive_addresses and ("twopy_"+name) in self.class_names:
-                    allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
-                    allocator.encode(asm.PUSH(asm.r10))
+                    if isinstance(block.instructions[i + 1], model.LOAD_ATTR) or \
+                            isinstance(block.instructions[i + 1], model.STORE_ATTR):
+                        # Loading the class address
+                        allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
+                        allocator.encode(asm.PUSH(asm.r10))
+                        stub_handler.primitive_addresses[name]
+                    else:
+                        # We need to load the init address here for a future call
+                        print("Init addresses " + str(self.initializer_addresses["twopy_"+name]))
+                        allocator.encode(asm.INT(3))
+                        allocator.encode(asm.MOV(asm.r10, self.initializer_addresses["twopy_"+name]))
+                        allocator.encode(asm.PUSH(asm.r10))
                 elif name in self.interpreter.global_environment:
                     # Lookup in the global environment
                     # Assume we have a regular function here for now
@@ -848,6 +867,10 @@ class JITCompiler:
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
+        if mfunction.name == "foo":
+            mfunction.allocator.encode(asm.INT(3))
+            print(mfunction.start_basic_block.instructions)
+
         if nb_locals == 0:
             return
 
@@ -1031,7 +1054,7 @@ class Allocator:
         # Adding the stack size
         offset = self.versioning.current_version().get_context_for_block(block).stack_size * 8
 
-        # And the number of arguments and locals
+        # And the number of arguments and    locals
         offset += self.function.nlocals * 8
 
         # The return address
@@ -1041,7 +1064,6 @@ class Allocator:
         self.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.rax
-
 
     # Get the local variable from the number in parameter and store it in a register
     # argument : number of the variable

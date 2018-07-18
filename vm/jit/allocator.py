@@ -20,10 +20,13 @@ class GlobalAllocator:
         self.code_size = 20000
 
         # Size of the data section
-        self.data_size = 1000
+        self.data_size = 5000
 
         # The next free zone in the data section
         self.data_offset = 0
+
+        # Allocate class in a special area
+        self.class_offset = 2048
 
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
@@ -87,7 +90,7 @@ class GlobalAllocator:
         init_function = self.jitcompiler.locate_init(mfunction)
 
         # Save the address of this object
-        address = self.get_current_data_address()
+        address = self.get_current_class_address()
 
         # TODO: for the test consider only 4 values inside the class
         size = 4 * 64
@@ -96,16 +99,16 @@ class GlobalAllocator:
         encoded_size = size.to_bytes(8, "little")
 
         # Write the size
-        self.data_offset = self.write_data(encoded_size, self.data_offset)
+        self.class_offset = self.write_data(encoded_size, self.class_offset)
 
         # Put the tag to indicate a memory object
         tagged_address = self.jitcompiler.tags.tag_object(address)
 
         # Now we need to store the pointer to the new instance code inside the class
-        new_instance_address = self.compile_new_instance(address, init_function)
+        new_instance_address = self.compile_new_instance(address, init_function, mfunction)
 
         encoded_pointer = new_instance_address.to_bytes(8, "little")
-        self.data_offset = self.write_data(encoded_pointer, self.data_offset)
+        self.class_offset = self.write_data(encoded_pointer, self.class_offset)
 
         return tagged_address
 
@@ -133,11 +136,12 @@ class GlobalAllocator:
     # A pointer to this code is returned
     # class_address : The non-tagged address of the class
     # init_function : if any, the Function object for the __init__ definition
-    def compile_new_instance(self, class_address, init_function):
+    # class_function : The englobing class-Function definition
+    def compile_new_instance(self, class_address, init_function, class_function):
         code_address = self.get_current_address()
 
         # Move the object's address inside rax
-        self.runtime_allocator.allocate_instance(class_address, init_function)
+        self.runtime_allocator.allocate_instance(class_address, init_function, class_function)
 
         return code_address
 
@@ -157,6 +161,10 @@ class GlobalAllocator:
     # Return the next address for storing an instruction
     def get_current_data_address(self):
         return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)
+
+    # Return the next address for storing a class definition
+    def get_current_class_address(self):
+        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.class_offset)
 
     # Encode and store in memory one instruction
     # instruction : The asm.Instruction to encode
@@ -222,7 +230,7 @@ class RuntimeAllocator:
     # Compile a sequence of code to initialize the allocation pointer
     def init_allocation_pointer(self):
         # We need to put a value inside the designated register
-        address_beginning = self.global_allocator.data_address + 256
+        address_beginning = self.global_allocator.data_address + 1000
 
         encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
@@ -235,8 +243,15 @@ class RuntimeAllocator:
     # The code must follow the calling convention and clean the stack before returning
     # class_adress : the address of the class
     # init_function : if an __init__ is defined, its corresponding Function or None if no definition is provided
-    def allocate_instance(self, class_address, init_function):
-        instructions = []
+    # class_function : The englobing class-Function definition
+    def allocate_instance(self, class_address, init_function, class_function):
+        # Save the address of the initializer definition
+        c_buffer = stub_handler.ffi.from_buffer(self.global_allocator.code_section)
+        init_code_address = stub_handler.lib.get_address(c_buffer, self.global_allocator.code_offset)
+
+        self.global_allocator.jitcompiler.initializer_addresses[class_function.name] = init_code_address
+
+        instructions = list()
 
         # Move the next available address into rax to return it
         instructions.append(asm.MOV(asm.rax, self.register_allocation))
@@ -252,7 +267,7 @@ class RuntimeAllocator:
         # Increment the allocation pointer
         instructions.append(asm.ADD(self.register_allocation, 8*5))
 
-        # Finally, tag the address inside rax before returning
+        # Finally, tag the address inside rax
         tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
 
         instructions.extend(tag_instructions)

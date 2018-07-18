@@ -388,6 +388,7 @@ class Instruction:
     def is_jump(self):
         return isinstance(self, JumpInstruction)
 
+
 # A particular class which breaks the control flow of a basic block by branching
 class BranchInstruction(Instruction):
     pass
