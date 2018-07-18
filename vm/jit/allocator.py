@@ -23,9 +23,13 @@ class GlobalAllocator:
         self.data_size = 5000
 
         # The next free zone in the data section
+        # Offset for static allocations for now
         self.data_offset = 0
 
-        # Allocate class in a special area
+        # Offset for runtime allocations
+        self.runtime_offset = 1024
+
+        # Offset for allocate classes in a special area
         self.class_offset = 2048
 
         # The offset in code_section where the code can be allocated
@@ -230,7 +234,7 @@ class RuntimeAllocator:
     # Compile a sequence of code to initialize the allocation pointer
     def init_allocation_pointer(self):
         # We need to put a value inside the designated register
-        address_beginning = self.global_allocator.data_address + 1000
+        address_beginning = self.global_allocator.data_address + self.global_allocator.runtime_offset
 
         encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
