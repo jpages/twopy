@@ -516,6 +516,17 @@ class JITCompiler:
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.NOP())
 
+                # TODO: handle the case of a method load
+                name = mfunction.names[instruction.arguments]
+                if name in primitive_offsets_attributes:
+                    allocator.encode(asm.POP(asm.r10))
+                    allocator.encode(self.tags.untag_asm(asm.r10))
+
+                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8*primitive_offsets_attributes[name])))
+                    allocator.encode(asm.PUSH(asm.r11))
+                else:
+                    self.nyi()
+
                 # TODO: handle the cases with static dispatch
             elif isinstance(instruction, model.COMPARE_OP):
 
