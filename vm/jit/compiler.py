@@ -398,7 +398,6 @@ class JITCompiler:
                     # Get the class address in a register
                     register = allocator.get_class_address(block)
 
-                    allocator.encode(asm.INT(3))
                     # The position is the last added item to the vtable (*8 bytes to get the correct position)
                     offset = len(mfunction.mclass.vtable) * 8
 
@@ -417,8 +416,6 @@ class JITCompiler:
 
                     # Increment the class static allocator to no write on an already defined class later
                     self.global_allocator.class_offset += 8
-
-                    print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 else:
                     name = mfunction.names[instruction.arguments]
 
@@ -445,8 +442,8 @@ class JITCompiler:
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
             elif isinstance(instruction, model.STORE_ATTR):
-                # print("Name of the attribute " + str(mfunction.names[instruction.arguments]))
-                allocator.encode(asm.INT(3))
+
+                name = mfunction.names[instruction.arguments]
 
                 # The object
                 allocator.encode(asm.POP(asm.r10))
@@ -454,10 +451,16 @@ class JITCompiler:
                 # The value
                 allocator.encode(asm.POP(asm.r11))
 
-                # TODO: Do the store
-                # if mfunction.names[instruction.arguments] == "name":
-                    # allocator.encode(asm.SHR(asm.r10, 2))
-                    # allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10+2*8), asm.r11))
+                # Untag the object
+                allocator.encode(self.tags.untag_asm(asm.r10))
+
+                # Test if we have a static offset for this attribute
+                if name in primitive_offsets_attributes:
+                    static_offset = primitive_offsets_attributes[name]
+                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.r10 + 8*static_offset), asm.r11))
+                else:
+                    # TODO: general case for attribute
+                    self.nyi()
 
             elif isinstance(instruction, model.DELETE_ATTR):
                 self.nyi()
@@ -593,8 +596,6 @@ class JITCompiler:
                         stub_handler.primitive_addresses[name]
                     else:
                         # We need to load the init address here for a future call
-                        print("Init addresses " + str(self.initializer_addresses["twopy_"+name]))
-                        allocator.encode(asm.INT(3))
                         allocator.encode(asm.MOV(asm.r10, self.initializer_addresses["twopy_"+name]))
                         allocator.encode(asm.PUSH(asm.r10))
                 elif name in self.interpreter.global_environment:
@@ -756,7 +757,6 @@ class JITCompiler:
             allocator.encode(asm.PUSH(asm.r10))
         else:
             # Construct the instance, call new_instance for this class
-            #FIXME: this may be wrong, get the next free address in const space instead
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
             # Offset of the instruction's argument + r9 value
@@ -866,10 +866,6 @@ class JITCompiler:
     def compile_prolog(self, mfunction):
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
-
-        if mfunction.name == "foo":
-            mfunction.allocator.encode(asm.INT(3))
-            print(mfunction.start_basic_block.instructions)
 
         if nb_locals == 0:
             return
@@ -1378,8 +1374,8 @@ primitive_offsets_functions = {
 # Primitive offsets for some properties in builtins classes
 primitive_offsets_attributes = {
     # Range class
-    "__twopy__iter": 1,
-    "__twopy_range_start": 2,
-    "__twopy_range_step": 3,
-    "__twopy_range_stop": 4,
+    "twopy__iter": 2,
+    "twopy_range_start": 3,
+    "twopy_range_step": 4,
+    "twopy_range_stop": 5,
 }
