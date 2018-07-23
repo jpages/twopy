@@ -178,7 +178,7 @@ class JITCompiler:
         if block.compiled and index == 0:
             return block.first_offset
 
-        # Force the creation of a block
+        # Force the creation of a context
         context = allocator.versioning.current_version().get_context_for_block(block)
         self.current_block = block
 
@@ -416,6 +416,8 @@ class JITCompiler:
 
                     # Increment the class static allocator to no write on an already defined class later
                     self.global_allocator.class_offset += 8
+
+                    print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 else:
                     name = mfunction.names[instruction.arguments]
 
@@ -524,6 +526,16 @@ class JITCompiler:
 
                     allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8*primitive_offsets_attributes[name])))
                     allocator.encode(asm.PUSH(asm.r11))
+                elif name in primitive_offsets_methods:
+                    allocator.encode(asm.POP(asm.r10))
+                    allocator.encode(self.tags.untag_asm(asm.r10))
+
+                    # Read the class pointer
+                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
+
+                    # Fetch the method
+                    allocator.encode(asm.MOV(asm.r12, asm.operand.MemoryOperand(asm.r11 + 8 * primitive_offsets_methods[name])))
+                    allocator.encode(asm.PUSH(asm.r12))
                 else:
                     self.nyi()
 
@@ -1385,8 +1397,13 @@ primitive_offsets_functions = {
 # Primitive offsets for some properties in builtins classes
 primitive_offsets_attributes = {
     # Range class
-    "twopy__iter": 2,
     "twopy_range_start": 3,
     "twopy_range_step": 4,
     "twopy_range_stop": 5,
+}
+
+# Primitive offsets for some methods in builtins classes
+primitive_offsets_methods = {
+    # Range class
+    "twopy_iter": 5,
 }

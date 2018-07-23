@@ -184,6 +184,8 @@ class Function:
         self.receiver = None
         self.allocator = None
 
+        self.compilation_count = 0
+
     def generate_instructions(self):
         # temporary, all instructions of the function without basic blocks
         self.all_instructions = []

@@ -284,11 +284,12 @@ class RuntimeAllocator:
             # Save the return address of the current call
             instructions.append(asm.POP(asm.rbx))
 
-            # Push the object on the stack
             instructions.append(asm.POP(asm.r8))
+
+            # TODO: problem stack size
             instructions.append(asm.PUSH(asm.rbx))
 
-            # Push back parameters
+            # Push back object and parameters
             instructions.append(asm.PUSH(asm.rax))
             instructions.append(asm.PUSH(asm.r8))
 

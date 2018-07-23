@@ -141,7 +141,7 @@ class twopy_range():
         self.twopy_range_start = 0
         self.twopy_range_step = 1
 
-    def __twopy__iter(self, *args, **kwargs):
+    def twopy_iter(self, *args, **kwargs):
         # """ Implement iter(self). """
         print("test")
 
