@@ -291,7 +291,8 @@ class JITCompiler:
             elif isinstance(instruction, model.GET_ITER):
                 # TOS = iter(TOS)
                 # We need to call the method iter() on the top on stack
-                allocator.encode(asm.POP(asm.r10))
+                # Copy the top of stack and leave on the stack the object
+                allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
 
                 # Remove the tag
                 untag_instruction = self.tags.untag_asm(asm.r10)
@@ -301,21 +302,9 @@ class JITCompiler:
                 allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
 
                 # Make the static call to the method __twopy__iter in this class
-                iter_offset = primitive_offsets_functions["__twopy__iter"]
+                iter_offset = primitive_offsets_methods["twopy_iter"]
 
-                print("Iter_offset " + str(iter_offset) + " in function " + str(id(mfunction)))
-                # print("Compiling block with id " + str(id(block)) +" and instructions ")
-                # print(block.instructions)
-                #
-                # for next_block in block.next:
-                #     print("Next block " + str(next_block))
-
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
-                # allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (iter_offset*8))))
-
+                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
             elif isinstance(instruction, model.GET_YIELD_FROM_ITER):
                 self.nyi()
             elif isinstance(instruction, model.PRINT_EXPR):
@@ -416,8 +405,6 @@ class JITCompiler:
 
                     # Increment the class static allocator to no write on an already defined class later
                     self.global_allocator.class_offset += 8
-
-                    print("Storing the name " + str(mfunction.names[instruction.arguments]) + " in " + str(mfunction))
                 else:
                     name = mfunction.names[instruction.arguments]
 
@@ -440,7 +427,10 @@ class JITCompiler:
             elif isinstance(instruction, model.UNPACK_SEQUENCE):
                 self.nyi()
             elif isinstance(instruction, model.FOR_ITER):
-                self.nyi()
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.POP(asm.r10))
+
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
             elif isinstance(instruction, model.STORE_ATTR):
@@ -515,10 +505,6 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_MAP):
                 self.nyi()
             elif isinstance(instruction, model.LOAD_ATTR):
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.NOP())
-
-                # TODO: handle the case of a method load
                 name = mfunction.names[instruction.arguments]
                 if name in primitive_offsets_attributes:
                     allocator.encode(asm.POP(asm.r10))
@@ -537,9 +523,9 @@ class JITCompiler:
                     allocator.encode(asm.MOV(asm.r12, asm.operand.MemoryOperand(asm.r11 + 8 * primitive_offsets_methods[name])))
                     allocator.encode(asm.PUSH(asm.r12))
                 else:
+                    # TODO: handle the general case for objects
                     self.nyi()
 
-                # TODO: handle the cases with static dispatch
             elif isinstance(instruction, model.COMPARE_OP):
 
                 # If this is the first time we seen this instruction, put a type-test here and return
@@ -1400,10 +1386,12 @@ primitive_offsets_attributes = {
     "twopy_range_start": 3,
     "twopy_range_step": 4,
     "twopy_range_stop": 5,
+    "twopy_range_state": 6,
 }
 
 # Primitive offsets for some methods in builtins classes
 primitive_offsets_methods = {
     # Range class
     "twopy_iter": 5,
+    "twopy_next": 6,
 }
