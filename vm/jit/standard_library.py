@@ -150,7 +150,12 @@ class twopy_range():
         print("twopy iterator on range class")
         self.twopy_range_state = self.twopy_range_start
 
+        return self
+
     # Increment the state of the iterator and returns the next value
     def twopy_next(self):
         print("twopy next")
+        value = self.twopy_range_state + self.twopy_range_step
+
+        return value
 

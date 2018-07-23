@@ -305,6 +305,9 @@ class JITCompiler:
                 iter_offset = primitive_offsets_methods["twopy_iter"]
 
                 allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
+
+                # Push the iterator on the stack
+                allocator.encode(asm.PUSH(asm.rax))
             elif isinstance(instruction, model.GET_YIELD_FROM_ITER):
                 self.nyi()
             elif isinstance(instruction, model.PRINT_EXPR):
@@ -427,9 +430,27 @@ class JITCompiler:
             elif isinstance(instruction, model.UNPACK_SEQUENCE):
                 self.nyi()
             elif isinstance(instruction, model.FOR_ITER):
+                # Save the receiver into a register
+                allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
+
+                untag_instruction = self.tags.untag_asm(asm.r10)
+                allocator.encode(untag_instruction)
+
+                # Get the class pointer
+                allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
+
+                # Make the static call to the method __twopy__iter in this class
+                iter_offset = primitive_offsets_methods["twopy_next"]
+
+                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
+
+                # Push the iterator on the stack
+                allocator.encode(asm.PUSH(asm.rax))
+
+                # TODO: compile some stubs to end the loop if the iterator is exhausted
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
-                allocator.encode(asm.POP(asm.r10))
+                allocator.encode(asm.INT(3))
 
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
@@ -510,7 +531,7 @@ class JITCompiler:
                     allocator.encode(asm.POP(asm.r10))
                     allocator.encode(self.tags.untag_asm(asm.r10))
 
-                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8*primitive_offsets_attributes[name])))
+                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8 * primitive_offsets_attributes[name])))
                     allocator.encode(asm.PUSH(asm.r11))
                 elif name in primitive_offsets_methods:
                     allocator.encode(asm.POP(asm.r10))
