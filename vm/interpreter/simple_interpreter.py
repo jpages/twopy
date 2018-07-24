@@ -34,9 +34,6 @@ class SimpleInterpreter:
         # Command-line arguments for the vm
         self.args = args
 
-        # An identifier incremented for each function, main has 0
-        self.global_id_function = 0
-
         # A list indexed by function identifiers, the first one has indice 0
         self.functions = []
 
@@ -77,7 +74,7 @@ class SimpleInterpreter:
         if code in self.code_to_function:
             return self.code_to_function[code]
 
-        function = model.Function(self.global_id_function, code.co_argcount,
+        function = model.Function(code.co_filename, code.co_argcount,
     code.co_kwonlyargcount, code.co_nlocals, code.co_stacksize, code.co_consts,
     code.co_names, code.co_varnames, code.co_freevars, code.co_cellvars,
     name, dis.get_instructions(code), self, module, is_main)
@@ -87,9 +84,6 @@ class SimpleInterpreter:
 
         if self.args.verbose:
             print(dis.dis(code))
-
-        # Increment the global function id
-        self.global_id_function += 1
 
         return function
 

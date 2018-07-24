@@ -127,7 +127,7 @@ class Function:
     '''
     Represent a function
 
-    self.id_function = Identifier of the function, used to make calls
+    self.filename = file that contains this function
     self.argcount = number of arguments
     self.kwonlyargcount = number of keyword arguments
     self.nlocals = number of local variables
@@ -143,10 +143,10 @@ class Function:
     self.module = The Module instance in which this function was defined
     self.is_main = True if the function is top-level of a module
     '''
-    def __init__(self, id_function, argcount, kwonlyargcount,
+    def __init__(self, filename, argcount, kwonlyargcount,
                 nlocals, stacksize, consts, names, varnames, freevars,
                 cellvars, name, iterator, interpreter, module, is_main):
-        self.id_function = id_function
+        self.filename = filename
         self.argcount = argcount
         self.kwonlyargcount = kwonlyargcount
         self.nlocals = nlocals
@@ -170,7 +170,7 @@ class Function:
         self.generate_instructions()
         self.generate_basic_blocks()
 
-        # Dictionnary of freecells and their values
+        # Dictionary of freecells and their values
         self.closure = {}
 
         # Add the current function to the module

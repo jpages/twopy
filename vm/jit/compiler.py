@@ -152,7 +152,7 @@ class JITCompiler:
             mfunction.allocator = allocator
 
             # Special case for primitive functions
-            if mfunction.name in stub_handler.twopy_primitives:
+            if "standard_library.py" in mfunction.filename:
                 self.compile_std_function(mfunction)
             else:
                 # Start the compilation of the first basic block
@@ -433,6 +433,9 @@ class JITCompiler:
                 # Save the receiver into a register
                 allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
 
+                # Duplicate the iterator, this one will be cleaned by the callee
+                allocator.encode(asm.PUSH(asm.r10))
+
                 untag_instruction = self.tags.untag_asm(asm.r10)
                 allocator.encode(untag_instruction)
 
@@ -442,15 +445,20 @@ class JITCompiler:
                 # Make the static call to the method __twopy__iter in this class
                 iter_offset = primitive_offsets_methods["twopy_next"]
 
-                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
 
-                # Push the iterator on the stack
-                allocator.encode(asm.PUSH(asm.rax))
+                allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
 
                 # TODO: compile some stubs to end the loop if the iterator is exhausted
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
+
+                # Push the value returned on the stack
+                allocator.encode(asm.PUSH(asm.rax))
+
+                # TODO: Now compare the value and make the jump to correct block
 
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
@@ -702,7 +710,7 @@ class JITCompiler:
                     pass
 
                 if (instruction.arguments & 4) == 4:
-                    # Annotation dictionnary
+                    # Annotation dictionary
                     pass
 
                 if (instruction.arguments & 2) == 2:
@@ -932,7 +940,7 @@ class JITCompiler:
 
         # Force the creation of the __init__ function if any
         for const in mfunction.consts:
-            if isinstance(const, CodeType):
+            if isinstance(const, CodeType) and const.co_name == "__init__":
                 code_init = const
 
         if code_init is None:
