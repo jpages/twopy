@@ -363,6 +363,7 @@ class JITCompiler:
 
                 allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
 
+                # We want to return the newly created object
                 if "__init__" in mfunction.name:
                     allocator.encode(asm.POP(asm.rax))
 
@@ -853,12 +854,21 @@ class JITCompiler:
         if instruction.arguments == 0:
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
+        # first <= second
+        if instruction.arguments == 1:
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JLE)
+        # first == second
+        if instruction.arguments == 2:
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
         # first != second
         elif instruction.arguments == 3:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
         # first > second
         elif instruction.arguments == 4:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
+        # first >= second
+        elif instruction.arguments == 5:
+            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JGE)
         else:
             self.nyi()
 
