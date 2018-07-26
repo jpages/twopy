@@ -433,7 +433,9 @@ class JITCompiler:
                 # Save the receiver into a register
                 allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
 
+                # Save some space on the stack, we want to keep the iterator on the stack after the call
                 # Duplicate the iterator, this one will be cleaned by the callee
+                allocator.encode(asm.SUB(asm.registers.rsp, 8))
                 allocator.encode(asm.PUSH(asm.r10))
 
                 untag_instruction = self.tags.untag_asm(asm.r10)
@@ -458,7 +460,22 @@ class JITCompiler:
                 # Push the value returned on the stack
                 allocator.encode(asm.PUSH(asm.rax))
 
-                # TODO: Now compare the value and make the jump to correct block
+                # The next() method returns the boolean False if the iterator is exhausted (represented by 1)
+                allocator.encode(asm.CMP(asm.rax, 1))
+
+                true_block = None
+                false_block = None
+
+                for b in instruction.block.next:
+                    if b.instructions[0].offset == instruction.absolute_target:
+                        # Make the jump
+                        true_block = b
+                    else:
+                        # Continue
+                        false_block = b
+
+                # Now compare the value and make the jump to correct block
+                self.stub_handler.compile_bb_stub(mfunction, true_block, false_block, asm.JE)
 
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()
