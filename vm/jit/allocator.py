@@ -214,8 +214,9 @@ class GlobalAllocator:
         if not self.jitcompiler.interpreter.args.asm:
             return
 
+        print("Code section")
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-        for i in md.disasm(bytes(self.code_section), self.code_address):
+        for i in md.disasm(bytes(self.code_section), self.code_address, self.code_offset):
             print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
         print("\n")
 

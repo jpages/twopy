@@ -254,7 +254,7 @@ def python_callback_bb_stub(rsp):
     stub.patch_instruction(first_offset)
 
     if jitcompiler_instance.interpreter.args.asm:
-        stub.block.function.allocator.disassemble_asm()
+        jitcompiler_instance.global_allocator.disassemble_asm()
 
     c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
     rsp_address_patched = lib.get_address(c_buffer, first_offset)
@@ -287,7 +287,7 @@ def python_callback_function_stub(name_id, code_id, return_address, canary_value
     jitcompiler_instance.compile_function(function)
 
     if jitcompiler_instance.interpreter.args.asm:
-        function.allocator.disassemble_asm()
+        jitcompiler_instance.global_allocator.disassemble_asm()
 
     stub = stubhandler_instance.stub_dictionary[return_address]
     stub.data_address = stubhandler_instance.data_addresses[return_address]
@@ -555,6 +555,7 @@ class StubFunction(Stub):
         offset = self.data_address
         for i in instructions:
             offset = jitcompiler_instance.global_allocator.write_instruction(i, offset)
+
 
 # A class to generate stub for type tests
 class StubType(Stub):

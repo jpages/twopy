@@ -75,6 +75,13 @@ class JITCompiler:
         mainfunc = self.interpreter.generate_function(self.maincode, "main", self.mainmodule, True)
         self.compile_function(mainfunc)
 
+        self.post_execution()
+
+    # Called after the end of execution
+    def post_execution(self):
+        if self.interpreter.args.asm:
+            self.global_allocator.disassemble_asm()
+
     # Compile the standard library
     def compile_std_lib(self):
 
@@ -855,10 +862,10 @@ class JITCompiler:
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         # first <= second
-        if instruction.arguments == 1:
+        elif instruction.arguments == 1:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JLE)
         # first == second
-        if instruction.arguments == 2:
+        elif instruction.arguments == 2:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
         # first != second
         elif instruction.arguments == 3:
@@ -870,6 +877,7 @@ class JITCompiler:
         elif instruction.arguments == 5:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JGE)
         else:
+            print("Instruction argument " + str(instruction.arguments))
             self.nyi()
 
     #TODO: too much code duplication with the previous function
