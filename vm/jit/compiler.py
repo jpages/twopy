@@ -482,8 +482,11 @@ class JITCompiler:
                         # Continue
                         false_block = b
 
+                # Pop the iterator if we need to end the loop
+                true_instructions = [asm.POP(asm.r10)]#,
+
                 # Now compare the value and make the jump to correct block
-                self.stub_handler.compile_bb_stub(mfunction, true_block, false_block, asm.JE)
+                self.stub_handler.compile_bb_stub(mfunction, true_block, false_block, asm.JE, true_instructions)
 
             elif isinstance(instruction, model.UNPACK_EX):
                 self.nyi()

@@ -59,7 +59,8 @@ class StubHandler:
     # true_block : if the condition is true jump to this basic block
     # false_block : if the condition is false jump to this basic block
     # test_intruction : the class of instruction to for the test
-    def compile_bb_stub(self, mfunction, true_block, false_block, test_instruction):
+    # true_instructions (optional) : adding some asm instructions for the true case
+    def compile_bb_stub(self, mfunction, true_block, false_block, test_instruction, true_instructions=None):
 
         # Save both offsets
         old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
@@ -74,6 +75,9 @@ class StubHandler:
 
         # Compile a stub for each branch
         jump_stub = StubBB(true_block, peachpy_instruction, old_code_offset)
+
+        # If any, add some custom instructions for the true branch of the test
+        jump_stub.instructions_before = true_instructions
         self.compile_stub(mfunction, jump_stub)
 
         # For now, jump to the newly compiled stub,
@@ -247,8 +251,17 @@ def python_callback_bb_stub(rsp):
     # We must now trigger the compilation of the corresponding block
     stub = stubhandler_instance.stub_dictionary[rsp]
 
-    # Get the offset of the first instruction compiled in the block
-    first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
+    first_offset = 0
+    if stub.instructions_before:
+        first_offset = jitcompiler_instance.global_allocator.code_offset
+        for i in stub.instructions_before:
+            stub.block.function.allocator.encode(i)
+
+        # Get the offset of the first instruction compiled in the block
+        jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
+    else:
+        # Get the offset of the first instruction compiled in the block
+        first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
     # Patch the old code to not jump again in the stub
     stub.patch_instruction(first_offset)
@@ -518,6 +531,9 @@ class StubBB(Stub):
         self.block = block
         self.instruction = instruction
         self.position = position
+
+        # Instructions compiled before the block, if any
+        self.instructions_before = None
 
     def __str__(self):
         return "(Block = " + str(id(self.block)) + " instruction " + str(self.instruction) + " position " + str(self.position) + ")"
