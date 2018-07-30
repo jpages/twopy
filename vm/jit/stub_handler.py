@@ -410,7 +410,7 @@ class Stub:
                 encoded[5] = 0
 
                 size = custom_ceil(new_operand / 256)
-                bytes = new_operand.to_bytes(size, 'big')
+                bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
                     encoded[i+2] = bytes[i]
@@ -436,8 +436,9 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
+                # import math
                 size = custom_ceil(new_operand / 256)
-                bytes = new_operand.to_bytes(size, 'big')
+                bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
                     encoded[i+2] = bytes[i]

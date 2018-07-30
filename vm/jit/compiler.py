@@ -443,7 +443,8 @@ class JITCompiler:
 
                 # Save some space on the stack, we want to keep the iterator on the stack after the call
                 # Duplicate the iterator, this one will be cleaned by the callee
-                allocator.encode(asm.SUB(asm.registers.rsp, 8))
+                # allocator.encode(asm.SUB(asm.registers.rsp, 8))
+                allocator.encode(asm.PUSH(asm.r10))
                 allocator.encode(asm.PUSH(asm.r10))
 
                 untag_instruction = self.tags.untag_asm(asm.r10)
@@ -460,7 +461,6 @@ class JITCompiler:
 
                 allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
 
-                # TODO: compile some stubs to end the loop if the iterator is exhausted
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
                 allocator.encode(asm.INT(3))
