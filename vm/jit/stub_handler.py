@@ -253,6 +253,7 @@ def python_callback_bb_stub(rsp):
 
     first_offset = 0
     if stub.instructions_before:
+        print("We are compiling the end of loop")
         first_offset = jitcompiler_instance.global_allocator.code_offset
         for i in stub.instructions_before:
             stub.block.function.allocator.encode(i)
@@ -409,7 +410,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = custom_ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 255)
                 bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
@@ -436,8 +437,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                # import math
-                size = custom_ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 255)
                 bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
@@ -462,7 +462,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = custom_ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 255)
                 bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
@@ -497,7 +497,7 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
-                size = custom_ceil(new_operand / 256)
+                size = custom_ceil(new_operand / 255)
                 bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
