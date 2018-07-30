@@ -341,7 +341,7 @@ class Stub:
 
             # If the MOVE + JUMP is supposed to go just after, put NOP instead
             diff = first_offset - self.position
-            if diff <= 13:
+            if diff > 0 and diff <= 13:
                 nop = asm.NOP().encode()
                 for i in range(diff):
                     jitcompiler_instance.global_allocator.write_instruction(nop, self.position)
