@@ -97,7 +97,7 @@ class GlobalAllocator:
         address = self.get_current_class_address()
 
         # TODO: for the test consider only 4 values inside the class
-        size = 4 * 64
+        size = 5 * 64
 
         # SIZE    64 bits |      Array of pointers
         encoded_size = size.to_bytes(8, "little")
@@ -288,7 +288,11 @@ class RuntimeAllocator:
             # Save the return address of the current call
             instructions.append(asm.POP(asm.rbx))
 
+            # Saving parameter
             instructions.append(asm.POP(asm.r8))
+
+            # Depop the class address
+            instructions.append(asm.ADD(asm.registers.rsp, 8))
 
             # TODO: problem stack size
             instructions.append(asm.PUSH(asm.rbx))
@@ -301,10 +305,8 @@ class RuntimeAllocator:
             instructions.append(asm.ADD(asm.r10, 8*init_offset))
             instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
+        # Saving return address in a register
         instructions.append(asm.POP(asm.rbx))
-
-        # Clean the stack to remove the class
-        instructions.append(asm.ADD(asm.registers.rsp, 8))
 
         instructions.append(asm.JMP(asm.rbx))
 
