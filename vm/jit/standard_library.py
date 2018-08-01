@@ -145,17 +145,21 @@ class twopy_range():
         self.twopy_range_state = 0
 
     # Create an iterator from this range object
-    def twopy_iter(self, *args, **kwargs):
+    def twopy_iter(self):
         # """ Implement iter(self). """
-        print("twopy iterator on range class")
         self.twopy_range_state = self.twopy_range_start
 
         return self
 
     # Increment the state of the iterator and returns the next value
     def twopy_next(self):
-        print("twopy next")
-        value = self.twopy_range_state + self.twopy_range_step
+        val1 = self.twopy_range_state
+        val2 = self.twopy_range_step
 
-        return value
+        value = val1 + val2
+        self.twopy_range_state = value
 
+        if value >= self.twopy_range_stop:
+            return False
+        else:
+            return value

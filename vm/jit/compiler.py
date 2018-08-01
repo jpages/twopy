@@ -313,6 +313,10 @@ class JITCompiler:
 
                 allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
 
+                # Twopy_iter has 2 arguments plus the return address
+                for y in range(3):
+                    allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
+
                 # Push the iterator on the stack
                 allocator.encode(asm.PUSH(asm.rax))
             elif isinstance(instruction, model.GET_YIELD_FROM_ITER):
@@ -443,7 +447,6 @@ class JITCompiler:
 
                 # Save some space on the stack, we want to keep the iterator on the stack after the call
                 # Duplicate the iterator, this one will be cleaned by the callee
-                # allocator.encode(asm.SUB(asm.registers.rsp, 8))
                 allocator.encode(asm.PUSH(asm.r10))
                 allocator.encode(asm.PUSH(asm.r10))
 
@@ -456,14 +459,11 @@ class JITCompiler:
                 # Make the static call to the method __twopy__iter in this class
                 iter_offset = primitive_offsets_methods["twopy_next"]
 
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
-
                 allocator.encode(asm.CALL(asm.operand.MemoryOperand(asm.r11 + (8 * iter_offset))))
 
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
+                # 2 parameters and the return address for twopy_next()
+                for y in range(3):
+                    allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
 
                 # Push the value returned on the stack
                 allocator.encode(asm.PUSH(asm.rax))
@@ -482,8 +482,9 @@ class JITCompiler:
                         # Continue
                         false_block = b
 
-                # Pop the iterator if we need to end the loop
-                true_instructions = [asm.POP(asm.r10)]#,
+                # Pop some values if we need to end the loop
+                # Pop the returned value, the iterator and its last value on the stack
+                true_instructions = [asm.ADD(asm.registers.rsp, 8)]
 
                 # Now compare the value and make the jump to correct block
                 self.stub_handler.compile_bb_stub(mfunction, true_block, false_block, asm.JE, true_instructions)
