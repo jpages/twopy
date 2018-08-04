@@ -107,7 +107,7 @@ class JITCompiler:
             # Make a call to C for the print
 
             # Move the parameter inside rdi to respect the calling convention
-            mfunction.allocator.encode(asm.MOV(asm.rdi, mfunction.allocator.get_local_variable(0, mfunction.start_basic_block)))
+            mfunction.allocator.encode(asm.MOV(asm.rdi, asm.operand.MemoryOperand(asm.registers.rsp + 8)))
 
             # Move the C-print address inside r9
             addr = int(stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "twopy_print")))
@@ -120,6 +120,9 @@ class JITCompiler:
 
             # Saving return address in a register
             mfunction.allocator.encode(asm.POP(asm.rbx))
+
+            for k in range(0, mfunction.argcount + 1 + mfunction.nb_pure_locals):
+                mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
 
             # Remove print parameters
             mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8*(mfunction.argcount+1)))
@@ -362,7 +365,7 @@ class JITCompiler:
                 allocator.encode(asm.POP(asm.rbx))
 
                 # Keep the stack size correct
-                for i in range(0, instruction.block.function.argcount + 1 + instruction.block.function.nb_pure_locals):
+                for k in range(0, instruction.block.function.argcount + 1 + instruction.block.function.nb_pure_locals):
                     allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
 
                 # Remove arguments and locals from the stack
@@ -722,7 +725,7 @@ class JITCompiler:
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
-                for y in range(0, instruction.block.function.argcount + 1):
+                for y in range(0, instruction.arguments+1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
 
                 # The return value is in rax, push it back on the stack
@@ -1150,7 +1153,6 @@ class Allocator:
             self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + res)))
         else:
             offset = self.versioning.current_version().get_context_for_block(block).get_offset(argument)
-
             self.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + offset)))
 
         return asm.r9
