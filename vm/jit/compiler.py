@@ -214,8 +214,10 @@ class JITCompiler:
             if isinstance(instruction, model.POP_TOP):
 
                 context.pop_value()
+                context.decrease_stack_size()
+
                 # Just discard the TOS value
-                allocator.encode(asm.POP(asm.r10))
+                allocator.encode(asm.ADD(asm.registers.rsp, 8))
             elif isinstance(instruction, model.ROT_TWO):
                 self.nyi()
             elif isinstance(instruction, model.ROT_THREE):
@@ -366,7 +368,7 @@ class JITCompiler:
 
                 # Keep the stack size correct
                 for k in range(0, instruction.block.function.argcount + 1 + instruction.block.function.nb_pure_locals):
-                    allocator.versioning.current_version().get_context_for_block(block).increase_stack_size()
+                    context.increase_stack_size()
 
                 # Remove arguments and locals from the stack
                 to_depop = 8*(instruction.block.function.argcount + 1)
@@ -912,7 +914,7 @@ class JITCompiler:
                     notjump_block = block
 
             # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
+            self.stub_handler.compile_bb_stub(mfunction, notjump_block, jump_block, asm.JGE)
         # first > second
         elif instruction.arguments == 4:
             # The stubs must be compiled before the jumps
@@ -946,6 +948,9 @@ class JITCompiler:
     def compile_prolog(self, mfunction):
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
+
+        # if mfunction.name == "tak":
+        #     mfunction.allocator.encode(asm.INT(3))
 
         if nb_locals == 0:
             return
