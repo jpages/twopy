@@ -163,15 +163,7 @@ class TagHandler:
                 # Convert x to float and add
                 return add_float(int_to_float(x), y)
             elif y_type == Types.Int:
-                # TODO: Check overflow
-                # res = add_int_overflow(x, y)
-
-                # Just add the two integers
-                instructions = []
-
-                self.compile_operation(instructions, context, context.variables_allocation[0], context.variables_allocation[1], opname, from_callback)
-
-                return instructions
+                return self.compile_operation(context, context.variables_allocation[0], context.variables_allocation[1], opname, from_callback)
         elif x_type == Types.Float:
             if if_int(y):
                 return add_float(x, int_to_float(y))
@@ -182,12 +174,14 @@ class TagHandler:
         return x.__add__(y)
 
     # Compile the operation from two registers and an opname
-    def compile_operation(self, instructions, context, reg0, reg1, opname, from_callback=False):
+    def compile_operation(self, context, reg0, reg1, opname, from_callback=False):
+
+        instructions = []
         # Special case for comparison operators
         if opname in compiler.JITCompiler.compare_operators:
-            return
+            return instructions
 
-        #FIXME
+        #FIXME: problem here
         if from_callback:
             context.decrease_stack_size()
             context.decrease_stack_size()
@@ -227,10 +221,11 @@ class TagHandler:
         instructions.append(asm.JO(asm.operand.RIPRelativeOffset(diff)))
         instructions.append(asm.PUSH(reg0))
 
-        # FIXME
+        # FIXME, problem here
         if from_callback:
             context.increase_stack_size()
 
+        return instructions
 
 # A runtime class
 class JITClass:
