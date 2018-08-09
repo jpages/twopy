@@ -718,6 +718,9 @@ class StubType(Stub):
 
     # Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
+        # Associate a number to its type in Types enumeration
+        type_value = objects.Types(type_value)
+
         # We have information on one operand
         self.context.variable_types[id_variable] = type_value
 

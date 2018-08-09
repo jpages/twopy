@@ -15,7 +15,6 @@ from . import stub_handler
 from . import objects
 from . import allocator
 
-
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
     # For now keep a SimpleInterpreter instance
@@ -1284,6 +1283,9 @@ class Version:
                     # TODO: maybe do something if we have several compiled parent's blocks
                     context.stack_size = self.context_map[parent].stack_size
 
+            if context.stack_size < 0:
+                context.stack_size = 0
+
             return context
 
     # Called each time an instruction is encoded
@@ -1357,15 +1359,16 @@ class Context:
     # Push a value onto the virtual stack
     def push_value(self, value, type_info=objects.Types.Unknown):
 
+        # If we add an unknown value on the stack, try to get its type
+        for element in reversed(self.stack):
+            if value == element[0] and type_info == objects.Types.Unknown:
+                if element[1] != objects.Types.Unknown:
+                    type_info = element[1]
+                    break
+
         # Make a tuple of a value and its type
         el = (value, type_info)
         self.stack.append(el)
-
-        # If we add an unknown value on the stack, try to get its type
-        for element in self.stack:
-            if value == element[0] and type_info == objects.Types.Unknown:
-                pass
-                #print("Duplicated unknown value on the virtual stack : " + str(value))
 
     # Pop a value from the virtual stack
     def pop_value(self):
