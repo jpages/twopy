@@ -455,7 +455,7 @@ class Stub:
             encoded = new_instruction.encode()
 
             # If the previous instruction was a 32 bits offset, force the same length for the new one
-            if len(self.instruction.encode()) > 2:
+            if len(self.instruction.encode()) > 2 and len(encoded) != 6:
                 encoded = bytearray(len(self.instruction.encode()))
 
                 # Force the 32 encoding of the JL instruction
@@ -467,7 +467,12 @@ class Stub:
                 encoded[5] = 0
 
                 size = custom_ceil(new_operand / 255)
-                bytes = new_operand.to_bytes(size, 'little')
+                bytes = None
+                if size < 0:
+                    size = 4
+                    bytes = new_operand.to_bytes(size, 'little', signed=True)
+                else:
+                    bytes = new_operand.to_bytes(size, 'little')
 
                 for i in range(0, len(bytes)):
                     encoded[i + 2] = bytes[i]
