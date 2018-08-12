@@ -106,7 +106,25 @@ class TagHandler:
 
         # TODO: Try to retrieve information on the top two values in virtual stack
         context.variable_types[0] = context.stack[-1][1]
+
+        if context.variable_types[0] == Types.Unknown:
+            # Try to see in context.variables_dict
+            if context.stack[-1][0] in context.variable_dict:
+                # print("On a trouvé")
+                context.variable_types[0] = context.variable_dict[context.stack[-1][0]]
+            # print("Type unknow for " + str(context.stack[-1][0]))
+            # print("With dict " + str(context.variable_dict))
+
         context.variable_types[1] = context.stack[-2][1]
+        if context.variable_types[1] == Types.Unknown:
+            if context.stack[-2][0] in context.variable_dict:
+                context.variable_types[1] = context.variable_dict[context.stack[-2][0]]
+
+            # print("Type unknow for " + str(context.stack[-2][0]))
+            # print("With dict " + str(context.variable_dict))
+
+        # print("First " + str(context.variable_types[0]))
+        # print("second " + str(context.variable_types[1]))
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
