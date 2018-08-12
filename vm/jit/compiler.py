@@ -1350,7 +1350,7 @@ class Context:
     # Initialize the virtual stack which represents types on the stack
     def initialize_stack(self):
         # If this is the first block, without previous block
-        if self.block:
+        if len(self.block.previous) == 0:
             self.stack = []
 
         # TODO: if we have inter-procedural propagation, initialize the current context with values from the caller
@@ -1359,7 +1359,7 @@ class Context:
     # Push a value onto the virtual stack
     def push_value(self, value, type_info=objects.Types.Unknown):
 
-        # If we add an unknown value on the stack, try to get its type
+        # If we add an unknown value on the stack, try to get its type in local context
         for element in reversed(self.stack):
             if value == element[0] and type_info == objects.Types.Unknown:
                 if element[1] != objects.Types.Unknown:
