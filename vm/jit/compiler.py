@@ -1283,6 +1283,9 @@ class Version:
                     # TODO: maybe do something if we have several compiled parent's blocks
                     context.stack_size = self.context_map[parent].stack_size
 
+                    # Copy the variable dictionary from previous block
+                    context.variable_dict = self.context_map[parent].variable_dict
+
             if context.stack_size < 0:
                 context.stack_size = 0
 
@@ -1311,6 +1314,8 @@ class Context:
 
         # Dictionary between variables and their types
         self.variable_types = {}
+
+        self.variable_dict = {}
 
         # Dictionary between variables and their registers
         self.variables_allocation = {}
@@ -1379,6 +1384,8 @@ class Context:
     def set_value(self, tuple, type_value):
         #TODO: find a better solution than this
         variable = tuple[0]
+
+        self.variable_dict[variable] = type_value
 
         for i in range(len(self.stack)):
             if self.stack[i][0] == variable:
