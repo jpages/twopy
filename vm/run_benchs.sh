@@ -12,16 +12,10 @@ do
         NAME=$(basename $bench)
         NAME="${NAME%.*}"
 
-        # Run twopy with options and grep using key
-        OUT=$(/usr/bin/time -f "%e" ../../tests/cpython/python twopy.py $bench | grep real)
+        printf "$NAME:"
 
-        # Split using ":" and take 2nd element (e.g. 120)
-        RES="$(cut -d':' -f2 <<<"$OUT")"
-
-        # Print "NAME:RES"
-        printf "$NAME"
-        printf ":$RES"
-        printf "\n"
+        # Run twopy and print only the time
+        OUT=$(/usr/bin/time -f "%e" ../../tests/cpython/python twopy.py $bench | sed -n 1p)
     done
     printf "\n"
 done
@@ -35,17 +29,12 @@ do
         NAME=$(basename $bench)
         NAME="${NAME%.*}"
 
-        # Run twopy with options and grep using key (e.g. "Executed tests: 120")
-        OUT=$(/usr/bin/time -f "%e" pypy3 $bench | grep real)
+        printf "$NAME:"
 
-        # Split using ":" and take 2nd element (e.g. 120)
-        RES="$(cut -d':' -f2 <<<"$OUT")"
-
-        # Print "NAME:RES"
-        printf "$NAME"
-        printf ":$RES"
-        printf "\n"
+        # Run pypy3
+        OUT=$(/usr/bin/time -f "%e" pypy3 $bench | sed -n 1p)
     done
+    printf "\n"
 done
 
 printf "\nCPYTHON\n"
@@ -57,15 +46,10 @@ do
         NAME=$(basename $bench)
         NAME="${NAME%.*}"
 
-        # Run twopy with options and grep using key (e.g. "Executed tests: 120")
-        OUT=$(/usr/bin/time -f "%e" python $bench | grep real)
+        printf "$NAME:"
 
-        # Split using ":" and take 2nd element (e.g. 120)
-        RES="$(cut -d':' -f2 <<<"$OUT")"
-
-        # Print "NAME:RES"
-        printf "$NAME"
-        printf ":$RES"
-        printf "\n"
+        # Run cpython
+        OUT=$(/usr/bin/time -f "%e" python twopy.py $bench | sed -n 1p)
     done
+    printf "\n"
 done
