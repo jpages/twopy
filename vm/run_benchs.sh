@@ -49,7 +49,7 @@ do
         printf "$NAME:"
 
         # Run cpython
-        OUT=$(/usr/bin/time -f "%e" python twopy.py $bench | sed -n 1p)
+        OUT=$(/usr/bin/time -f "%e" python $bench | sed -n 1p)
     done
     printf "\n"
 done

@@ -468,7 +468,7 @@ class Stub:
 
                 size = custom_ceil(new_operand / 255)
                 bytes = None
-                if size < 0:
+                if size < 0 or new_operand < 0:
                     size = 4
                     bytes = new_operand.to_bytes(size, 'little', signed=True)
                 else:
