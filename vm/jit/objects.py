@@ -104,27 +104,23 @@ class TagHandler:
 
         context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
 
-        # TODO: Try to retrieve information on the top two values in virtual stack
-        context.variable_types[0] = context.stack[-1][1]
+        if self.jit.interpreter.args.maxvers == 0:
+            # BBV is deactivated
+            context.variable_types[0] = Types.Unknown
+            context.variable_types[1] = Types.Unknown
+        else:
+            # Try to retrieve information on types in the context
+            context.variable_types[0] = context.stack[-1][1]
 
-        if context.variable_types[0] == Types.Unknown:
-            # Try to see in context.variables_dict
-            if context.stack[-1][0] in context.variable_dict:
-                # print("On a trouvé")
-                context.variable_types[0] = context.variable_dict[context.stack[-1][0]]
-            # print("Type unknow for " + str(context.stack[-1][0]))
-            # print("With dict " + str(context.variable_dict))
+            if context.variable_types[0] == Types.Unknown:
+                # Try to see in context.variables_dict
+                if context.stack[-1][0] in context.variable_dict:
+                    context.variable_types[0] = context.variable_dict[context.stack[-1][0]]
 
-        context.variable_types[1] = context.stack[-2][1]
-        if context.variable_types[1] == Types.Unknown:
-            if context.stack[-2][0] in context.variable_dict:
-                context.variable_types[1] = context.variable_dict[context.stack[-2][0]]
-
-            # print("Type unknow for " + str(context.stack[-2][0]))
-            # print("With dict " + str(context.variable_dict))
-
-        # print("First " + str(context.variable_types[0]))
-        # print("second " + str(context.variable_types[1]))
+            context.variable_types[1] = context.stack[-2][1]
+            if context.variable_types[1] == Types.Unknown:
+                if context.stack[-2][0] in context.variable_dict:
+                    context.variable_types[1] = context.variable_dict[context.stack[-2][0]]
 
         context.variables_allocation[0] = x_register
         context.variables_allocation[1] = y_register
@@ -175,7 +171,7 @@ class TagHandler:
         # Test if we have some informations on types
         if x_type == Types.Int:
             if y_type == Types.Unknown:
-                #Save registers for the whole test
+                # Save registers for the whole test
                 return self.is_int_asm(context.variables_allocation[1])
             elif y_type == Types.Float:
                 # Convert x to float and add

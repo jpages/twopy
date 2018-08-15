@@ -9,7 +9,7 @@ import os.path
 
 def main():
     # Argument parser
-    parser = argparse.ArgumentParser(description = "TwoPy Virtual Machine")
+    parser = argparse.ArgumentParser(description="TwoPy Virtual Machine")
     parser.add_argument("file", help="path to a python file")
 
     parser.add_argument("--verbose", "-v", action="store_true",
