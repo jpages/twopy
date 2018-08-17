@@ -20,6 +20,23 @@ do
     printf "\n"
 done
 
+printf "TWOPY without BBV\n"
+for i in {0..N}
+do
+    for bench in ./benchmarks/*.py
+    do
+        # Get benchmark name from path
+        NAME=$(basename $bench)
+        NAME="${NAME%.*}"
+
+        printf "$NAME:"
+
+        # Run twopy and print only the time
+        OUT=$(/usr/bin/time -f "%e" ../../tests/cpython/python twopy.py --maxvers 0 $bench | sed -n 1p)
+    done
+    printf "\n"
+done
+
 printf "\nPYPY3\n"
 for i in {0..N}
 do
