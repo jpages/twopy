@@ -55,6 +55,9 @@ class JITCompiler:
         # Default value for max versions of versioning
         self.maxvers = 5
 
+        # Used to collect statistics
+        self.register_stats = asm.rbx
+
         # Association between name of a class and the address of its initializer (allocation + init)
         self.initializer_addresses = dict()
 
@@ -75,6 +78,14 @@ class JITCompiler:
         self.compile_function(mainfunc)
 
         self.post_execution()
+
+    # Initialize a register reserved to collect statistics on execution
+    def init_statistics(self):
+        if self.interpreter.args.stats:
+            # Count the number of type-checks
+            encoded = asm.MOV(self.register_stats, 0).encode()
+            self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded,
+                                                                                    self.global_allocator.code_offset)
 
     # Called after the end of execution
     def post_execution(self):
@@ -948,9 +959,6 @@ class JITCompiler:
         # Compute the number of pure locals (not parameters)
         nb_locals = mfunction.nlocals - mfunction.argcount
 
-        # if mfunction.name == "tak":
-        #     mfunction.allocator.encode(asm.INT(3))
-
         if nb_locals == 0:
             return
 
@@ -1058,6 +1066,7 @@ class Allocator:
             # Initialize the Memory allocator
             self.jitcompiler.runtime_allocator = allocator.RuntimeAllocator(self.jitcompiler.global_allocator)
             self.jitcompiler.runtime_allocator.init_allocation_pointer()
+            self.jitcompiler.init_statistics()
 
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction

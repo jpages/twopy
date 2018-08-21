@@ -72,6 +72,11 @@ class TagHandler:
 
         # FFFF FFFF FFFF FFFC = max value with the tag applied
 
+        # Collect stats if needed
+        if self.jit.interpreter.args.stats:
+            # +1 for each type-check executed
+            instructions.append(asm.ADD(self.jit.register_stats, 1))
+
         # Copy the value inside a new register
         instructions.append(asm.MOV(asm.r12, register))
 

@@ -9,7 +9,7 @@ import os.path
 
 def main():
     # Argument parser
-    parser = argparse.ArgumentParser(description="TwoPy Virtual Machine")
+    parser = argparse.ArgumentParser(description="Twopy Virtual Machine")
     parser.add_argument("file", help="path to a python file")
 
     parser.add_argument("--verbose", "-v", action="store_true",
@@ -25,10 +25,13 @@ def main():
                         help="Print generated assembly code")
 
     parser.add_argument("--maxvers", type=int,
-                        help="Maximum number of generated versions for BBV.\n0 means infitine versions, default is 5.")
+                        help="Maximum number of generated versions for BBV.\n0 means infinite versions, default is 5.")
 
     parser.add_argument("--no_std_lib", action="store_true",
                         help="Do not compile the standard library of Twopy. Not much will be executable.")
+
+    parser.add_argument("--stats", action="store_true",
+                        help="Collect statistics on execution")
 
     args = parser.parse_args()
 
