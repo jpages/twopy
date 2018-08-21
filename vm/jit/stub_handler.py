@@ -788,8 +788,8 @@ class StubClass(Stub):
 
         # Finally, jump to the correct destination
         instructions.append(asm.MOV(asm.rax, class_address))
-        instructions.append(asm.MOV(asm.rbx, self.return_address))
-        instructions.append(asm.JMP(asm.rbx))
+        instructions.append(asm.MOV(asm.r11, self.return_address))
+        instructions.append(asm.JMP(asm.r11))
 
         offset = self.data_address
         for i in instructions:

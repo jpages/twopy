@@ -118,7 +118,7 @@ class JITCompiler:
             # The return value is in rax
 
             # Saving return address in a register
-            mfunction.allocator.encode(asm.POP(asm.rbx))
+            mfunction.allocator.encode(asm.POP(asm.r10))
 
             for k in range(0, mfunction.argcount + 1 + mfunction.nb_pure_locals):
                 mfunction.allocator.versioning.current_version().get_context_for_block(mfunction.start_basic_block).increase_stack_size()
@@ -127,7 +127,7 @@ class JITCompiler:
             mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8*(mfunction.argcount+1)))
 
             # Finally returning by jumping
-            mfunction.allocator.encode(asm.JMP(asm.rbx))
+            mfunction.allocator.encode(asm.JMP(asm.r10))
 
             stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
         else:
@@ -363,7 +363,7 @@ class JITCompiler:
                     allocator.encode(asm.ADD(asm.registers.rsp, (8*instruction.block.function.nb_pure_locals)))
 
                 # Saving return address in a register
-                allocator.encode(asm.POP(asm.rbx))
+                allocator.encode(asm.POP(asm.r10))
 
                 # Keep the stack size correct
                 for k in range(0, instruction.block.function.argcount + 1 + instruction.block.function.nb_pure_locals):
@@ -383,7 +383,7 @@ class JITCompiler:
                     allocator.encode(asm.POP(asm.rax))
 
                 # Finally returning by jumping
-                allocator.encode(asm.JMP(asm.rbx))
+                allocator.encode(asm.JMP(asm.r10))
 
             elif isinstance(instruction, model.IMPORT_STAR):
                 self.nyi()
@@ -416,11 +416,11 @@ class JITCompiler:
                     # First, remove the tag and get the address of the class
                     allocator.encode(asm.SHR(register, 2))
 
-                    # Store TOS in rbx
-                    allocator.encode(asm.POP(asm.rbx))
+                    # Store TOS in r10
+                    allocator.encode(asm.POP(asm.r10))
 
                     # Finally store the value in the class space
-                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(register + offset), asm.rbx))
+                    allocator.encode(asm.MOV(asm.operand.MemoryOperand(register + offset), asm.r10))
 
                     # Increment the class static allocator to no write on an already defined class later
                     self.global_allocator.class_offset += 8
