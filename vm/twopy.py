@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.6
+#! /usr/bin/env python
 
 import frontend
 import interpreter
@@ -36,7 +36,7 @@ def main():
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject
-    maincode = frontend.compiler.compile(args.file, args)
+    maincode = frontend.compiler.compile_source(args.file, args)
 
     # Get the subdirectory of the executed file
     head, tail = os.path.split(args.file)
