@@ -103,7 +103,7 @@ class JITCompiler:
         import sys
         absolute_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 
-        library_code = frontend.compiler.compile(absolute_path+"/jit/standard_library.py", self.interpreter.args)
+        library_code = frontend.compiler.compile_source(absolute_path+"/jit/standard_library.py", self.interpreter.args)
 
         # Force the compilation of std functions
         stdlib_function = self.interpreter.generate_function(library_code, "std_lib", self.mainmodule, True)
