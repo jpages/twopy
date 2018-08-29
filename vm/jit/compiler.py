@@ -342,7 +342,7 @@ class JITCompiler:
                 self.stub_handler.compile_class_stub(mfunction)
 
                 # Get the following class name which should be a LOAD_CONST instruction
-                const_number = block.instructions[i + 2].arguments
+                const_number = block.instructions[i + 2].argument
                 name = block.function.consts[const_number]
                 self.class_names.append(name)
             elif isinstance(instruction, model.YIELD_FROM):
@@ -421,7 +421,7 @@ class JITCompiler:
                     offset = len(mfunction.mclass.vtable) * 8
 
                     # Update the model of the class
-                    mfunction.mclass.vtable.append(mfunction.names[instruction.arguments])
+                    mfunction.mclass.vtable.append(mfunction.names[instruction.argument])
 
                     # Now store the value inside the class at the appropriate position
                     # First, remove the tag and get the address of the class
@@ -436,7 +436,7 @@ class JITCompiler:
                     # Increment the class static allocator to no write on an already defined class later
                     self.global_allocator.class_offset += 8
                 else:
-                    name = mfunction.names[instruction.arguments]
+                    name = mfunction.names[instruction.argument]
 
                     # Store a name in the local environment
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
@@ -445,12 +445,12 @@ class JITCompiler:
                     allocator.encode(asm.POP(asm.r10))
 
                     # Offset of the instruction's argument + r9 value
-                    memory_address = asm.r9 + (64*instruction.arguments)
+                    memory_address = asm.r9 + (64 * instruction.argument)
                     allocator.encode(asm.MOV(asm.operand.MemoryOperand(memory_address), asm.r10))
 
                     if name in self.class_names:
                         # Keep track on primitive class addresses
-                        stub_handler.primitive_addresses[name] = 64*instruction.arguments + allocator.data_address
+                        stub_handler.primitive_addresses[name] = 64 * instruction.argument + allocator.data_address
 
             elif isinstance(instruction, model.DELETE_NAME):
                 self.nyi()
@@ -508,7 +508,7 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.STORE_ATTR):
 
-                name = mfunction.names[instruction.arguments]
+                name = mfunction.names[instruction.argument]
 
                 # The object
                 allocator.encode(asm.POP(asm.r10))
@@ -535,11 +535,11 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.LOAD_CONST):
                 # We need to perform an allocation here
-                value = block.function.consts[instruction.arguments]
+                value = block.function.consts[instruction.argument]
                 block.function.allocator.allocate_const(instruction, value, context)
 
             elif isinstance(instruction, model.LOAD_NAME):
-                name = instruction.function.names[instruction.arguments]
+                name = instruction.function.names[instruction.argument]
 
                 context.push_value(name, objects.Types.Unknown)
 
@@ -564,7 +564,7 @@ class JITCompiler:
                     allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
                     # Offset of the instruction's argument + r9 value
-                    memory_address = asm.r9 + (64*instruction.arguments)
+                    memory_address = asm.r9 + (64 * instruction.argument)
                     allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
 
                     allocator.encode(asm.PUSH(asm.r10))
@@ -578,7 +578,7 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_MAP):
                 self.nyi()
             elif isinstance(instruction, model.LOAD_ATTR):
-                name = mfunction.names[instruction.arguments]
+                name = mfunction.names[instruction.argument]
                 if name in primitive_offsets_attributes:
                     allocator.encode(asm.POP(asm.r10))
                     allocator.encode(self.tags.untag_asm(asm.r10))
@@ -603,7 +603,7 @@ class JITCompiler:
 
                 # If this is the first time we seen this instruction, put a type-test here and return
                 if index != block.instructions.index(instruction):
-                    self.tags.binary_operation(self.compare_operators[instruction.arguments], mfunction, block, i)
+                    self.tags.binary_operation(self.compare_operators[instruction.argument], mfunction, block, i)
                     return return_offset
                 # Otherwise compile the instruction, the test was executed
 
@@ -653,7 +653,7 @@ class JITCompiler:
                     if len(b.instructions) == 0:
                         continue
 
-                    if b.instructions[0].offset == instruction.arguments:
+                    if b.instructions[0].offset == instruction.argument:
                         target_block = b
 
                 self.stub_handler.compile_absolute_jump(mfunction, target_block)
@@ -664,7 +664,7 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.LOAD_GLOBAL):
 
-                name = mfunction.names[instruction.arguments]
+                name = mfunction.names[instruction.argument]
 
                 context.push_value(name)
 
@@ -711,15 +711,15 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.LOAD_FAST):
 
-                context.push_value(mfunction.varnames[instruction.arguments])
+                context.push_value(mfunction.varnames[instruction.argument])
 
                 # Load the value and put it onto the stack
-                allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.arguments, block)))
+                allocator.encode(asm.PUSH(allocator.get_local_variable(instruction.argument, block)))
 
             elif isinstance(instruction, model.STORE_FAST):
                 allocator.encode(asm.POP(asm.r10))
 
-                operand = context.memory_location(instruction.arguments, mfunction.varnames[instruction.arguments])
+                operand = context.memory_location(instruction.argument, mfunction.varnames[instruction.argument])
                 allocator.encode(asm.MOV(operand, asm.r10))
 
                 # Store the variable in the correct position on the stack
@@ -732,12 +732,12 @@ class JITCompiler:
             elif isinstance(instruction, model.CALL_FUNCTION):
 
                 # Save the function address in r9
-                allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp+8*instruction.arguments)))
+                allocator.encode(asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + 8 * instruction.argument)))
 
                 # The return instruction will clean the stack
                 allocator.encode(asm.CALL(asm.r9))
 
-                for y in range(0, instruction.arguments+1):
+                for y in range(0, instruction.argument + 1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
 
                 # The return value is in rax, push it back on the stack
@@ -749,19 +749,19 @@ class JITCompiler:
                 nbargs = 2
 
                 free_variables = None
-                if (instruction.arguments & 8) == 8:
+                if (instruction.argument & 8) == 8:
                     # Making a closure, tuple of free variables
                     pass
 
-                if (instruction.arguments & 4) == 4:
+                if (instruction.argument & 4) == 4:
                     # Annotation dictionary
                     pass
 
-                if (instruction.arguments & 2) == 2:
+                if (instruction.argument & 2) == 2:
                     # keyword only default arguments
                     pass
 
-                if (instruction.arguments & 1) == 1:
+                if (instruction.argument & 1) == 1:
                     # default arguments
                     pass
 
@@ -833,7 +833,7 @@ class JITCompiler:
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
             # Offset of the instruction's argument + r9 value
-            memory_address = asm.r9 + (64 * instruction.arguments)
+            memory_address = asm.r9 + (64 * instruction.argument)
             allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
 
             allocator.encode(asm.PUSH(asm.r10))
@@ -842,7 +842,7 @@ class JITCompiler:
             allocator.encode(asm.MOV(asm.r9, allocator.data_address))
 
             # Offset of the instruction's argument + r9 value
-            memory_address = asm.r9 + (64 * instruction.arguments)
+            memory_address = asm.r9 + (64 * instruction.argument)
             allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
             allocator.encode(asm.SHR(asm.r10, 2))
 
@@ -870,33 +870,33 @@ class JITCompiler:
         # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset == next_instruction.arguments:
+            if block.instructions[0].offset == next_instruction.argument:
                 notjump_block = block
             else:
                 # Continue the execution in the second block
                 jump_block = block
 
         # first < second
-        if instruction.arguments == 0:
+        if instruction.argument == 0:
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
         # first <= second
-        elif instruction.arguments == 1:
+        elif instruction.argument == 1:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JLE)
         # first == second
-        elif instruction.arguments == 2:
+        elif instruction.argument == 2:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
         # first != second
-        elif instruction.arguments == 3:
+        elif instruction.argument == 3:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
         # first > second
-        elif instruction.arguments == 4:
+        elif instruction.argument == 4:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
         # first >= second
-        elif instruction.arguments == 5:
+        elif instruction.argument == 5:
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JGE)
         else:
-            print("Instruction argument " + str(instruction.arguments))
+            print("Instruction argument " + str(instruction.argument))
             self.nyi()
 
     #TODO: too much code duplication with the previous function
@@ -908,7 +908,7 @@ class JITCompiler:
         self.compile_cmp_beginning(mfunction)
 
         # first < second
-        if instruction.arguments == 0:
+        if instruction.argument == 0:
             # The stubs must be compiled before the jumps
             # Get the two following blocks
             jump_block = None
@@ -917,7 +917,7 @@ class JITCompiler:
             # Locate the target of the jump in next basic blocks
             for block in instruction.block.next:
                 # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.arguments:
+                if block.instructions[0].offset == next_instruction.argument:
                     jump_block = block
                 else:
                     # Continue the execution in the second block
@@ -926,7 +926,7 @@ class JITCompiler:
             # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, notjump_block, jump_block, asm.JGE)
         # first > second
-        elif instruction.arguments == 4:
+        elif instruction.argument == 4:
             # The stubs must be compiled before the jumps
             # Get the two following blocks
             jump_block = None
@@ -935,7 +935,7 @@ class JITCompiler:
             # Locate the target of the jump in next basic blocks
             for block in instruction.block.next:
                 # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.arguments:
+                if block.instructions[0].offset == next_instruction.argument:
                     jump_block = block
                 else:
                     # Continue the execution in the second block
@@ -1091,7 +1091,7 @@ class Allocator:
             self.nyi()
         else:
             # For now assume it's consts
-            const_object = self.function.consts[instruction.arguments]
+            const_object = self.function.consts[instruction.argument]
 
             if isinstance(const_object, str):
                 # Unicode encoding of the string

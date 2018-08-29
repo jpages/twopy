@@ -206,8 +206,8 @@ class Function:
 
             size = next_op.offset - op.offset
 
-            if self.interpreter.args.verbose:
-                print(str(op) + ", size " + str(size))
+            # if self.interpreter.args.verbose:
+            #     print(str(op) + ", size " + str(size))
 
             instruction = dict_instructions[op.opcode](op.offset,
             op.opcode, op.opname, op.arg, op.is_jump_target, size)
@@ -353,16 +353,16 @@ class Instruction:
         self.offset = offset of the opcode from the beginning of the function
         self.opcode_number = number of the opcode
         self.opcode_string = string with opcode name
-        self.arguments = Python object with argument, will be None for
-                        opcodes without arguments
+        self.argument = Python object with argument, will be None for
+                        opcodes without argument
         self.is_jump_target = True is this instruction is a jump target
         self.size = number of bytes used by the opcode
     '''
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
         self.offset = offset
         self.opcode_number = opcode_number
         self.opcode_string = opcode_string
-        self.arguments = arguments
+        self.argument = argument
         self.is_jump_target = is_jump_target
         self.size = size
 
@@ -378,7 +378,7 @@ class Instruction:
         s = str(self.__class__) + ", offset = " + str(self.offset)
         s += ", opcode = " + str(self.opcode_number)
         s += ", opcode_string = " + self.opcode_string
-        s += ", argument = " + str(self.arguments)
+        s += ", argument = " + str(self.argument)
 
         return s
 
@@ -401,8 +401,8 @@ class BranchInstruction(Instruction):
 class JumpInstruction(BranchInstruction):
 
     # Compute absolute_target, the absolute target of the jump of this Instruction
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
         self.absolute_target = -1
 
@@ -661,10 +661,10 @@ class UNPACK_SEQUENCE(Instruction):
 
 
 class FOR_ITER(JumpInstruction):
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = offset + arguments + size
+        self.absolute_target = offset + argument + size
 
 
 class UNPACK_EX(Instruction):
@@ -729,50 +729,50 @@ class IMPORT_FROM(Instruction):
 
 class JUMP_FORWARD(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = offset + arguments + size
+        self.absolute_target = offset + argument + size
 
 
 class JUMP_IF_FALSE_OR_POP(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = arguments
+        self.absolute_target = argument
 
 
 class JUMP_IF_TRUE_OR_POP(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = arguments
+        self.absolute_target = argument
 
 
 class JUMP_ABSOLUTE(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = arguments
+        self.absolute_target = argument
 
 
 class POP_JUMP_IF_FALSE(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = arguments
+        self.absolute_target = argument
 
 
 class POP_JUMP_IF_TRUE(JumpInstruction):
 
-    def __init__(self, offset, opcode_number, opcode_string, arguments, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, arguments, is_jump_target, size)
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = arguments
+        self.absolute_target = argument
 
 
 class LOAD_GLOBAL(Instruction):
@@ -914,6 +914,13 @@ class BUILD_TUPLE_UNPACK_WITH_CALL(Instruction):
     pass
 
 
+class LOAD_METHOD(Instruction):
+    pass
+
+
+class CALL_METHOD(Instruction):
+    pass
+
 
 # Dictionary between instruction classes and opcode numbers
 dict_instructions = {
@@ -975,7 +982,6 @@ dict_instructions = {
 87 : POP_BLOCK,
 88 : END_FINALLY,
 89 : POP_EXCEPT,
-90 : HAVE_ARGUMENT,
 90 : STORE_NAME,
 91 : DELETE_NAME,
 92 : UNPACK_SEQUENCE,
@@ -1009,7 +1015,6 @@ dict_instructions = {
 124 : LOAD_FAST,
 125 : STORE_FAST,
 126 : DELETE_FAST,
-127 : STORE_ANNOTATION,
 130 : RAISE_VARARGS,
 131 : CALL_FUNCTION,
 132 : MAKE_FUNCTION,
@@ -1021,11 +1026,11 @@ dict_instructions = {
 141 : CALL_FUNCTION_KW,
 142 : CALL_FUNCTION_EX,
 143 : SETUP_WITH,
-144 : EXTENDED_ARG,
 145 : LIST_APPEND,
 146 : SET_ADD,
 147 : MAP_ADD,
 148 : LOAD_CLASSDEREF,
+144 : EXTENDED_ARG,
 149 : BUILD_LIST_UNPACK,
 150 : BUILD_MAP_UNPACK,
 151 : BUILD_MAP_UNPACK_WITH_CALL,
@@ -1036,8 +1041,6 @@ dict_instructions = {
 156 : BUILD_CONST_KEY_MAP,
 157 : BUILD_STRING,
 158 : BUILD_TUPLE_UNPACK_WITH_CALL,
-
-# Special extensions to use pypy for starting twopy
-201 : LOAD_ATTR,
-202 : CALL_FUNCTION,
+160 : LOAD_METHOD,
+161 : CALL_METHOD,
 }
