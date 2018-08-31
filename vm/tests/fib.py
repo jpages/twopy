@@ -6,13 +6,13 @@ def fibR(n):
 
 
 print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
-print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
+# print(fibR(40))
 
