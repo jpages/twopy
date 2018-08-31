@@ -206,8 +206,8 @@ class Function:
 
             size = next_op.offset - op.offset
 
-            # if self.interpreter.args.verbose:
-            #     print(str(op) + ", size " + str(size))
+            if self.interpreter.args.verbose:
+                print(str(op) + ", size " + str(size))
 
             instruction = dict_instructions[op.opcode](op.offset,
             op.opcode, op.opname, op.arg, op.is_jump_target, size)

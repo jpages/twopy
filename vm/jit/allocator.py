@@ -10,7 +10,6 @@ import peachpy.x86_64 as asm
 
 from . import stub_handler
 
-
 # Handle allocation of the general code section
 class GlobalAllocator:
     def __init__(self, jitcompiler):
@@ -62,7 +61,7 @@ class GlobalAllocator:
         # Allocate code segment
         code_address = self.jitcompiler.mmap_function(None, self.code_size,
                                                       mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
-                                                      mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                                      mmap.MAP_ANONYMOUS | mmap.MAP_PRIVATE,
                                                       -1, 0)
 
         if code_address == -1:
@@ -73,7 +72,7 @@ class GlobalAllocator:
             # Allocate data segment
             data_address = self.jitcompiler.mmap_function(None, self.data_size,
                                                           mmap.PROT_READ | mmap.PROT_WRITE,
-                                                          mmap.MAP_ANON | mmap.MAP_PRIVATE,
+                                                          mmap.MAP_ANONYMOUS | mmap.MAP_PRIVATE,
                                                           -1, 0)
             if data_address == -1:
                 raise OSError("Failed to allocate memory for data segment")
@@ -158,17 +157,20 @@ class GlobalAllocator:
         addr = stub_handler.ffi.cast("char*", self.data_address)
         self.data_section = stub_handler.ffi.buffer(addr, self.data_size)
 
+        self.code_buffer = stub_handler.ffi.from_buffer(self.code_section)
+        self.data_buffer = stub_handler.ffi.from_buffer(self.data_section)
+
     # Return the next address for storing an instruction
     def get_current_address(self):
-        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.code_section), self.code_offset)
+        return stub_handler.lib.get_address(self.code_buffer, self.code_offset)
 
     # Return the next address for storing an instruction
     def get_current_data_address(self):
-        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.data_offset)
+        return stub_handler.lib.get_address(self.data_buffer, self.data_offset)
 
     # Return the next address for storing a class definition
     def get_current_class_address(self):
-        return stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.data_section), self.class_offset)
+        return stub_handler.lib.get_address(self.data_buffer, self.class_offset)
 
     # Encode and store in memory one instruction
     # instruction : The asm.Instruction to encode
