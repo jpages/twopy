@@ -1032,10 +1032,6 @@ class JITCompiler:
             self.munmap_function.restype = ctypes.c_int
             self.munmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t]
 
-            def munmap(address, size):
-                munmap_result = self.munmap_function(ctypes.c_void_p(address), size)
-                assert munmap_result == 0
-
 
 # Allocate and handle the compilation of a function
 class Allocator:

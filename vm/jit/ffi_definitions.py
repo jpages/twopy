@@ -19,6 +19,12 @@ ffi.cdef("""
         
         // Stub for generating a class
         void class_stub(uint64_t* rsp);
+        
+        // Allocate the code section with mmap and return a pointer to it
+        char* allocate_code_section(int);
+
+        // Allocate data section and return a pointer to it
+        char* allocate_data_section(int);
 
         // Python function callback
         extern "Python+C" void python_callback_bb_stub(uint64_t rsp);
@@ -63,6 +69,7 @@ ffi.cdef("""
 c_code = """
         #include <stdio.h>
         #include <stdlib.h>
+        #include <sys/mman.h>
 
         // Function called to handle the compilation of stubs for basic blocks
         static void python_callback_bb_stub(uint64_t rsp);
@@ -72,6 +79,18 @@ c_code = """
         static void python_callback_type_stub(uint64_t, int, int);
 
         static void python_callback_class_stub(uint64_t, uint64_t);
+                
+        char* allocate_code_section(int size)
+        {
+            char* res = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            return res;
+        }
+        
+        char* allocate_data_section(int size)
+        {
+            char* res = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            return res;
+        }
 
         void bb_stub(uint64_t* rsp)
         {

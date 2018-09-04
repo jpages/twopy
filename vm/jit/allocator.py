@@ -4,7 +4,6 @@ This module contains code relative to memory allocation and garbage collection
 
 # ASM disassembly
 import capstone
-import mmap
 
 import peachpy.x86_64 as asm
 
@@ -37,10 +36,15 @@ class GlobalAllocator:
         # The stub pointer is in the end of the code section
         self.stub_offset = 15000
 
-        # Future code and data sections, will be allocated in C
+        # Future code and data sections, type buffer from ffi
         self.code_section = None
         self.data_section = None
 
+        # C arrays of code and data sections
+        self.code_buffer = None
+        self.data_buffer = None
+
+        # Integer values of addresses of C arrays
         self.code_address = None
         self.data_address = None
 
@@ -59,24 +63,23 @@ class GlobalAllocator:
     def allocate_code_segment(self):
 
         # Allocate code segment
-        code_address = self.jitcompiler.mmap_function(None, self.code_size,
-                                                      mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
-                                                      mmap.MAP_ANONYMOUS | mmap.MAP_PRIVATE,
-                                                      -1, 0)
+        code_address = stub_handler.lib.allocate_code_section(self.code_size)
+
+        self.code_address = int(stub_handler.ffi.cast("uint64_t", code_address))
 
         if code_address == -1:
             raise OSError("Failed to allocate memory for code segment")
-        self.code_address = code_address
+
+        self.code_buffer = code_address
 
         if self.data_size > 0:
-            # Allocate data segment
-            data_address = self.jitcompiler.mmap_function(None, self.data_size,
-                                                          mmap.PROT_READ | mmap.PROT_WRITE,
-                                                          mmap.MAP_ANONYMOUS | mmap.MAP_PRIVATE,
-                                                          -1, 0)
+
+            data_address = stub_handler.lib.allocate_data_section(self.data_size)
+            self.data_address = int(stub_handler.ffi.cast("uint64_t", code_address))
+
             if data_address == -1:
                 raise OSError("Failed to allocate memory for data segment")
-            self.data_address = data_address
+            self.data_buffer = data_address
 
         # Create manipulable python arrays for these two sections
         self.python_arrays()
@@ -151,16 +154,10 @@ class GlobalAllocator:
     # Create python array interface from C allocated arrays
     def python_arrays(self):
 
-        addr = stub_handler.ffi.cast("char*", self.code_address)
-        self.code_section = stub_handler.ffi.buffer(addr, self.code_size)
+        self.code_section = stub_handler.ffi.buffer(self.code_buffer, self.code_size)
 
-        addr = stub_handler.ffi.cast("char*", self.data_address)
-        self.data_section = stub_handler.ffi.buffer(addr, self.data_size)
+        self.data_section = stub_handler.ffi.buffer(self.data_buffer, self.data_size)
 
-        self.code_buffer = stub_handler.ffi.from_buffer(self.code_section)
-        self.data_buffer = stub_handler.ffi.from_buffer(self.data_section)
-
-    # Return the next address for storing an instruction
     def get_current_address(self):
         return stub_handler.lib.get_address(self.code_buffer, self.code_offset)
 
@@ -216,7 +213,6 @@ class GlobalAllocator:
         if not self.jitcompiler.interpreter.args.asm:
             return
 
-        print("Code section ")
         bytes_cs = bytes(self.code_section)
 
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
