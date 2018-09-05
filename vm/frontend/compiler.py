@@ -47,31 +47,31 @@ def compile_source(filename, args):
     bytecode_filename = importlib.util.cache_from_source(filename)
 
     # The file exists, now check if the compilation is up to date
-    # if os.path.exists(bytecode_filename):
-    #
-    #     bytecode_file = open(bytecode_filename, "rb")
-    #
-    #     magic = bytecode_file.read(4)
-    #     bit_field = bytecode_file.read(4)
-    #
-    #     # Check if we have a traditional timestamp-based source file
-    #     if int.from_bytes(bit_field, byteorder=sys.byteorder) == 0:
-    #         tt = bytecode_file.read(4)
-    #         timestamp = struct.unpack("=I", tt)
-    #
-    #         # Read the file size
-    #         bytecode_file.read(4)
-    #
-    #         # Check timestamps on source and bytecode files
-    #         source_time = os.path.getmtime(filename)
-    #
-    #         diff = source_time - timestamp[0]
-    #         # If the python file and bytecode file have the same timestamp
-    #         if diff < 1:
-    #             co = parse_code_object(bytecode_file, args)
-    #             return co
-    #
-    #     bytecode_file.close()
+    if os.path.exists(bytecode_filename):
+
+        bytecode_file = open(bytecode_filename, "rb")
+
+        magic = bytecode_file.read(4)
+        bit_field = bytecode_file.read(4)
+
+        # Check if we have a traditional timestamp-based source file
+        if int.from_bytes(bit_field, byteorder=sys.byteorder) == 0:
+            tt = bytecode_file.read(4)
+            timestamp = struct.unpack("=I", tt)
+
+            # Read the file size
+            bytecode_file.read(4)
+
+            # Check timestamps on source and bytecode files
+            source_time = os.path.getmtime(filename)
+
+            diff = source_time - timestamp[0]
+            # If the python file and bytecode file have the same timestamp
+            if diff < 1:
+                co = parse_code_object(bytecode_file, args)
+                return co
+
+        bytecode_file.close()
 
     # We compile to the current version of python
     # Force the usage of timestamp for validate pyc file
