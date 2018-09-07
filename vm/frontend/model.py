@@ -164,6 +164,9 @@ class Function:
 
         self.nb_pure_locals = nlocals - argcount
 
+        # If this Function is a class definition
+        self.mclass = None
+
         # Environments are linked for each call
         self.environments = []
 
@@ -231,15 +234,26 @@ class Function:
             instruction = self.all_instructions[i]
             current.add_instruction(instruction)
 
+            old_block = None
             if instruction.is_branch():
                 # Finish the current block and create a new one
                 new_block = BasicBlock(self)
+                old_block = current
                 current.link_to(new_block)
                 current = new_block
 
             if instruction.is_jump():
                 # Save this instruction and its target
                 jumps[instruction.absolute_target] = instruction
+
+            if isinstance(instruction, CallInstruction):
+                # The old block was finished by a call instruction, add a jump to the new one
+
+                target = self.all_instructions[i+1]
+                jump_instruction = JUMP_ABSOLUTE(-1, 113, "JUMP_ABSOLUTE", target.offset, False, 3)
+
+                old_block.instructions.append(jump_instruction)
+                jump_instruction.block = old_block
 
         # Now we need to reiterate over instructions to associate jumps to their targets
         for i in range(0, len(self.all_instructions)):
@@ -412,6 +426,12 @@ class JumpInstruction(BranchInstruction):
 
         return s
 
+# A call
+class CallInstruction(BranchInstruction):
+    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
+        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
+
+        self.absolute_target = -1
 
 class POP_TOP(Instruction):
     pass
@@ -815,7 +835,7 @@ class RAISE_VARARGS(BranchInstruction):
     pass
 
 
-class CALL_FUNCTION(Instruction):
+class CALL_FUNCTION(CallInstruction):
     pass
 
 
@@ -842,11 +862,11 @@ class DELETE_DEREF(Instruction):
     pass
 
 
-class CALL_FUNCTION_KW(Instruction):
+class CALL_FUNCTION_KW(CallInstruction):
     pass
 
 
-class CALL_FUNCTION_EX(Instruction):
+class CALL_FUNCTION_EX(CallInstruction):
     pass
 
 
@@ -918,7 +938,7 @@ class LOAD_METHOD(Instruction):
     pass
 
 
-class CALL_METHOD(Instruction):
+class CALL_METHOD(CallInstruction):
     pass
 
 
