@@ -600,7 +600,7 @@ class SimpleInterpreter:
 
     def STORE_NAME(self, instruction):
         tos = self.pop()
-        name = self.current_function().names[instruction.arguments]
+        name = self.current_function().names[instruction.argument]
 
         # If tos is the main function of a class, we are in fact
         # adding a property to this class here, special treatment
@@ -659,7 +659,7 @@ class SimpleInterpreter:
         # Get the attribute and the value and set it
         obj = self.pop()
         value = self.pop()
-        name = self.current_function().names[instruction.arguments]
+        name = self.current_function().names[instruction.argument]
 
         obj.set_attribute(name, value)
 
@@ -672,7 +672,7 @@ class SimpleInterpreter:
     def DELETE_GLOBAL(self, instruction): print("NYI " + str(self))
 
     def LOAD_CONST(self, instruction):
-        loaded_value = self.current_function().consts[instruction.arguments]
+        loaded_value = self.current_function().consts[instruction.argument]
         self.push(loaded_value)
 
         # If we load a Code Object, disassemble it
@@ -681,7 +681,7 @@ class SimpleInterpreter:
                 dis.dis(loaded_value)
 
     def LOAD_NAME(self, instruction):
-        name = str(self.current_function().names[instruction.arguments])
+        name = str(self.current_function().names[instruction.argument])
 
         # try to find the name in local environments
         if name in self.current_function().environments[-1]:
@@ -692,7 +692,7 @@ class SimpleInterpreter:
 
     def BUILD_TUPLE(self, instruction):
         res = []
-        for i in range(0, instruction.arguments):
+        for i in range(0, instruction.argument):
             res.append(self.pop())
 
         res.reverse()
@@ -700,7 +700,7 @@ class SimpleInterpreter:
 
     def BUILD_LIST(self, instruction):
         res = []
-        for i in range(0, instruction.arguments):
+        for i in range(0, instruction.argument):
             res.append(self.pop())
         res.reverse()
 
@@ -708,7 +708,7 @@ class SimpleInterpreter:
 
     def BUILD_SET(self, instruction):
         res = set()
-        for i in range(0, instruction.arguments):
+        for i in range(0, instruction.argument):
             res.add(self.pop())
 
         self.push(res)
@@ -717,7 +717,7 @@ class SimpleInterpreter:
 
     def LOAD_ATTR(self, instruction):
         tos = self.pop()
-        name = self.current_function().names[instruction.arguments]
+        name = self.current_function().names[instruction.argument]
 
         # Lookup a name in a python module object
         if isinstance(tos, model.MModule):
@@ -745,11 +745,11 @@ class SimpleInterpreter:
         first = self.pop()
 
         # Perform the test and push the result on the stack
-        res = compare_functions[instruction.arguments](first, second)
+        res = compare_functions[instruction.argument](first, second)
         self.push(res)
 
     def IMPORT_NAME(self, instruction):
-        module_name = self.current_function().names[instruction.arguments]
+        module_name = self.current_function().names[instruction.argument]
         from_list = self.pop()
         level = self.pop()
 
@@ -769,7 +769,7 @@ class SimpleInterpreter:
         self.modules.append(module)
 
         # Generate a function for the module
-        fun = self.generate_function(co, self.current_function().names[instruction.arguments], module, True)
+        fun = self.generate_function(co, self.current_function().names[instruction.argument], module, True)
 
         env = {}
         self.environments.append(env)
@@ -795,7 +795,7 @@ class SimpleInterpreter:
         # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset == instruction.arguments:
+            if block.instructions[0].offset == instruction.argument:
                 jump_block = block
             else:
                 # Continue the execution in the second block
@@ -815,7 +815,7 @@ class SimpleInterpreter:
         # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset == instruction.arguments:
+            if block.instructions[0].offset == instruction.argument:
                 jump_block = block
             else:
                 # Continue the execution in the second block
@@ -830,7 +830,7 @@ class SimpleInterpreter:
     def JUMP_ABSOLUTE(self, instruction):
         for block in instruction.block.next:
             # Make the jump
-            if block.instructions[0].offset == instruction.arguments:
+            if block.instructions[0].offset == instruction.argument:
                 self.execute_block(block)
                 return
         # TODO: We should have jump before, put an assertion here
@@ -843,7 +843,7 @@ class SimpleInterpreter:
         # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset == instruction.arguments:
+            if block.instructions[0].offset == instruction.argument:
                 jump_block = block
             else:
                 # Continue the execution in the second block
@@ -862,7 +862,7 @@ class SimpleInterpreter:
         # Locate the target of the jump in next basic blocks
         for block in instruction.block.next:
             # If we need to make the jump
-            if block.instructions[0].offset == instruction.arguments:
+            if block.instructions[0].offset == instruction.argument:
                 jump_block = block
             else:
                 # Continue the execution in the second block
@@ -874,7 +874,7 @@ class SimpleInterpreter:
             self.execute_block(notjump_block)
 
     def LOAD_GLOBAL(self, instruction):
-        name = self.current_function().names[instruction.arguments]
+        name = self.current_function().names[instruction.argument]
 
         # Lookup in the global environment
         if name in self.global_environment:
@@ -894,7 +894,7 @@ class SimpleInterpreter:
     def SETUP_FINALLY(self, instruction): print("NYI " + str(self))
 
     def LOAD_FAST(self, instruction):
-        varname = self.current_function().varnames[instruction.arguments]
+        varname = self.current_function().varnames[instruction.argument]
         for env in reversed(self.current_function().environments):
             if varname in env:
                 self.push(env[varname])
@@ -902,7 +902,7 @@ class SimpleInterpreter:
 
     def STORE_FAST(self, instruction):
         value = self.pop()
-        varname = self.current_function().varnames[instruction.arguments]
+        varname = self.current_function().varnames[instruction.argument]
 
         self.current_function().environments[-1][varname] = value
 
@@ -916,7 +916,7 @@ class SimpleInterpreter:
     def CALL_FUNCTION(self, instruction):
         # Default arguments
         args = []
-        for i in range(0, instruction.arguments):
+        for i in range(0, instruction.argument):
             # Pop all arguments of the call and put them in environment
             args.append(self.pop())
 
@@ -962,19 +962,19 @@ class SimpleInterpreter:
 
         #TODO
         free_variables = None
-        if (instruction.arguments & 8) == 8:
+        if (instruction.argument & 8) == 8:
             # Making a closure, tuple of free variables
             free_variables = self.pop()
 
-        if (instruction.arguments & 4) == 4:
+        if (instruction.argument & 4) == 4:
             # Annotation dictionnary
             annotations = self.pop()
 
-        if (instruction.arguments & 2) == 2:
+        if (instruction.argument & 2) == 2:
             # keyword only default arguments
             keyword_only = self.pop()
 
-        if (instruction.arguments & 1) == 1:
+        if (instruction.argument & 1) == 1:
             # default arguments
             default = self.pop()
 
@@ -997,10 +997,10 @@ class SimpleInterpreter:
     def LOAD_CLOSURE(self, instruction):
         # Search the name of the variable
         varname = None
-        if instruction.arguments < len(self.current_function().cellvars):
-            varname = self.current_function().cellvars[instruction.arguments]
+        if instruction.argument < len(self.current_function().cellvars):
+            varname = self.current_function().cellvars[instruction.argument]
         else:
-            i = instruction.arguments - len(self.current_function().cellvars)
+            i = instruction.argument - len(self.current_function().cellvars)
             varname = self.current_function().cellvars[i]
 
         self.push(varname)
@@ -1008,10 +1008,10 @@ class SimpleInterpreter:
     def LOAD_DEREF(self, instruction):
         # TODO: Flat representation of closures
         varname = None
-        if instruction.arguments < len(self.current_function().cellvars):
-            varname = self.current_function().cellvars[instruction.arguments]
+        if instruction.argument < len(self.current_function().cellvars):
+            varname = self.current_function().cellvars[instruction.argument]
         else:
-            varname = self.current_function().freevars[instruction.arguments]
+            varname = self.current_function().freevars[instruction.argument]
 
         if varname not in self.current_function().closure:
             # Lookup in environment
@@ -1044,7 +1044,7 @@ class SimpleInterpreter:
 
         # Default arguments
         args = []
-        for i in range(0, instruction.arguments - len(keywords_tuple)):
+        for i in range(0, instruction.argument - len(keywords_tuple)):
             # Pop all arguments of the call and put them in environment
             args.append(self.pop())
 
@@ -1076,7 +1076,7 @@ class SimpleInterpreter:
 
     def LIST_APPEND(self, instruction):
         tos = self.pop()
-        list.append(self.stack[-instruction.arguments], tos)
+        list.append(self.stack[-instruction.argument], tos)
 
     def SET_ADD(self, instruction): print("NYI " + str(self))
 
@@ -1102,7 +1102,11 @@ class SimpleInterpreter:
 
     def BUILD_STRING(self, instruction): print("NYI " + str(self))
 
-    def BUILD_TUPLE_UNPACK_WITH_CALL(self): print("NYI " + str(self))
+    def BUILD_TUPLE_UNPACK_WITH_CALL(self, instruction): print("NYI " + str(self))
+
+    def LOAD_METHOD(self, instruction): print("NYI " + str(self))
+
+    def CALL_METHOD(self, instruction): print("NYI " + str(self))
 
 
 def op_lesser(first, second):
