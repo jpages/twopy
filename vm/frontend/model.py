@@ -4,6 +4,7 @@ This module contains the model creation: functions, basic-blocks and instruction
 
 from types import *
 
+
 class MModule:
     '''
     Represent a python module, contain code
@@ -101,6 +102,7 @@ class MClass:
         self.interpreter.pop()
 
         return mobject
+
 
 # An instance of a MClass
 class MObject:
@@ -245,15 +247,29 @@ class Function:
             if instruction.is_jump():
                 # Save this instruction and its target
                 jumps[instruction.absolute_target] = instruction
-
-            if isinstance(instruction, CallInstruction):
+            elif isinstance(instruction, CallInstruction):
                 # The old block was finished by a call instruction, add a jump to the new one
-
                 target = self.all_instructions[i+1]
                 jump_instruction = JUMP_ABSOLUTE(-1, 113, "JUMP_ABSOLUTE", target.offset, False, 3)
 
-                old_block.instructions.append(jump_instruction)
-                jump_instruction.block = old_block
+                old_block.add_instruction(jump_instruction)
+            elif isinstance(instruction, BinaryOperation):
+                # If we have a binary operation, insert a binary type-check before
+
+                # Create a new block
+                new_block = BasicBlock(self)
+                old_block = current
+                current.link_to(new_block)
+
+                # Remove the instruction from the old block and move it to the new one
+                old_block.instructions.remove(instruction)
+                new_block.add_instruction(instruction)
+
+                # End the old block with a binary type-check
+                type_check = BINARY_TYPE_CHECK(-1, 200, "BINARY_TYPE_CHECK", None, False, 3)
+                old_block.add_instruction(type_check)
+
+                current = new_block
 
         # Now we need to reiterate over instructions to associate jumps to their targets
         for i in range(0, len(self.all_instructions)):
@@ -426,12 +442,23 @@ class JumpInstruction(BranchInstruction):
 
         return s
 
-# A call
-class CallInstruction(BranchInstruction):
-    def __init__(self, offset, opcode_number, opcode_string, argument, is_jump_target, size):
-        super().__init__(offset, opcode_number, opcode_string, argument, is_jump_target, size)
 
-        self.absolute_target = -1
+# A call instruction
+class CallInstruction(BranchInstruction):
+    pass
+
+
+# A binary operation requires a type-check for both operands
+# we insert a special instruction to perform a type-check before these instructions
+class BinaryOperation(Instruction):
+    pass
+
+
+# This custom instruction is inserted in basic block before binary operation to test both operands
+# of a binary operations and eventually fill the context with this information
+class BINARY_TYPE_CHECK(BranchInstruction):
+    pass
+
 
 class POP_TOP(Instruction):
     pass
@@ -473,7 +500,7 @@ class UNARY_INVERT(Instruction):
     pass
 
 
-class BINARY_MATRIX_MULTIPLY(Instruction):
+class BINARY_MATRIX_MULTIPLY(BinaryOperation):
     pass
 
 
@@ -481,34 +508,35 @@ class INPLACE_MATRIX_MULTIPLY(Instruction):
     pass
 
 
-class BINARY_POWER(Instruction):
+class BINARY_POWER(BinaryOperation):
     pass
 
 
-class BINARY_MULTIPLY(Instruction):
+class BINARY_MULTIPLY(BinaryOperation):
     pass
 
 
-class BINARY_MODULO(Instruction):
+class BINARY_MODULO(BinaryOperation):
     pass
 
 
-class BINARY_ADD(Instruction):
+class BINARY_ADD(BinaryOperation):
     pass
 
 
-class BINARY_SUBTRACT(Instruction):
+class BINARY_SUBTRACT(BinaryOperation):
     pass
 
 
-class BINARY_SUBSCR(Instruction):
-    pass
-
-class BINARY_FLOOR_DIVIDE(Instruction):
+class BINARY_SUBSCR(BinaryOperation):
     pass
 
 
-class BINARY_TRUE_DIVIDE(Instruction):
+class BINARY_FLOOR_DIVIDE(BinaryOperation):
+    pass
+
+
+class BINARY_TRUE_DIVIDE(BinaryOperation):
     pass
 
 
@@ -556,23 +584,23 @@ class DELETE_SUBSCR(Instruction):
     pass
 
 
-class BINARY_LSHIFT(Instruction):
+class BINARY_LSHIFT(BinaryOperation):
     pass
 
 
-class BINARY_RSHIFT(Instruction):
+class BINARY_RSHIFT(BinaryOperation):
     pass
 
 
-class BINARY_AND(Instruction):
+class BINARY_AND(BinaryOperation):
     pass
 
 
-class BINARY_XOR(Instruction):
+class BINARY_XOR(BinaryOperation):
     pass
 
 
-class BINARY_OR(Instruction):
+class BINARY_OR(BinaryOperation):
     pass
 
 
@@ -735,6 +763,7 @@ class LOAD_ATTR(Instruction):
     pass
 
 
+# Also a binary operation since type-check must be performed here
 class COMPARE_OP(Instruction):
     pass
 
@@ -849,6 +878,7 @@ class BUILD_SLICE(Instruction):
 
 class LOAD_CLOSURE(Instruction):
     pass
+
 
 class LOAD_DEREF(Instruction):
     pass
@@ -1063,4 +1093,8 @@ dict_instructions = {
 158 : BUILD_TUPLE_UNPACK_WITH_CALL,
 160 : LOAD_METHOD,
 161 : CALL_METHOD,
+
+# Twopy extension
+# Custom instruction to type-check two operands before a binary operation
+200 : BINARY_TYPE_CHECK,
 }

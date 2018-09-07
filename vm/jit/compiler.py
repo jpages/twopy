@@ -185,7 +185,7 @@ class JITCompiler:
                 # Call the main with a random value
                 str(allocator(42))
 
-    # Compile all instructions to binary code
+    # Compile all instructions of a basic block to binary code
     # mfunction : the simple_interpreter.Function object
     # block : The BasicBlock to compile
     # index : Start the compilation from an index in the block, default 0
@@ -204,6 +204,10 @@ class JITCompiler:
 
         # Offset of the first instruction compiled in the block
         return_offset = 0
+
+        print("Compiling the block " + str(id(block)))
+        for ins in block.instructions:
+            print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -820,6 +824,8 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_STRING):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_TUPLE_UNPACK_WITH_CALL):
+                self.nyi()
+            else:
                 self.nyi()
 
         block.compiled = True

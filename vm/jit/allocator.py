@@ -215,6 +215,7 @@ class GlobalAllocator:
 
         bytes_cs = bytes(self.code_section)
 
+        print("Code section")
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
         for i in md.disasm(bytes_cs, self.code_address, self.code_offset):
             print("\t0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
