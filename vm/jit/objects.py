@@ -96,6 +96,58 @@ class TagHandler:
     def is_float_asm(self, register):
         return None
 
+    # Compile a type-check for two values, will be followed by a binary operation
+    # mfunction : currently compiled function
+    # block : the current block
+    # context : current context
+    def binary_type_check(self, mfunction, block, context):
+        # Try to retrieve information on the context stack
+        print("BINARY TYPE-CHECK in " + str(mfunction))
+        x_register = asm.r13
+        y_register = asm.r14
+
+        if self.jit.interpreter.args.maxvers == 0:
+            # BBV is deactivated
+            context.variable_types[0] = Types.Unknown
+            context.variable_types[1] = Types.Unknown
+        else:
+            # Try to retrieve information on types in the context
+            context.variable_types[0] = context.stack[-1][1]
+            if context.variable_types[0] == Types.Unknown:
+                # Try to see in context.variables_dict
+                if context.stack[-1][0] in context.variable_dict:
+                    context.variable_types[0] = context.variable_dict[context.stack[-1][0]]
+
+            context.variable_types[1] = context.stack[-2][1]
+            if context.variable_types[1] == Types.Unknown:
+                if context.stack[-2][0] in context.variable_dict:
+                    context.variable_types[1] = context.variable_dict[context.stack[-2][0]]
+
+        context.variables_allocation[0] = x_register
+        context.variables_allocation[1] = y_register
+
+        # If we have static information on these types, we will compile a stub to the next block
+        if context.variable_types[0] != Types.Unknown and context.variable_types[1] != Types.Unknown:
+            # Update the stack and directly compile the next block
+
+            # print("Context.stack before " + str(context.stack))
+            # Construct two new tuples to fill the context with up to date information
+            new_tuple0 = (context.stack[-1][0], context.variable_types[0])
+            new_tuple1 = (context.stack[-2][0], context.variable_types[1])
+
+            context.stack[-1] = new_tuple0
+            context.stack[-2] = new_tuple1
+            # print("Context.stack After " + str(context.stack))
+
+            # We should have only one block after
+            assert len(block.next) == 1
+
+            for el in block.next:
+                self.jit.compile_instructions(mfunction, el)
+        else:
+            print("We don't know all types, compile a type-check")
+            self.jit.nyi()
+
     # Handle all binary operations and check types
     # opname : name of the binary operation
     # mfunction : currently compiled function
@@ -164,7 +216,7 @@ class TagHandler:
 
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test
-    # context : the context filled with type informations
+    # context : the context filled with type information
     # opname : name of the operand
     # FIXME: dirty fix, find something better here
     # from_callback : Indicate if this function is called from a callback

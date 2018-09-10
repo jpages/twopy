@@ -266,9 +266,37 @@ class JITCompiler:
                 #TODO: ensure that this operator wasn't redefined
                 self.tags.binary_operation("add", mfunction, block, i+1)
             elif isinstance(instruction, model.BINARY_SUBTRACT):
+                # TODO: get information in the context to compile the correct operation according to types
+                reg0 = asm.r13
+                reg1 = asm.r14
+                instructions = []
+                instructions.append(asm.POP(reg1))
+                instructions.append(asm.POP(reg0))
+                instructions.append(asm.SUB(reg0, reg1))
 
-                #TODO: ensure that this operator wasn't redefined
-                self.tags.binary_operation("sub", mfunction, block, i+1)
+                # We need the size of these instructions when encoded
+                encoded = []
+                for i in instructions:
+                    encoded.append(i.encode())
+                    allocator.encode(i)
+
+                # Get current instruction offset
+                current_offset = stub_handler.lib.get_address(
+                    stub_handler.ffi.from_buffer(self.global_allocator.code_section),
+                    self.global_allocator.code_offset)
+
+                # Adding the length of previous instructions in the list and the size of the JO
+                current_offset += len(encoded) + 14
+
+                # Jump to an error handler if overflow
+                address_error = stub_handler.stubhandler_instance.compile_error_stub(1)
+                diff = address_error - current_offset
+
+                # For now, jump to a stub which will print an error and exit
+                # This need to be replaced with a proper overflow handling and a conversion to bignums
+                allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
+                allocator.encode(asm.PUSH(reg0))
+
             elif isinstance(instruction, model.BINARY_SUBSCR):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_FLOOR_DIVIDE):
@@ -825,6 +853,14 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.BUILD_TUPLE_UNPACK_WITH_CALL):
                 self.nyi()
+            elif isinstance(instruction, model.BINARY_TYPE_CHECK):
+                # A type-check must be performed for two operands of a binary operation
+
+                # If BBV is deactivated
+                if self.interpreter.args.maxvers == 0:
+                    print("BBV deactivated ")
+
+                self.tags.binary_type_check(mfunction, block, context)
             else:
                 self.nyi()
 
