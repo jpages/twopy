@@ -257,13 +257,14 @@ class JITCompiler:
             elif isinstance(instruction, model.BINARY_POWER):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_MULTIPLY):
-
+                self.nyi()
                 self.tags.binary_operation("mul", mfunction, block, i+1)
             elif isinstance(instruction, model.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_ADD):
 
                 #TODO: ensure that this operator wasn't redefined
+                self.nyi()
                 self.tags.binary_operation("add", mfunction, block, i+1)
             elif isinstance(instruction, model.BINARY_SUBTRACT):
                 # TODO: get information in the context to compile the correct operation according to types
@@ -633,6 +634,7 @@ class JITCompiler:
 
             elif isinstance(instruction, model.COMPARE_OP):
 
+                self.nyi()
                 # If this is the first time we seen this instruction, put a type-test here and return
                 if index != block.instructions.index(instruction):
                     self.tags.binary_operation(self.compare_operators[instruction.argument], mfunction, block, i)

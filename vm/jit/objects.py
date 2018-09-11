@@ -146,7 +146,33 @@ class TagHandler:
                 self.jit.compile_instructions(mfunction, el)
         else:
             print("We don't know all types, compile a type-check")
-            self.jit.nyi()
+
+            # Move values into registers and keep them on the stack until the end of the test
+            instructions = []
+            instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
+            instructions.append(asm.MOV(y_register, asm.operand.MemoryOperand(asm.registers.rsp + 8)))
+
+            # Generate a test for the first variable
+            test_instructions = self.is_int_asm(x_register)
+            instructions.extend(test_instructions)
+
+            # Code for true and false branches
+            true_branch = self.is_int_asm(y_register)
+            false_branch = self.is_float_asm(y_register)
+
+            # Indicate which operand has to be tested
+            id_var = 0
+            if context.variable_types[0] != Types.Unknown:
+                id_var = 1
+
+            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, id_var, context)
+
+            next_block = None
+            for el in block.next:
+                next_block = el
+
+            # Indicate to the stub, which block must be compiled after the resolution of the test
+            stub.following_block(next_block)
 
     # Handle all binary operations and check types
     # opname : name of the binary operation
@@ -215,7 +241,7 @@ class TagHandler:
             stub.instructions_after(opname, block, next_index)
 
     # Continue the compilation of the test with a context
-    # This method is called multiple times through the test
+    # This method is called multiple times through the test, return None when the test if finished
     # context : the context filled with type information
     # opname : name of the operand
     # FIXME: dirty fix, find something better here
@@ -234,7 +260,8 @@ class TagHandler:
                 # Convert x to float and add
                 return add_float(int_to_float(x), y)
             elif y_type == Types.Int:
-                return self.compile_operation(context, context.variables_allocation[0], context.variables_allocation[1], opname, from_callback)
+                # The test if finished
+                return None
         elif x_type == Types.Float:
             if if_int(y):
                 return add_float(x, int_to_float(y))

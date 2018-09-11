@@ -763,8 +763,7 @@ class LOAD_ATTR(Instruction):
     pass
 
 
-# Also a binary operation since type-check must be performed here
-class COMPARE_OP(Instruction):
+class COMPARE_OP(BinaryOperation):
     pass
 
 

@@ -712,9 +712,14 @@ class StubType(Stub):
         self.block = block
         self.next_index = next_index
 
+    # Set the following block of this type-check, will be compiled after the execution of current stub
+    def following_block(self, next_block):
+        print("Need to compile " + str(next_block) + " in function " + str(self.mfunction))
+        self.next_block = next_block
+
     # Compile the rest of the block after this type-test
     def compile_instructions_after(self):
-        jitcompiler_instance.compile_instructions(self.mfunction, self.block, self.next_index)
+        jitcompiler_instance.compile_instructions(self.mfunction, self.next_block)
 
     # Called by C when one branch of this test is triggered
     def callback_function(self, return_address, id_variable, type_value):
@@ -748,15 +753,12 @@ class StubType(Stub):
 
         # Patch the previous instruction to jump to this newly compiled code
         # Compile the rest of the test and encode instructions
-        instructions = jitcompiler_instance.tags.compile_test(self.context, self.opname, True)
         if self.context.variable_types[0] != objects.Types.Unknown and self.context.variable_types[1] != objects.Types.Unknown:
-            for i in instructions:
-                self.mfunction.allocator.encode(i)
-            # Then compile the following instructions in the block
             self.compile_instructions_after()
         else:
-            # We have some part of the test to compile
-            self.encode_instructions(instructions)
+            # Compile the rest of the test
+            for i in jitcompiler_instance.tags.compile_test(self.context, self.opname, True):
+                self.mfunction.allocator.encode(i)
 
         self.data_address = stubhandler_instance.data_addresses[return_address]
         self.clean(rsp_address_patched)
