@@ -170,72 +170,6 @@ class TagHandler:
             # Indicate to the stub, which block must be compiled after the resolution of the test
             stub.following_block(next_block)
 
-    # Handle all binary operations and check types
-    # opname : name of the binary operation
-    # mfunction : currently compiled function
-    # block : the current block
-    # next_index of the next instruction to compile, after the type-test
-    def binary_operation(self, opname, mfunction, block, next_index):
-        instructions = []
-
-        x_register = asm.r13
-        y_register = asm.r14
-
-        context = mfunction.allocator.versioning.current_version().get_context_for_block(block)
-
-        if self.jit.interpreter.args.maxvers == 0:
-            # BBV is deactivated
-            context.variable_types[0] = Types.Unknown
-            context.variable_types[1] = Types.Unknown
-        else:
-            # Try to retrieve information on types in the context
-            context.variable_types[0] = context.stack[-1][1]
-
-            if context.variable_types[0] == Types.Unknown:
-                # Try to see in context.variables_dict
-                if context.stack[-1][0] in context.variable_dict:
-                    context.variable_types[0] = context.variable_dict[context.stack[-1][0]]
-
-            context.variable_types[1] = context.stack[-2][1]
-            if context.variable_types[1] == Types.Unknown:
-                if context.stack[-2][0] in context.variable_dict:
-                    context.variable_types[1] = context.variable_dict[context.stack[-2][0]]
-
-        context.variables_allocation[0] = x_register
-        context.variables_allocation[1] = y_register
-
-        # Directly compile the operation
-        if context.variable_types[0] != Types.Unknown and context.variable_types[1] != Types.Unknown:
-            instructions = self.compile_test(context, opname)
-            for i in instructions:
-                mfunction.allocator.encode(i)
-
-            # In this case only, ask for the compilation of the remaining instructions in the block
-            if opname in compiler.JITCompiler.compare_operators:
-                stub_handler.jitcompiler_instance.compile_instructions(mfunction, block, next_index)
-        else:
-            # Move values into registers and keep them on the stack until the end of the test
-            instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))
-            instructions.append(asm.MOV(y_register, asm.operand.MemoryOperand(asm.registers.rsp + 8)))
-
-            # Generate a test for the first variable
-            test_instructions = self.is_int_asm(x_register)
-            instructions.extend(test_instructions)
-
-            # Code for true and false branchs
-            true_branch = self.is_int_asm(y_register)
-            false_branch = self.is_float_asm(y_register)
-
-            # Indicate which operand has to be tested
-            id_var = 0
-            if context.variable_types[0] != Types.Unknown:
-                id_var = 1
-
-            stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, id_var, context)
-
-            # Indicate to the stub, which operation must be performed after the trigger
-            stub.instructions_after(opname, block, next_index)
-
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test, return None when the test if finished
     # context : the context filled with type information
@@ -263,60 +197,6 @@ class TagHandler:
 
         # TODO: General case, call the + function from standard library
         return x.__add__(y)
-
-    # Compile the operation from two registers and an opname
-    def compile_operation(self, context, reg0, reg1, opname, from_callback=False):
-
-        instructions = []
-        # Special case for comparison operators
-        if opname in compiler.JITCompiler.compare_operators:
-            return instructions
-
-        #FIXME: problem here
-        if from_callback:
-            context.decrease_stack_size()
-            context.decrease_stack_size()
-
-        instructions.append(asm.POP(context.variables_allocation[1]))
-        instructions.append(asm.POP(context.variables_allocation[0]))
-        if opname == "add":
-            instructions.append(asm.ADD(reg0, reg1))
-        elif opname == "sub":
-            instructions.append(asm.SUB(reg0, reg1))
-        elif opname == "mul":
-            # Untag the value to not duplicate the tag
-            ins = self.untag_asm(context.variables_allocation[0])
-            instructions.append(ins)
-
-            instructions.append(asm.IMUL(reg0, reg1))
-        else:
-            print("Not yet implemented")
-
-        # Get current instruction offset
-        offset = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.jit.global_allocator.code_section),
-                                              self.jit.global_allocator.code_offset)
-
-        encoded = []
-        for i in instructions:
-            encoded.append(i.encode())
-
-        # Adding the length of previous instructions in the list and the size of the JO
-        offset += len(encoded) + 14
-
-        # Jump to an error handler if overflow
-        address_error = stub_handler.stubhandler_instance.compile_error_stub(1)
-        diff = address_error - offset
-
-        # For now, jump to a stub which will print an error and exit
-        # This need to be replaced with a proper overflow handling and a conversion to bignums
-        instructions.append(asm.JO(asm.operand.RIPRelativeOffset(diff)))
-        instructions.append(asm.PUSH(reg0))
-
-        # FIXME, problem here
-        if from_callback:
-            context.increase_stack_size()
-
-        return instructions
 
 # A runtime class
 class JITClass:

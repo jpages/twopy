@@ -257,8 +257,44 @@ class JITCompiler:
             elif isinstance(instruction, model.BINARY_POWER):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_MULTIPLY):
-                self.nyi()
-                self.tags.binary_operation("mul", mfunction, block, i+1)
+                reg0 = asm.r13
+                reg1 = asm.r14
+                instructions = []
+                instructions.append(asm.POP(reg1))
+                instructions.append(asm.POP(reg0))
+
+                instructions.append(self.tags.untag_asm(reg0))
+                instructions.append(asm.IMUL(reg0, reg1))
+
+                # We need the size of these instructions when encoded
+                encoded = []
+                for i in instructions:
+                    encoded.append(i.encode())
+                    allocator.encode(i)
+
+                # Get current instruction offset
+                current_offset = stub_handler.lib.get_address(
+                    stub_handler.ffi.from_buffer(self.global_allocator.code_section),
+                    self.global_allocator.code_offset)
+
+                # Adding the length of previous instructions in the list and the size of the JO
+                current_offset += len(encoded) + 14
+
+                # Jump to an error handler if overflow
+                address_error = stub_handler.stubhandler_instance.compile_error_stub(1)
+                diff = address_error - current_offset
+
+                # For now, jump to a stub which will print an error and exit
+                # This need to be replaced with a proper overflow handling and a conversion to bignums
+                allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
+                allocator.encode(asm.PUSH(reg0))
+
+                # Update the stack
+                context.pop_value()
+                context.pop_value()
+
+                context.push_value("", objects.Types.Int)
+
             elif isinstance(instruction, model.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_ADD):
