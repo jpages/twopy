@@ -205,9 +205,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        print("Compiling the block " + str(id(block)))
-        for ins in block.instructions:
-            print("\t" + str(ins))
+        # print("Compiling the block " + str(id(block)))
+        # for ins in block.instructions:
+        #     print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -262,10 +262,45 @@ class JITCompiler:
             elif isinstance(instruction, model.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_ADD):
+                # TODO: get information in the context to compile the correct operation according to types
+                reg0 = asm.r13
+                reg1 = asm.r14
+                instructions = []
+                instructions.append(asm.POP(reg1))
+                instructions.append(asm.POP(reg0))
+                instructions.append(asm.ADD(reg0, reg1))
 
-                #TODO: ensure that this operator wasn't redefined
-                self.nyi()
-                self.tags.binary_operation("add", mfunction, block, i+1)
+                # We need the size of these instructions when encoded
+                encoded = []
+                for i in instructions:
+                    encoded.append(i.encode())
+                    allocator.encode(i)
+
+                # Get current instruction offset
+                current_offset = stub_handler.lib.get_address(
+                    stub_handler.ffi.from_buffer(self.global_allocator.code_section),
+                    self.global_allocator.code_offset)
+
+                # Adding the length of previous instructions in the list and the size of the JO
+                current_offset += len(encoded) + 14
+
+                # Jump to an error handler if overflow
+                address_error = stub_handler.stubhandler_instance.compile_error_stub(1)
+                diff = address_error - current_offset
+
+                # For now, jump to a stub which will print an error and exit
+                # This need to be replaced with a proper overflow handling and a conversion to bignums
+                allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
+                allocator.encode(asm.PUSH(reg0))
+
+                # print("Stack before BINARY_ADD " + str(context.stack))
+                # Update the stack
+                context.pop_value()
+                context.pop_value()
+
+                context.push_value("", objects.Types.Int)
+                # print("Stack after BINARY_ADD " + str(context.stack))
+
             elif isinstance(instruction, model.BINARY_SUBTRACT):
                 # TODO: get information in the context to compile the correct operation according to types
                 reg0 = asm.r13
@@ -299,10 +334,10 @@ class JITCompiler:
                 allocator.encode(asm.PUSH(reg0))
 
                 # Update the stack
-                context.stack.pop()
-                context.stack.pop()
+                context.pop_value()
+                context.pop_value()
 
-                context.stack.append(("", objects.Types.Int))
+                context.push_value("", objects.Types.Int)
             elif isinstance(instruction, model.BINARY_SUBSCR):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_FLOOR_DIVIDE):

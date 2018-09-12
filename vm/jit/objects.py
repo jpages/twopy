@@ -130,14 +130,12 @@ class TagHandler:
         if context.variable_types[0] != Types.Unknown and context.variable_types[1] != Types.Unknown:
             # Update the stack and directly compile the next block
 
-            # print("Context.stack before " + str(context.stack))
             # Construct two new tuples to fill the context with up to date information
             new_tuple0 = (context.stack[-1][0], context.variable_types[0])
             new_tuple1 = (context.stack[-2][0], context.variable_types[1])
 
             context.stack[-1] = new_tuple0
             context.stack[-2] = new_tuple1
-            # print("Context.stack After " + str(context.stack))
 
             # We should have only one block after
             assert len(block.next) == 1
