@@ -298,6 +298,11 @@ class JITCompiler:
                 allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
                 allocator.encode(asm.PUSH(reg0))
 
+                # Update the stack
+                context.stack.pop()
+                context.stack.pop()
+
+                context.stack.append(("", objects.Types.Int))
             elif isinstance(instruction, model.BINARY_SUBSCR):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_FLOOR_DIVIDE):
@@ -633,14 +638,7 @@ class JITCompiler:
                     self.nyi()
 
             elif isinstance(instruction, model.COMPARE_OP):
-
-                self.nyi()
-                # If this is the first time we seen this instruction, put a type-test here and return
-                if index != block.instructions.index(instruction):
-                    self.tags.binary_operation(self.compare_operators[instruction.argument], mfunction, block, i)
-                    return return_offset
-                # Otherwise compile the instruction, the test was executed
-
+                # TODO: compile the test according to the context
                 # COMPARE_OP can't be the last instruction of the block
                 next_instruction = block.instructions[i + 1]
 
@@ -687,7 +685,7 @@ class JITCompiler:
                     if len(b.instructions) == 0:
                         continue
 
-                    if b.instructions[0].offset == instruction.argument:
+                    if b.instructions[0].offset == instruction.argument or len(instruction.block.next) == 1:
                         target_block = b
 
                 self.stub_handler.compile_absolute_jump(mfunction, target_block)
@@ -1334,6 +1332,7 @@ class Version:
 
                     # Copy the variable dictionary from previous block
                     context.variable_dict = self.context_map[parent].variable_dict
+                    context.stack.extend(self.context_map[parent].stack)
 
             if context.stack_size < 0:
                 context.stack_size = 0

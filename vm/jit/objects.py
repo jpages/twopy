@@ -145,8 +145,6 @@ class TagHandler:
             for el in block.next:
                 self.jit.compile_instructions(mfunction, el)
         else:
-            print("We don't know all types, compile a type-check")
-
             # Move values into registers and keep them on the stack until the end of the test
             instructions = []
             instructions.append(asm.MOV(x_register, asm.operand.MemoryOperand(asm.registers.rsp)))

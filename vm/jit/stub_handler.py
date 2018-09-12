@@ -260,6 +260,12 @@ def python_callback_bb_stub(rsp):
         # Get the offset of the first instruction compiled in the block
         jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
     else:
+
+        if stub.block is None:
+            print("Stub " + str(stub))
+            print("Stub.block " + str(stub.block))
+            print("Stub.block.function " + str(stub.block.function))
+
         # Get the offset of the first instruction compiled in the block
         first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
@@ -563,6 +569,11 @@ class StubBB(Stub):
     # position : position of this instruction in the code segment (offset of the beginning)
     def __init__(self, block, instruction, position):
 
+        if block is None:
+            print("EROOR")
+            print("Instruction " + str(instruction))
+            quit()
+
         super().__init__()
 
         self.block = block
@@ -714,7 +725,6 @@ class StubType(Stub):
 
     # Set the following block of this type-check, will be compiled after the execution of current stub
     def following_block(self, next_block):
-        print("Need to compile " + str(next_block) + " in function " + str(self.mfunction))
         self.next_block = next_block
 
     # Compile the rest of the block after this type-test
