@@ -102,7 +102,7 @@ class TagHandler:
     # context : current context
     def binary_type_check(self, mfunction, block, context):
         # Try to retrieve information on the context stack
-        print("BINARY TYPE-CHECK in " + str(mfunction))
+        # print("BINARY TYPE-CHECK in " + str(mfunction))
         x_register = asm.r13
         y_register = asm.r14
 
@@ -239,10 +239,7 @@ class TagHandler:
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test, return None when the test if finished
     # context : the context filled with type information
-    # opname : name of the operand
-    # FIXME: dirty fix, find something better here
-    # from_callback : Indicate if this function is called from a callback
-    def compile_test(self, context, opname, from_callback=False):
+    def compile_test(self, context):
 
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]

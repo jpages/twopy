@@ -293,13 +293,11 @@ class JITCompiler:
                 allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
                 allocator.encode(asm.PUSH(reg0))
 
-                # print("Stack before BINARY_ADD " + str(context.stack))
                 # Update the stack
                 context.pop_value()
                 context.pop_value()
 
                 context.push_value("", objects.Types.Int)
-                # print("Stack after BINARY_ADD " + str(context.stack))
 
             elif isinstance(instruction, model.BINARY_SUBTRACT):
                 # TODO: get information in the context to compile the correct operation according to types
@@ -806,10 +804,13 @@ class JITCompiler:
 
                 for y in range(0, instruction.argument + 1):
                     allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
+                    context.pop_value()
 
                 # The return value is in rax, push it back on the stack
                 allocator.encode(asm.PUSH(asm.rax))
 
+                # The return value is unknown
+                context.push_value("return_value", objects.Types.Unknown)
             elif isinstance(instruction, model.MAKE_FUNCTION):
 
                 # The name and the code object

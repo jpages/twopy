@@ -762,13 +762,15 @@ class StubType(Stub):
         self.patch_instruction(jitcompiler_instance.global_allocator.code_offset)
 
         # Patch the previous instruction to jump to this newly compiled code
-        # Compile the rest of the test and encode instructions
         if self.context.variable_types[0] != objects.Types.Unknown and self.context.variable_types[1] != objects.Types.Unknown:
+            # The test is finished
             self.compile_instructions_after()
         else:
             # Compile the rest of the test
-            for i in jitcompiler_instance.tags.compile_test(self.context, self.opname, True):
+            instructions = jitcompiler_instance.tags.compile_test(self.context)
+            for i in instructions:
                 self.mfunction.allocator.encode(i)
+            self.compile_instructions_after()
 
         self.data_address = stubhandler_instance.data_addresses[return_address]
         self.clean(rsp_address_patched)
