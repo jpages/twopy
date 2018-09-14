@@ -193,9 +193,8 @@ class JITCompiler:
 
         allocator = mfunction.allocator
 
-        # TODO: refactorization to delete this, a block must be ended on a type-test
-        # Do not compile an already compiled block, except if index is set
-        if block.compiled and index == 0:
+        # Do not compile an already compiled block
+        if block.compiled:
             return block.first_offset
 
         # Force the creation of a context
@@ -205,9 +204,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        # print("Compiling the block " + str(id(block)))
-        # for ins in block.instructions:
-        #     print("\t" + str(ins))
+        print("Compiling the block " + str(id(block)))
+        for ins in block.instructions:
+            print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -395,6 +394,7 @@ class JITCompiler:
                 # Perform the operation on the stack
                 allocator.encode(asm.ADD(asm.operand.MemoryOperand(asm.registers.rsp), asm.r9))
 
+                context.pop_value()
             elif isinstance(instruction, model.INPLACE_SUBTRACT):
                 self.nyi()
             elif isinstance(instruction, model.INPLACE_MULTIPLY):
@@ -570,8 +570,9 @@ class JITCompiler:
                 # Save some space on the stack, we want to keep the iterator on the stack after the call
                 # Duplicate the iterator, this one will be cleaned by the callee
                 allocator.encode(asm.PUSH(asm.r10))
-                allocator.encode(asm.PUSH(asm.r10))
+                # allocator.encode(asm.PUSH(asm.r10))
 
+                allocator.encode(asm.INT(3))
                 untag_instruction = self.tags.untag_asm(asm.r10)
                 allocator.encode(untag_instruction)
 
@@ -590,6 +591,7 @@ class JITCompiler:
                 # Push the value returned on the stack
                 allocator.encode(asm.PUSH(asm.rax))
 
+                allocator.encode(asm.INT(3))
                 # The next() method returns the boolean False if the iterator is exhausted (represented by 1)
                 allocator.encode(asm.CMP(asm.rax, 1))
 
