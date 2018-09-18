@@ -125,8 +125,8 @@ class GlobalAllocator:
         # Must return an address
         size = len(bytes(value))
 
-        # SIZE    32 bits |      VALUE
-        encoded_size = size.to_bytes(32, "little")
+        # SIZE    64 bits   |      VALUE
+        encoded_size = bytearray(size.to_bytes(32, "little"))
 
         # Save the address of this object
         address = self.get_current_data_address()
@@ -137,6 +137,37 @@ class GlobalAllocator:
         self.data_offset = self.write_data(value, self.data_offset)
 
         return address
+
+    # Allocate a boxed value and return its address with the proper tag
+    # Return the address of the encoded object
+    # tag: if given, add a tag to the object header
+    def allocate_boxed_object(self, value, tag=None):
+
+        if tag is None:
+            tag = 0
+
+        # Must return an address
+        size = len(bytes(value))
+
+        # SIZE    32 bits |  TAG     |      VALUE
+        encoded_size = bytearray(size.to_bytes(4, "little"))
+
+        # Save the address of this object
+        address = self.get_current_data_address()
+        saved_offset = self.data_offset
+
+        # Write the size, then the value
+        self.data_offset = self.write_data(encoded_size, self.data_offset)
+
+        # The tag is encoded on 3 bits, write it on 4 bytes to simplify
+        self.data_offset = self.write_data(tag.to_bytes(4, "little"), self.data_offset)
+
+        self.data_offset = self.write_data(value, self.data_offset)
+
+        # Tag the address and return it
+        tagged_address = self.jitcompiler.tags.tag_object(address)
+
+        return tagged_address
 
     # Compile code to make a new instance of a class.
     # A pointer to this code is returned

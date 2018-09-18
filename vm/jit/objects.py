@@ -7,6 +7,7 @@ import peachpy.x86_64 as asm
 from jit import stub_handler
 from jit import compiler
 
+
 # Define methods to tag and untag objects
 class TagHandler:
 
@@ -15,6 +16,9 @@ class TagHandler:
     # 01    boolean
     # 10    memory objects
     # 11    strings
+
+    # Tags in header
+    # 001   float
     def __init__(self, jit):
         self.jit = jit
         # TODO: define relation between types and their tags

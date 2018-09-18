@@ -5,6 +5,7 @@ This module contains the JIT compiler core
 import sys
 import ctypes
 from types import *
+import struct
 
 # rename for better code visibility
 import peachpy.x86_64 as asm
@@ -14,6 +15,7 @@ from frontend import model
 from . import stub_handler
 from . import objects
 from . import allocator
+
 
 # Handle all operations related to JIT compilation of the code
 class JITCompiler:
@@ -29,9 +31,6 @@ class JITCompiler:
 
         # Dictionary between constant ids and const values
         self.consts = {}
-
-        # Load C library and create wrappers for python
-        self.load_c_library()
 
         # Main CodeObject
         self.maincode = maincode
@@ -204,9 +203,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        print("Compiling the block " + str(id(block)))
-        for ins in block.instructions:
-            print("\t" + str(ins))
+        # print("Compiling the block " + str(id(block)))
+        # for ins in block.instructions:
+        #     print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -1123,31 +1122,6 @@ class JITCompiler:
     def nyi(self):
         raise RuntimeError("NOT YET IMPLEMENTED")
 
-    # Define function for code allocation later
-    def load_c_library(self):
-        osname = sys.platform.lower()
-
-        # For now, just support Unix platforms
-        if osname == "darwin" or osname.startswith("linux"):
-
-            # Get the C library
-            if osname == "darwin":
-                libc = ctypes.cdll.LoadLibrary("libc.dylib")
-            else:
-                libc = ctypes.cdll.LoadLibrary("libc.so.6")
-
-            # void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset)
-            self.mmap_function = libc.mmap
-            self.mmap_function.restype = ctypes.c_void_p
-            self.mmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t,
-                                     ctypes.c_int, ctypes.c_int,
-                                     ctypes.c_int, ctypes.c_size_t]
-
-            # int munmap(void* addr, size_t len)
-            self.munmap_function = libc.munmap
-            self.munmap_function.restype = ctypes.c_int
-            self.munmap_function.argtype = [ctypes.c_void_p, ctypes.c_size_t]
-
 
 # Allocate and handle the compilation of a function
 class Allocator:
@@ -1183,7 +1157,7 @@ class Allocator:
     # Allocate a value and update the environment, this function create an instruction to store the value
     # instruction : The instruction
     # value : the value to allocate
-    # context : current compilation context, has to be filled with the constant informations
+    # context : current compilation context, has to be filled with the constant information
     def allocate_const(self, instruction, value, context):
 
         # Bool are considered integers in python, we need to check this first
@@ -1199,8 +1173,15 @@ class Allocator:
 
             context.push_value(value, objects.Types.Int)
         elif isinstance(value, float):
-            # TODO: Encode a float
-            self.nyi()
+            encoded_value = struct.pack("d", value)
+
+            # TODO: do not hardcode values of tags
+            tagged_address = self.jitcompiler.global_allocator.allocate_boxed_object(encoded_value, 1)
+
+            self.encode(asm.MOV(asm.r10, tagged_address))
+            self.encode(asm.PUSH(asm.r10))
+
+            context.push_value(objects.Types.Float)
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.argument]

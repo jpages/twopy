@@ -189,7 +189,7 @@ c_code = """
             int size = ((uint32_t*)untag_address)[0];
 
             // Create the pointer on the value
-            char* chars_array = ((char*)untag_address + 32);
+            char* chars_array = ((char*)untag_address + 64);
 
             // Print characters one by one, the UTF-8 encoding will be automatically displayed
             for(int i=0; i<size; i++)
@@ -200,25 +200,38 @@ c_code = """
         
         uint64_t twopy_library_print_object(uint64_t value)
         {
-            uint64_t untag_address = value >> 2;
+            uint64_t untag_address = value >> 2;            
             
-            // Get the class address in the object after the header
-            uint64_t* class_address = ((uint64_t*)untag_address)+1;
-            
-            uint64_t class_structure = *(class_address);
-            
-            // Get the strings containing the file and class name
-            uint64_t file_name = *(((uint64_t*)class_structure)+2); 
-            uint64_t class_name = *(((uint64_t*)class_structure)+3);            
-            
-            printf("<");           
-            twopy_library_print_string(file_name);
-            printf(".");
-            twopy_library_print_string(class_name);
+            // Read the size, then the tag
+            int tag = ((int*)untag_address)[1];
 
-            // then print the address
-            printf(" object at 0x%lx>\\n", untag_address);
-            
+            if((tag & 1) == 1)
+            {
+                // Get the double value encoded with IEEE-754 on 64 bits
+                double double_value = ((double*)untag_address)[1];
+        
+                // Print the double value
+                printf("%f\\n", double_value);
+            }
+            else
+            {
+                // Get the class address in the object after the header
+                uint64_t* class_address = ((uint64_t*)untag_address)+1;
+                
+                uint64_t class_structure = *(class_address);
+                
+                // Get the strings containing the file and class name
+                uint64_t file_name = *(((uint64_t*)class_structure)+2); 
+                uint64_t class_name = *(((uint64_t*)class_structure)+3);            
+                
+                printf("<");           
+                twopy_library_print_string(file_name);
+                printf(".");
+                twopy_library_print_string(class_name);
+    
+                // then print the address
+                printf(" object at 0x%lx>\\n", untag_address);
+            }
             return value;
         }
 
