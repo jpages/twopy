@@ -126,7 +126,7 @@ class GlobalAllocator:
         size = len(bytes(value))
 
         # SIZE    64 bits   |      VALUE
-        encoded_size = bytearray(size.to_bytes(32, "little"))
+        encoded_size = bytearray(size.to_bytes(8, "little"))
 
         # Save the address of this object
         address = self.get_current_data_address()
@@ -154,7 +154,6 @@ class GlobalAllocator:
 
         # Save the address of this object
         address = self.get_current_data_address()
-        saved_offset = self.data_offset
 
         # Write the size, then the value
         self.data_offset = self.write_data(encoded_size, self.data_offset)

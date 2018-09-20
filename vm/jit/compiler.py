@@ -1175,8 +1175,9 @@ class Allocator:
         elif isinstance(value, float):
             encoded_value = struct.pack("d", value)
 
-            # TODO: do not hardcode values of tags
-            tagged_address = self.jitcompiler.global_allocator.allocate_boxed_object(encoded_value, 1)
+            # Allocate the box and tag the address
+            address = self.jitcompiler.global_allocator.allocate_object(encoded_value)
+            tagged_address = self.jitcompiler.tags.tag_float(address)
 
             self.encode(asm.MOV(asm.r10, tagged_address))
             self.encode(asm.PUSH(asm.r10))

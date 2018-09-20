@@ -49,6 +49,12 @@ class TagHandler:
 
         return tag_value
 
+    def tag_float(self, value):
+        tag_value = value << 3
+        tag_value = tag_value | Tags.Float
+
+        return tag_value
+
     def tag_object_asm(self, register):
         instructions = [asm.SHL(register, 3), asm.OR(register, Tags.MemoryObject)]
 
@@ -89,6 +95,10 @@ class TagHandler:
 
         instructions = list()
         instructions.append(asm.MOV(asm.r12, register))
+
+        instructions.append(asm.AND(asm.r12, Tags.Float))
+
+        instructions.append(asm.CMP(asm.r12, Tags.Float))
 
         return instructions
 
