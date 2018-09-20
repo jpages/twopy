@@ -569,11 +569,6 @@ class StubBB(Stub):
     # position : position of this instruction in the code segment (offset of the beginning)
     def __init__(self, block, instruction, position):
 
-        if block is None:
-            print("EROOR")
-            print("Instruction " + str(instruction))
-            quit()
-
         super().__init__()
 
         self.block = block
@@ -668,9 +663,14 @@ class StubType(Stub):
         self.dict_stubs_position[return_address] = old_position
 
         #TODO: Jump to false branch
-        #false_address = self.encode_stub_test(self.false_branch, "false_branch")
-        #self.mfunction.encode(asm.MOV(asm.r10, false_address))
-        #self.mfunction.allocator.encode(asm.JMP(asm.r10))
+        self.mfunction.allocator.encode(asm.INT(3))
+
+        for ins in self.false_branch:
+            self.mfunction.allocator.encode(ins)
+
+        false_address = self.encode_stub_test(self.false_branch, "false_branch", objects.Types.Float)
+        self.mfunction.allocator.encode(asm.MOV(asm.r10, false_address))
+        self.mfunction.allocator.encode(asm.JMP(asm.r10))
 
     # Encode a stub to continue the test
     def encode_stub_test(self, branch, label, type_value):

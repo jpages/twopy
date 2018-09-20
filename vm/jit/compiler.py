@@ -266,9 +266,9 @@ class JITCompiler:
 
                 # We need the size of these instructions when encoded
                 encoded = []
-                for i in instructions:
-                    encoded.append(i.encode())
-                    allocator.encode(i)
+                for ins in instructions:
+                    encoded.append(ins.encode())
+                    allocator.encode(ins)
 
                 # Get current instruction offset
                 current_offset = stub_handler.lib.get_address(
@@ -531,7 +531,7 @@ class JITCompiler:
 
                     # Now store the value inside the class at the appropriate position
                     # First, remove the tag and get the address of the class
-                    allocator.encode(asm.SHR(register, 2))
+                    allocator.encode(asm.SHR(register, 3))
 
                     # Store TOS in r10
                     allocator.encode(asm.POP(asm.r10))
@@ -959,7 +959,7 @@ class JITCompiler:
             # Offset of the instruction's argument + r9 value
             memory_address = asm.r9 + (64 * instruction.argument)
             allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(memory_address)))
-            allocator.encode(asm.SHR(asm.r10, 2))
+            allocator.encode(asm.SHR(asm.r10, 3))
 
             # Get the second field in the structure
             allocator.encode(asm.ADD(asm.r10, 8))

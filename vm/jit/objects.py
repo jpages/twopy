@@ -11,70 +11,58 @@ from jit import compiler
 # Define methods to tag and untag objects
 class TagHandler:
 
-    # TAGS :
-    # 00    int
-    # 01    boolean
-    # 10    memory objects
-    # 11    strings
-
-    # Tags in header
-    # 001   float
     def __init__(self, jit):
         self.jit = jit
         # TODO: define relation between types and their tags
 
     # Tag an integer
     def tag_integer(self, value):
-        return value << 2
+        return value << 3
 
     # Untag an integer
     def untag_integer(self, value):
-        return value >> 2
+        return value >> 3
 
     # 101 -> True
     # 001 -> False
     def tag_bool(self, value):
-        tag_value = value << 2
-        tag_value = tag_value | 1
+        tag_value = value << 3
+        tag_value = tag_value | Tags.Bool
 
         return tag_value
 
     def untag_bool(self, value):
-        untag_value = value >> 2
+        untag_value = value >> 3
         untag_value = untag_value & 0
 
         return untag_value
 
     def tag_object(self, value):
-        tag_value = value << 2
-        tag_value = tag_value | 2
+        tag_value = value << 3
+        tag_value = tag_value | Tags.MemoryObject
 
         return tag_value
 
     def tag_string(self, value):
-        tag_value = value << 2
-        tag_value = tag_value | 3
+        tag_value = value << 3
+        tag_value = tag_value | Tags.String
 
         return tag_value
 
     def tag_object_asm(self, register):
-        instructions = [asm.SHL(register, 2), asm.OR(register, 2)]
+        instructions = [asm.SHL(register, 3), asm.OR(register, Tags.MemoryObject)]
 
         return instructions
 
-    #TODO: untag_function for objects
-
     # Untag a value in the given register
     def untag_asm(self, register):
-        return asm.SHR(register, 2)
+        return asm.SHR(register, 3)
 
     # Test if the value inside register is an int
     # Return the test sequence as PeachPy instructions in a list
     def is_int_asm(self, register):
         # 7FFF FFFF FFFF FFFF max value for a 64 bits signed integer
         instructions = []
-
-        # FFFF FFFF FFFF FFFC = max value with the tag applied
 
         # Collect stats if needed
         if self.jit.interpreter.args.stats:
@@ -84,7 +72,7 @@ class TagHandler:
         # Copy the value inside a new register
         instructions.append(asm.MOV(asm.r12, register))
 
-        test_value = 0b11
+        test_value = 0b111
 
         # Now compare
         instructions.append(asm.AND(asm.r12, test_value))
@@ -98,7 +86,11 @@ class TagHandler:
     # Test if the value inside register is a float
     # Return the test sequence as PeachPy instructions in a list
     def is_float_asm(self, register):
-        return None
+
+        instructions = list()
+        instructions.append(asm.MOV(asm.r12, register))
+
+        return instructions
 
     # Compile a type-check for two values, will be followed by a binary operation
     # mfunction : currently compiled function
@@ -107,6 +99,7 @@ class TagHandler:
     def binary_type_check(self, mfunction, block, context):
         # Try to retrieve information on the context stack
         # print("BINARY TYPE-CHECK in " + str(mfunction))
+        # print(context.stack)
         x_register = asm.r13
         y_register = asm.r14
 
@@ -158,7 +151,7 @@ class TagHandler:
 
             # Code for true and false branches
             true_branch = self.is_int_asm(y_register)
-            false_branch = self.is_float_asm(y_register)
+            false_branch = self.is_float_asm(x_register)
 
             # Indicate which operand has to be tested
             id_var = 0
@@ -182,25 +175,26 @@ class TagHandler:
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
 
-        # Test if we have some informations on types
+        # Test if we have some information on types
         if x_type == Types.Int:
             if y_type == Types.Unknown:
                 # Save registers for the whole test
                 return self.is_int_asm(context.variables_allocation[1])
             elif y_type == Types.Float:
                 # Convert x to float and add
-                return add_float(int_to_float(x), y)
+                return None
             elif y_type == Types.Int:
                 # The test if finished
                 return None
         elif x_type == Types.Float:
-            if if_int(y):
-                return add_float(x, int_to_float(y))
-            elif is_float(y):
-                return add_float(x, y)
+            if y_type == Types.Unknown:
+                return self.is_int_asm(context.variables_allocation[1])
+            elif y_type == Types.Float:
+                return None
 
-        # TODO: General case, call the + function from standard library
-        return x.__add__(y)
+        # In the general case, the test is ended
+        return None
+
 
 # A runtime class
 class JITClass:
@@ -249,3 +243,17 @@ class Types(IntEnum):
     Float = 2
     Bool = 3
     String = 4
+
+
+# TAGS :
+# 000    int
+# 010    boolean
+# 100    memory objects
+# 101    float
+# 110    strings
+class Tags(IntEnum):
+    Int = 0b000
+    Bool = 0b010
+    MemoryObject = 0b100
+    Float = 0b101
+    String = 0b110

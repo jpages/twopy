@@ -163,7 +163,7 @@ c_code = """
         int twopy_library_print_integer(long int value)
         {
             // Remove the integer tag for the print
-            printf("%ld\\n", value/4);
+            printf("%ld\\n", value>>3);
 
             return value;
         }
@@ -172,7 +172,7 @@ c_code = """
         int twopy_library_print_boolean(int value)
         {
             // Remove the tag for the print
-            if(value == 1)
+            if(value == 2)
                 printf("False\\n");
             else
                 printf("True\\n");    
@@ -183,7 +183,7 @@ c_code = """
         uint64_t twopy_library_print_string(uint64_t value)
         {
             // Remove the tag to get the address of the object
-            uint64_t untag_address = value >> 2;
+            uint64_t untag_address = value >> 3;
 
             // Get the size in the header
             int size = ((uint32_t*)untag_address)[0];
@@ -200,7 +200,7 @@ c_code = """
         
         uint64_t twopy_library_print_object(uint64_t value)
         {
-            uint64_t untag_address = value >> 2;            
+            uint64_t untag_address = value >> 3;            
             
             // Read the size, then the tag
             int tag = ((int*)untag_address)[1];
@@ -238,15 +238,15 @@ c_code = """
         long int twopy_print(long int value)
         {
             // Test the tag of the object
-            int tag = (int)value & 3;
+            int tag = (int)value & 7;
 
-            if(tag == 1)
+            if(tag == 3)
                 return twopy_library_print_boolean(value);
             else if(tag == 0)
                 return twopy_library_print_integer(value);
-            else if(tag == 2)
+            else if(tag == 4)
                 return twopy_library_print_object(value);
-            else if(tag == 3)
+            else if(tag == 6)
             {
                 uint64_t res = twopy_library_print_string(value);
                 // Print a newline as requested by python
