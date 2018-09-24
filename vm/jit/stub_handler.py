@@ -662,15 +662,24 @@ class StubType(Stub):
         self.dict_stubs[return_address] = instruction
         self.dict_stubs_position[return_address] = old_position
 
-        #TODO: Jump to false branch
+        #TODO: False branch of the test
         self.mfunction.allocator.encode(asm.INT(3))
 
         for ins in self.false_branch:
             self.mfunction.allocator.encode(ins)
 
-        false_address = self.encode_stub_test(self.false_branch, "false_branch", objects.Types.Float)
-        self.mfunction.allocator.encode(asm.MOV(asm.r10, false_address))
-        self.mfunction.allocator.encode(asm.JMP(asm.r10))
+        old_stub_offset = jitcompiler_instance.global_allocator.stub_offset
+
+        return_address = self.encode_stub_test(self.false_branch, "false_branch", objects.Types.Float)
+        false_offset = old_stub_offset - jitcompiler_instance.global_allocator.code_offset - 6
+        old_position = jitcompiler_instance.global_allocator.code_offset
+        instruction = asm.JE(asm.operand.RIPRelativeOffset(false_offset))
+
+        self.mfunction.allocator.encode(instruction)
+        self.dict_stubs[return_address] = instruction
+        self.dict_stubs_position[return_address] = old_position
+
+        #TODO: false branch, default case
 
     # Encode a stub to continue the test
     def encode_stub_test(self, branch, label, type_value):
