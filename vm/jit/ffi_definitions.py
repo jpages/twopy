@@ -61,6 +61,9 @@ ffi.cdef("""
         
         // twopy print, default print method for an object
         uint64_t twopy_library_print_object(uint64_t);
+        
+        // twopy print, default print method for a float
+        uint64_t twopy_library_print_float(uint64_t);
 
         // Print an error and exit
         void twopy_error(int);
@@ -202,36 +205,39 @@ c_code = """
         {
             uint64_t untag_address = value >> 3;            
             
-            // Read the size, then the tag
-            int tag = ((int*)untag_address)[1];
+            // Get the class address in the object after the header
+            uint64_t* class_address = ((uint64_t*)untag_address)+1;
+            
+            uint64_t class_structure = *(class_address);
+            
+            // Get the strings containing the file and class name
+            uint64_t file_name = *(((uint64_t*)class_structure)+2); 
+            uint64_t class_name = *(((uint64_t*)class_structure)+3);            
+            
+            printf("<");           
+            twopy_library_print_string(file_name);
+            printf(".");
+            twopy_library_print_string(class_name);
 
-            if((tag & 1) == 1)
-            {
-                // Get the double value encoded with IEEE-754 on 64 bits
-                double double_value = ((double*)untag_address)[1];
-        
-                // Print the double value
-                printf("%f\\n", double_value);
-            }
-            else
-            {
-                // Get the class address in the object after the header
-                uint64_t* class_address = ((uint64_t*)untag_address)+1;
-                
-                uint64_t class_structure = *(class_address);
-                
-                // Get the strings containing the file and class name
-                uint64_t file_name = *(((uint64_t*)class_structure)+2); 
-                uint64_t class_name = *(((uint64_t*)class_structure)+3);            
-                
-                printf("<");           
-                twopy_library_print_string(file_name);
-                printf(".");
-                twopy_library_print_string(class_name);
-    
-                // then print the address
-                printf(" object at 0x%lx>\\n", untag_address);
-            }
+            // then print the address
+            printf(" object at 0x%lx>\\n", untag_address);
+            return value;
+        }
+
+        // twopy print, default print method for a float
+        uint64_t twopy_library_print_float(uint64_t value)
+        {
+            uint64_t untag_address = value >> 3;            
+
+            // Read the size, then the tag
+            // int tag = ((int*)untag_address)[1];
+
+            // Get the double value encoded with IEEE-754 on 64 bits
+            double double_value = ((double*)untag_address)[1];
+
+            // Print the double value
+            printf("%f\\n", double_value);
+
             return value;
         }
 
@@ -240,12 +246,14 @@ c_code = """
             // Test the tag of the object
             int tag = (int)value & 7;
 
-            if(tag == 3)
+            if(tag == 2)
                 return twopy_library_print_boolean(value);
             else if(tag == 0)
                 return twopy_library_print_integer(value);
             else if(tag == 4)
                 return twopy_library_print_object(value);
+            else if(tag == 5)
+                return twopy_library_print_float(value);
             else if(tag == 6)
             {
                 uint64_t res = twopy_library_print_string(value);

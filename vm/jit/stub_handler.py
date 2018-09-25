@@ -663,7 +663,6 @@ class StubType(Stub):
         self.dict_stubs_position[return_address] = old_position
 
         #TODO: False branch of the test
-        self.mfunction.allocator.encode(asm.INT(3))
 
         for ins in self.false_branch:
             self.mfunction.allocator.encode(ins)
