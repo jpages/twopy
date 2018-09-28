@@ -296,19 +296,62 @@ class JITCompiler:
             elif isinstance(instruction, model.BINARY_MODULO):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_ADD):
-                # TODO: get information in the context to compile the correct operation according to types
-                reg0 = asm.r13
-                reg1 = asm.r14
+
+                # Get the two elements, we should know their types by now
+                first_element = context.pop_value()
+                second_element = context.pop_value()
+
+                first_type = first_element[1]
+                second_type = second_element[1]
+
+                # Registers to perform the operation
+                reg0 = None
+                reg1 = None
+
+                # Instructions in tests
                 instructions = []
-                instructions.append(asm.POP(reg1))
-                instructions.append(asm.POP(reg0))
-                instructions.append(asm.ADD(reg0, reg1))
+
+                # Encoded version to compute the size for the overflow test
+                encoded = []
+
+                # We need to unbox values
+                if first_type == objects.Types.Float and second_type == objects.Types.Float:
+                    reg0 = asm.r13
+                    reg1 = asm.r14
+
+                    # Get the two boxed values and unbox them
+                    instructions.append(asm.POP(reg0))
+                    instructions.append(self.tags.untag_asm(asm.r13))
+
+                    instructions.append(asm.POP(reg1))
+                    instructions.append(self.tags.untag_asm(asm.r14))
+
+                    # Move into XMM registers the unboxed values
+                    instructions.append(asm.MOVQ(asm.xmm0, asm.operand.MemoryOperand(reg0+8)))
+                    instructions.append(asm.MOVQ(asm.xmm1, asm.operand.MemoryOperand(reg1+8)))
+
+                    # Make the addition and move the result to one of the operand
+                    instructions.append(asm.ADDSD(asm.xmm0, asm.xmm1))
+                    instructions.append(asm.MOVQ(asm.operand.MemoryOperand(reg0+8), asm.xmm0))
+
+                    instructions.extend(self.tags.tag_float_asm(reg0))
+
+                    context.push_value("", objects.Types.Float)
+                else:
+                    # Integers
+                    reg0 = asm.r13
+                    reg1 = asm.r14
+
+                    instructions.append(asm.POP(reg1))
+                    instructions.append(asm.POP(reg0))
+                    instructions.append(asm.ADD(reg0, reg1))
+
+                    context.push_value("", objects.Types.Int)
 
                 # We need the size of these instructions when encoded
-                encoded = []
-                for i in instructions:
-                    encoded.append(i.encode())
-                    allocator.encode(i)
+                for ins in instructions:
+                    encoded.append(ins.encode())
+                    allocator.encode(ins)
 
                 # Get current instruction offset
                 current_offset = stub_handler.lib.get_address(
@@ -326,13 +369,6 @@ class JITCompiler:
                 # This need to be replaced with a proper overflow handling and a conversion to bignums
                 allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
                 allocator.encode(asm.PUSH(reg0))
-
-                # Update the stack
-                context.pop_value()
-                context.pop_value()
-
-                context.push_value("", objects.Types.Int)
-
             elif isinstance(instruction, model.BINARY_SUBTRACT):
                 # TODO: get information in the context to compile the correct operation according to types
                 reg0 = asm.r13
@@ -1182,7 +1218,7 @@ class Allocator:
             self.encode(asm.MOV(asm.r10, tagged_address))
             self.encode(asm.PUSH(asm.r10))
 
-            context.push_value(objects.Types.Float)
+            context.push_value(value, objects.Types.Float)
         else:
             # For now assume it's consts
             const_object = self.function.consts[instruction.argument]
@@ -1481,7 +1517,7 @@ class Context:
 
     # Pop a value from the virtual stack
     def pop_value(self):
-        self.stack.pop()
+        return self.stack.pop()
 
     # Set a value for a tuple in the virtual stack
     # Try to find duplicate in the stack and set them too

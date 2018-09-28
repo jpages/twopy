@@ -639,8 +639,8 @@ class StubType(Stub):
         self.context = context
         self.encode_instructions(instructions)
 
-        self.first_variable = context.stack[len(context.stack)-1]
-        self.second_variable = context.stack[len(context.stack)-2]
+        self.first_variable = context.stack[-1]
+        self.second_variable = context.stack[-2]
 
     def encode_instructions(self, instructions):
 
@@ -755,7 +755,7 @@ class StubType(Stub):
                 self.variable = 1
             else:
                 self.variable = 0
-                self.context.set_value(self.second_variable, type_value)
+                self.context.set_value(self.second_variable,type_value)
 
         # Else continue to test the current one
 

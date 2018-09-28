@@ -55,6 +55,11 @@ class TagHandler:
 
         return tag_value
 
+    def tag_float_asm(self, register):
+        instructions = [asm.SHL(register, 3), asm.OR(register, Tags.Float)]
+
+        return instructions
+
     def tag_object_asm(self, register):
         instructions = [asm.SHL(register, 3), asm.OR(register, Tags.MemoryObject)]
 
