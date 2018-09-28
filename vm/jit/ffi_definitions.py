@@ -189,10 +189,10 @@ c_code = """
             uint64_t untag_address = value >> 3;
 
             // Get the size in the header
-            int size = ((uint32_t*)untag_address)[0];
+            int size = ((uint64_t*)untag_address)[0];
 
             // Create the pointer on the value
-            char* chars_array = ((char*)untag_address + 64);
+            char* chars_array = ((char*)untag_address + 8);
 
             // Print characters one by one, the UTF-8 encoding will be automatically displayed
             for(int i=0; i<size; i++)

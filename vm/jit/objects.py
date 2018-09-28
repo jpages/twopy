@@ -113,8 +113,6 @@ class TagHandler:
     # context : current context
     def binary_type_check(self, mfunction, block, context):
         # Try to retrieve information on the context stack
-        # print("BINARY TYPE-CHECK in " + str(mfunction))
-        # print(context.stack)
         x_register = asm.r13
         y_register = asm.r14
 
