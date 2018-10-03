@@ -75,7 +75,7 @@ class GlobalAllocator:
         if self.data_size > 0:
 
             data_address = stub_handler.lib.allocate_data_section(self.data_size)
-            self.data_address = int(stub_handler.ffi.cast("uint64_t", code_address))
+            self.data_address = int(stub_handler.ffi.cast("uint64_t", data_address))
 
             if data_address == -1:
                 raise OSError("Failed to allocate memory for data segment")

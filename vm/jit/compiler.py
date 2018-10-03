@@ -1170,7 +1170,7 @@ class Allocator:
         self.code_address = jitcompiler.global_allocator.get_current_address()
 
         # Future data address
-        self.data_address = jitcompiler.global_allocator.get_current_address()
+        self.data_address = jitcompiler.global_allocator.get_current_data_address()
 
         # If any, the size reserved for the prolog
         self.prolog_size = 0

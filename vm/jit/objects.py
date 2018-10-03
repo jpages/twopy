@@ -13,7 +13,6 @@ class TagHandler:
 
     def __init__(self, jit):
         self.jit = jit
-        # TODO: define relation between types and their tags
 
     # Tag an integer
     def tag_integer(self, value):

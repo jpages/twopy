@@ -260,12 +260,6 @@ def python_callback_bb_stub(rsp):
         # Get the offset of the first instruction compiled in the block
         jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
     else:
-
-        if stub.block is None:
-            print("Stub " + str(stub))
-            print("Stub.block " + str(stub.block))
-            print("Stub.block.function " + str(stub.block.function))
-
         # Get the offset of the first instruction compiled in the block
         first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
@@ -755,7 +749,7 @@ class StubType(Stub):
                 self.variable = 1
             else:
                 self.variable = 0
-                self.context.set_value(self.second_variable,type_value)
+                self.context.set_value(self.second_variable, type_value)
 
         # Else continue to test the current one
 
