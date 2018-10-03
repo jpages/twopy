@@ -182,7 +182,9 @@ class TagHandler:
     # Continue the compilation of the test with a context
     # This method is called multiple times through the test, return None when the test if finished
     # context : the context filled with type information
-    def compile_test(self, context):
+    # mfunction : currently compiled function
+    # old_stub : The stub which called this function
+    def compile_test(self, context, mfunction, old_stub):
 
         x_type = context.variable_types[0]
         y_type = context.variable_types[1]
@@ -191,21 +193,37 @@ class TagHandler:
         if x_type == Types.Int:
             if y_type == Types.Unknown:
                 # Save registers for the whole test
-                return self.is_int_asm(context.variables_allocation[1])
+                for ins in self.is_int_asm(context.variables_allocation[1]):
+                    mfunction.allocator.encode(ins)
             elif y_type == Types.Float:
                 # Convert x to float and add
-                return None
+                pass
             elif y_type == Types.Int:
                 # The test if finished
-                return None
+                pass
         elif x_type == Types.Float:
             if y_type == Types.Unknown:
-                return self.is_int_asm(context.variables_allocation[1])
-            elif y_type == Types.Float:
-                return None
+                instructions = list()
 
-        # In the general case, the test is ended
-        return None
+                # Generate a test for the y variable
+                test_instructions = self.is_int_asm(context.variables_allocation[1])
+                instructions.extend(test_instructions)
+
+                # Code for true and false branches
+                true_branch = self.is_int_asm(context.variables_allocation[1])
+                false_branch = self.is_float_asm(context.variables_allocation[1])
+
+                stub = stub_handler.StubType(mfunction, instructions, true_branch, false_branch, 1, context)
+
+                # Indicate to the stub, which block must be compiled after the resolution of the test
+                stub.following_block(old_stub.next_block)
+                return
+            elif y_type == Types.Float:
+                # Nothing to do here
+                pass
+
+        # In the general case, the test is ended, compile instructions after
+        old_stub.compile_instructions_after()
 
 
 # A runtime class
@@ -215,7 +233,6 @@ class JITClass:
         self.name = name
         self.superclasses = superclasses
         self.metaclass = metaclass
-
 
         # The vtable will contain all properties (class static variables and methods) of the class
         # | method0 | method1 | attr2 | method3 |

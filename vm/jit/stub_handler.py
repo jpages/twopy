@@ -671,7 +671,6 @@ class StubType(Stub):
         self.mfunction.allocator.encode(instruction)
         self.dict_stubs[return_address] = instruction
         self.dict_stubs_position[return_address] = old_position
-
         #TODO: false branch, default case
 
     # Encode a stub to continue the test
@@ -769,10 +768,7 @@ class StubType(Stub):
             self.compile_instructions_after()
         else:
             # Compile the rest of the test
-            instructions = jitcompiler_instance.tags.compile_test(self.context)
-            for i in instructions:
-                self.mfunction.allocator.encode(i)
-            self.compile_instructions_after()
+            jitcompiler_instance.tags.compile_test(self.context, self.mfunction, self)
 
         self.data_address = stubhandler_instance.data_addresses[return_address]
         self.clean(rsp_address_patched)
