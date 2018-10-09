@@ -1047,7 +1047,13 @@ class JITCompiler:
     # next_instruction : The following instruction
     # context : current context
     def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction, context):
-        self.compile_cmp_beginning(mfunction, instruction, context)
+        self.compile_cmp_beginning(mfunction, context)
+
+        operand0 = context.pop_value()
+        operand1 = context.pop_value()
+
+        type0 = operand0[1]
+        type1 = operand1[1]
 
         # The stubs must be compiled before the jumps
         # Get the two following blocks
@@ -1063,28 +1069,52 @@ class JITCompiler:
                 # Continue the execution in the second block
                 jump_block = block
 
-        # first < second
-        if instruction.argument == 0:
-            # Compile stubs for each branch
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
-        # first <= second
-        elif instruction.argument == 1:
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JLE)
-        # first == second
-        elif instruction.argument == 2:
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
-        # first != second
-        elif instruction.argument == 3:
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
-        # first > second
-        elif instruction.argument == 4:
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
-        # first >= second
-        elif instruction.argument == 5:
-            self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JGE)
+        # one operand is a float, perform a test for floating point values
+        if type0 == objects.Types.Float or type1 == objects.Types.Float:
+            if instruction.argument == 0:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JB)
+            # first <= second
+            elif instruction.argument == 1:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JBE)
+            # first == second
+            elif instruction.argument == 2:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
+            # first != second
+            elif instruction.argument == 3:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
+            # first > second
+            elif instruction.argument == 4:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JA)
+            # first >= second
+            elif instruction.argument == 5:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JAE)
+            else:
+                print("Instruction argument " + str(instruction.argument))
+                self.nyi()
         else:
-            print("Instruction argument " + str(instruction.argument))
-            self.nyi()
+            # Integer operands
+            # first < second
+            if instruction.argument == 0:
+                # Compile stubs for each branch
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JL)
+            # first <= second
+            elif instruction.argument == 1:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JLE)
+            # first == second
+            elif instruction.argument == 2:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JE)
+            # first != second
+            elif instruction.argument == 3:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JNE)
+            # first > second
+            elif instruction.argument == 4:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
+            # first >= second
+            elif instruction.argument == 5:
+                self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JGE)
+            else:
+                print("Instruction argument " + str(instruction.argument))
+                self.nyi()
 
     #TODO: too much code duplication with the previous function
     # Functions used to compile a comparison then a jump after (a if)
@@ -1093,7 +1123,13 @@ class JITCompiler:
     # next_instruction : The following instruction
     # context : current context
     def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction, context):
-        self.compile_cmp_beginning(mfunction, instruction, context)
+        self.compile_cmp_beginning(mfunction, context)
+
+        operand0 = context.pop_value()
+        operand1 = context.pop_value()
+
+        type0 = operand0[1]
+        type1 = operand1[1]
 
         # The stubs must be compiled before the jumps
         # Get the two following blocks
@@ -1133,12 +1169,11 @@ class JITCompiler:
 
     # Compile the beginning of a COMPARE_OP, pop operands and perform a test in assembly
     # mfunction: currently compiled function
-    # instruction : currently compiled instruction to have its argument
     # context : typing context for this version
-    def compile_cmp_beginning(self, mfunction, instruction, context):
+    def compile_cmp_beginning(self, mfunction, context):
 
-        operand0 = context.pop_value()
-        operand1 = context.pop_value()
+        operand0 = context.stack[-1]
+        operand1 = context.stack[-2]
 
         type0 = operand0[1]
         type1 = operand1[1]

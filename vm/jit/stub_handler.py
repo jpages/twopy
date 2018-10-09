@@ -367,33 +367,6 @@ class Stub:
                 # Create the new encoded instruction and replace the old one in the code section
                 encoded = new_instruction.encode()
                 jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
-        elif isinstance(self.instruction, asm.JGE):
-            new_operand = first_offset - self.position - len(self.instruction.encode())
-
-            # Update to the new position
-            new_instruction = asm.JGE(asm.operand.RIPRelativeOffset(new_operand))
-            encoded = new_instruction.encode()
-
-            # If the previous instruction was a 32 bits offset, force it to the new one
-            if len(encoded) != 6 and len(self.instruction.encode()) > 2:
-                encoded = bytearray(6)
-
-                # Force the 32 encoding of the JGE
-                encoded[0] = 0x0F
-                encoded[1] = 0x8D
-                encoded[2] = 0
-                encoded[3] = 0
-                encoded[4] = 0
-                encoded[5] = 0
-
-                # Keep the same value for the jump
-                size = custom_ceil(new_operand / 255)
-                bytes = new_operand.to_bytes(size, 'little')
-
-                for i in range(0, len(bytes)):
-                    encoded[i+2] = bytes[i]
-
-            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JG):
 
             new_operand = first_offset - self.position - len(self.instruction.encode())
@@ -414,6 +387,33 @@ class Stub:
                 encoded[4] = 0
                 encoded[5] = 0
 
+                size = custom_ceil(new_operand / 255)
+                bytes = new_operand.to_bytes(size, 'little')
+
+                for i in range(0, len(bytes)):
+                    encoded[i+2] = bytes[i]
+
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
+        elif isinstance(self.instruction, asm.JGE):
+            new_operand = first_offset - self.position - len(self.instruction.encode())
+
+            # Update to the new position
+            new_instruction = asm.JGE(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            # If the previous instruction was a 32 bits offset, force it to the new one
+            if len(encoded) != 6 and len(self.instruction.encode()) > 2:
+                encoded = bytearray(6)
+
+                # Force the 32 encoding of the JGE
+                encoded[0] = 0x0F
+                encoded[1] = 0x8D
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
+
+                # Keep the same value for the jump
                 size = custom_ceil(new_operand / 255)
                 bytes = new_operand.to_bytes(size, 'little')
 
@@ -528,6 +528,41 @@ class Stub:
                 # Force the 32 encoding of the JNE instruction
                 encoded[0] = 0x0F
                 encoded[1] = 0x85
+                encoded[2] = 0
+                encoded[3] = 0
+                encoded[4] = 0
+                encoded[5] = 0
+
+                size = custom_ceil(new_operand / 255)
+                bytes = new_operand.to_bytes(size, 'little')
+
+                for i in range(0, len(bytes)):
+                    encoded[i + 2] = bytes[i]
+
+            jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
+        elif isinstance(self.instruction, asm.JB):
+            new_operand = first_offset - self.position - len(self.instruction.encode())
+            if new_operand < 255:
+                # We will encode the instruction
+                new_operand = first_offset - self.position - 2
+
+            new_instruction = asm.JB(asm.operand.RIPRelativeOffset(new_operand))
+            encoded = new_instruction.encode()
+
+            # Need to add some NOP instruction to fill the space left from the previous longer instruction
+            if len(encoded) < len(self.instruction.encode()):
+
+                diff = len(self.instruction.encode()) - len(encoded)
+
+                for i in range(diff):
+                    encoded += asm.NOP().encode()
+            else:
+                # If the previous instruction was a 32 bits offset, force the same length for the new one
+                encoded = bytearray(len(self.instruction.encode()))
+
+                # Force the 32 encoding of the JNE instruction
+                encoded[0] = 0x0F
+                encoded[1] = 0x82
                 encoded[2] = 0
                 encoded[3] = 0
                 encoded[4] = 0
