@@ -1095,43 +1095,40 @@ class JITCompiler:
     def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction, context):
         self.compile_cmp_beginning(mfunction, instruction, context)
 
+        # The stubs must be compiled before the jumps
+        # Get the two following blocks
+        jump_block = None
+        notjump_block = None
+
+        # Locate the target of the jump in next basic blocks
+        for block in instruction.block.next:
+            # If we need to make the jump
+            if block.instructions[0].offset == next_instruction.argument:
+                jump_block = block
+            else:
+                # Continue the execution in the second block
+                notjump_block = block
+
         # first < second
         if instruction.argument == 0:
-            # The stubs must be compiled before the jumps
-            # Get the two following blocks
-            jump_block = None
-            notjump_block = None
-
-            # Locate the target of the jump in next basic blocks
-            for block in instruction.block.next:
-                # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.argument:
-                    jump_block = block
-                else:
-                    # Continue the execution in the second block
-                    notjump_block = block
-
-            # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, notjump_block, jump_block, asm.JGE)
+        # first <= second
+        elif instruction.argument == 1:
+            pass
+        # first == second
+        elif instruction.argument == 2:
+            pass
+        # first != second
+        elif instruction.argument == 3:
+            pass
         # first > second
         elif instruction.argument == 4:
-            # The stubs must be compiled before the jumps
-            # Get the two following blocks
-            jump_block = None
-            notjump_block = None
-
-            # Locate the target of the jump in next basic blocks
-            for block in instruction.block.next:
-                # If we need to make the jump
-                if block.instructions[0].offset == next_instruction.argument:
-                    jump_block = block
-                else:
-                    # Continue the execution in the second block
-                    notjump_block = block
-
-            # Compile stubs for each branch
             self.stub_handler.compile_bb_stub(mfunction, jump_block, notjump_block, asm.JG)
+        # first >= second
+        elif instruction.argument == 5:
+            pass
         else:
+            print("Instruction argument " + str(instruction.argument))
             self.nyi()
 
     # Compile the beginning of a COMPARE_OP, pop operands and perform a test in assembly
