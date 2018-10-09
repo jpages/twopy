@@ -370,19 +370,61 @@ class JITCompiler:
                 allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
                 allocator.encode(asm.PUSH(reg0))
             elif isinstance(instruction, model.BINARY_SUBTRACT):
-                # TODO: get information in the context to compile the correct operation according to types
-                reg0 = asm.r13
-                reg1 = asm.r14
+                # Get the two elements, we should know their types by now
+                first_element = context.pop_value()
+                second_element = context.pop_value()
+
+                first_type = first_element[1]
+                second_type = second_element[1]
+
+                # Registers to perform the operation
+                reg0 = None
+                reg1 = None
+
+                # Instructions in tests
                 instructions = []
-                instructions.append(asm.POP(reg1))
-                instructions.append(asm.POP(reg0))
-                instructions.append(asm.SUB(reg0, reg1))
+
+                # Encoded version to compute the size for the overflow test
+                encoded = []
+
+                # We need to unbox values
+                if first_type == objects.Types.Float and second_type == objects.Types.Float:
+                    reg0 = asm.r13
+                    reg1 = asm.r14
+
+                    # Get the two boxed values and unbox them
+                    instructions.append(asm.POP(reg0))
+                    instructions.append(self.tags.untag_asm(asm.r13))
+
+                    instructions.append(asm.POP(reg1))
+                    instructions.append(self.tags.untag_asm(asm.r14))
+
+                    # Move into XMM registers the unboxed values
+                    instructions.append(asm.MOVQ(asm.xmm0, asm.operand.MemoryOperand(reg0+8)))
+                    instructions.append(asm.MOVQ(asm.xmm1, asm.operand.MemoryOperand(reg1+8)))
+
+                    # Make the addition and move the result to one of the operand
+                    instructions.append(asm.SUBSD(asm.xmm0, asm.xmm1))
+                    instructions.append(asm.MOVQ(asm.operand.MemoryOperand(reg0+8), asm.xmm0))
+
+                    instructions.extend(self.tags.tag_float_asm(reg0))
+
+                    context.push_value("", objects.Types.Float)
+                else:
+                    # Integers
+                    reg0 = asm.r13
+                    reg1 = asm.r14
+
+                    instructions.append(asm.POP(reg1))
+                    instructions.append(asm.POP(reg0))
+                    instructions.append(asm.SUB(reg0, reg1))
+
+                    context.push_value("", objects.Types.Int)
 
                 # We need the size of these instructions when encoded
-                encoded = []
-                for i in instructions:
-                    encoded.append(i.encode())
-                    allocator.encode(i)
+                for ins in instructions:
+                    encoded.append(ins.encode())
+                    allocator.encode(ins)
 
                 # Get current instruction offset
                 current_offset = stub_handler.lib.get_address(
@@ -400,12 +442,6 @@ class JITCompiler:
                 # This need to be replaced with a proper overflow handling and a conversion to bignums
                 allocator.encode(asm.JO(asm.operand.RIPRelativeOffset(diff)))
                 allocator.encode(asm.PUSH(reg0))
-
-                # Update the stack
-                context.pop_value()
-                context.pop_value()
-
-                context.push_value("", objects.Types.Int)
             elif isinstance(instruction, model.BINARY_SUBSCR):
                 self.nyi()
             elif isinstance(instruction, model.BINARY_FLOOR_DIVIDE):
@@ -744,18 +780,17 @@ class JITCompiler:
                     self.nyi()
 
             elif isinstance(instruction, model.COMPARE_OP):
-                # TODO: compile the test according to the context
                 # COMPARE_OP can't be the last instruction of the block
                 next_instruction = block.instructions[i + 1]
 
                 if isinstance(next_instruction, model.JUMP_IF_FALSE_OR_POP):
-                    self.compile_cmp_JUMP_IF_FALSE_OR_POP(mfunction, instruction, next_instruction)
+                    self.compile_cmp_JUMP_IF_FALSE_OR_POP(mfunction, instruction, next_instruction, context)
                 elif isinstance(next_instruction, model.JUMP_IF_TRUE_OR_POP):
-                    self.compile_cmp_JUMP_IF_TRUE_OR_POP(mfunction, instruction, next_instruction)
+                    self.compile_cmp_JUMP_IF_TRUE_OR_POP(mfunction, instruction, next_instruction, context)
                 elif isinstance(next_instruction, model.POP_JUMP_IF_FALSE):
-                    self.compile_cmp_POP_JUMP_IF_FALSE(mfunction, instruction, next_instruction)
+                    self.compile_cmp_POP_JUMP_IF_FALSE(mfunction, instruction, next_instruction, context)
                 elif isinstance(next_instruction, model.POP_JUMP_IF_TRUE):
-                    self.compile_cmp_POP_JUMP_IF_TRUE(mfunction, instruction, next_instruction)
+                    self.compile_cmp_POP_JUMP_IF_TRUE(mfunction, instruction, next_instruction, context)
                 else:
                     # General case, we need to put the value on the stack
                     self.compile_cmp(instruction)
@@ -1010,8 +1045,9 @@ class JITCompiler:
     # mfunction : Current compiled function
     # instruction : Current python Bytecode instruction
     # next_instruction : The following instruction
-    def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction):
-        self.compile_cmp_beginning(mfunction)
+    # context : current context
+    def compile_cmp_POP_JUMP_IF_FALSE(self, mfunction, instruction, next_instruction, context):
+        self.compile_cmp_beginning(mfunction, instruction, context)
 
         # The stubs must be compiled before the jumps
         # Get the two following blocks
@@ -1055,8 +1091,9 @@ class JITCompiler:
     # mfunction : Current compiled function
     # instruction : Current python Bytecode instruction
     # next_instruction : The following instruction
-    def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction):
-        self.compile_cmp_beginning(mfunction)
+    # context : current context
+    def compile_cmp_POP_JUMP_IF_TRUE(self, mfunction, instruction, next_instruction, context):
+        self.compile_cmp_beginning(mfunction, instruction, context)
 
         # first < second
         if instruction.argument == 0:
@@ -1097,13 +1134,47 @@ class JITCompiler:
         else:
             self.nyi()
 
-    def compile_cmp_beginning(self, mfunction):
-        # Put both operand into registers
-        second_register = asm.r8
-        first_register = asm.r9
-        mfunction.allocator.encode(asm.POP(second_register))
-        mfunction.allocator.encode(asm.POP(first_register))
-        mfunction.allocator.encode(asm.CMP(first_register, second_register))
+    # Compile the beginning of a COMPARE_OP, pop operands and perform a test in assembly
+    # mfunction: currently compiled function
+    # instruction : currently compiled instruction to have its argument
+    # context : typing context for this version
+    def compile_cmp_beginning(self, mfunction, instruction, context):
+
+        operand0 = context.pop_value()
+        operand1 = context.pop_value()
+
+        type0 = operand0[1]
+        type1 = operand1[1]
+
+        if type0 == objects.Types.Int and type1 == objects.Types.Int:
+            # Put both operand into registers
+            second_register = asm.r8
+            first_register = asm.r9
+            mfunction.allocator.encode(asm.POP(second_register))
+            mfunction.allocator.encode(asm.POP(first_register))
+            mfunction.allocator.encode(asm.CMP(first_register, second_register))
+        elif type0 == objects.Types.Float and type1 == objects.Types.Float:
+            second_register = asm.r8
+            first_register = asm.r9
+
+            # Unbox the values
+            mfunction.allocator.encode(asm.POP(second_register))
+            mfunction.allocator.encode(self.tags.untag_asm(second_register))
+
+            mfunction.allocator.encode(asm.POP(first_register))
+            mfunction.allocator.encode(self.tags.untag_asm(first_register))
+
+            # Move into XMM registers the unboxed values
+            mfunction.allocator.encode(asm.MOVQ(asm.xmm0, asm.operand.MemoryOperand(first_register + 8)))
+            mfunction.allocator.encode(asm.MOVQ(asm.xmm1, asm.operand.MemoryOperand(second_register + 8)))
+
+            # The argument of the comparison depends of the performed test
+            # The COMISD instruction needs to be used with special comparison instructions after
+            mfunction.allocator.encode(asm.COMISD(asm.xmm0, asm.xmm1))
+
+        else:
+            # TODO: Other cases
+            pass
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
