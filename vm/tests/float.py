@@ -7,3 +7,6 @@ c = a + b
 
 print(3.14159265359)
 print(c)
+print(a)
+print(b)
+

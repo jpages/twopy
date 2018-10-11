@@ -330,11 +330,14 @@ class JITCompiler:
                     instructions.append(asm.MOVQ(asm.xmm0, asm.operand.MemoryOperand(reg0+8)))
                     instructions.append(asm.MOVQ(asm.xmm1, asm.operand.MemoryOperand(reg1+8)))
 
-                    # Make the addition and move the result to one of the operand
+                    # Make the addition
                     instructions.append(asm.ADDSD(asm.xmm0, asm.xmm1))
-                    instructions.append(asm.MOVQ(asm.operand.MemoryOperand(reg0+8), asm.xmm0))
 
-                    instructions.extend(self.tags.tag_float_asm(reg0))
+                    # Allocate the space for the result of the addition
+                    result_register = self.runtime_allocator.allocate_object_with_size(instructions, 2, reg0)
+                    instructions.append(asm.MOVQ(asm.operand.MemoryOperand(result_register+8), asm.xmm0))
+
+                    instructions.extend(self.tags.tag_float_asm(result_register))
 
                     context.push_value("", objects.Types.Float)
                 else:

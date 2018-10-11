@@ -272,9 +272,22 @@ class RuntimeAllocator:
         encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
 
-    # Allocate an object with a given size and return the tagged address in a register
-    def allocate_object_with_size(self, size):
-        pass
+    # Allocate an object with a given size and return the address of the header
+    # instructions: array of instructions
+    # nb_words: number of 64 words to allocate
+    # register: if specified, returns the result in this register, by default r10
+    def allocate_object_with_size(self, instructions, nb_words, register=asm.r10):
+        # Save the next free address
+        instructions.append(asm.MOV(register, self.register_allocation))
+
+        # Increment the dynamic allocator
+        size = nb_words * 8
+
+        instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation), size))
+
+        instructions.append(asm.ADD(self.register_allocation, size))
+
+        return register
 
     # Allocate an Object and return its pointer
     # The code must follow the calling convention and clean the stack before returning
