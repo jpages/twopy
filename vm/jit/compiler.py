@@ -1183,14 +1183,7 @@ class JITCompiler:
         type0 = operand0[1]
         type1 = operand1[1]
 
-        if type0 == objects.Types.Int and type1 == objects.Types.Int:
-            # Put both operand into registers
-            second_register = asm.r8
-            first_register = asm.r9
-            mfunction.allocator.encode(asm.POP(second_register))
-            mfunction.allocator.encode(asm.POP(first_register))
-            mfunction.allocator.encode(asm.CMP(first_register, second_register))
-        elif type0 == objects.Types.Float and type1 == objects.Types.Float:
+        if type0 == objects.Types.Float and type1 == objects.Types.Float:
             second_register = asm.r8
             first_register = asm.r9
 
@@ -1208,10 +1201,14 @@ class JITCompiler:
             # The argument of the comparison depends of the performed test
             # The COMISD instruction needs to be used with special comparison instructions after
             mfunction.allocator.encode(asm.COMISD(asm.xmm0, asm.xmm1))
-
         else:
-            # TODO: Other cases
-            pass
+            # Consider we have integers here
+            # Put both operand into registers
+            second_register = asm.r8
+            first_register = asm.r9
+            mfunction.allocator.encode(asm.POP(second_register))
+            mfunction.allocator.encode(asm.POP(first_register))
+            mfunction.allocator.encode(asm.CMP(first_register, second_register))
 
     # Compile the prolog of a function, save some spaces for locals on the stack
     def compile_prolog(self, mfunction):
