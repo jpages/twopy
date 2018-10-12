@@ -3,7 +3,7 @@ A Python VM based on BBV
 
 ### Building
 Twopy needs python3 to be launched. 
-Twopy works on python3.5 to python 3.6. PeachPy, Capstone and cffi are required to build twopy
+Twopy implements python 3.6 to 3.7. PeachPy, Capstone and cffi are required to build twopy
 
 ```bash
 python -m pip install --upgrade git+https://github.com/Maratyszcza/PeachPy
