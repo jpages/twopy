@@ -283,7 +283,7 @@ class RuntimeAllocator:
         # Increment the dynamic allocator
         size = nb_words * 8
 
-        instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation), size))
+        instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation), size-8))
 
         instructions.append(asm.ADD(self.register_allocation, size))
 

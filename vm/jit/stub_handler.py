@@ -541,24 +541,20 @@ class Stub:
 
             jitcompiler_instance.global_allocator.write_instruction(encoded, self.position)
         elif isinstance(self.instruction, asm.JB):
-            new_operand = first_offset - self.position - len(self.instruction.encode())
+            old_instruction_encoded = self.instruction.encode()
+            new_operand = first_offset - self.position - len(old_instruction_encoded)
+
             if new_operand < 255:
                 # We will encode the instruction
-                new_operand = first_offset - self.position - 2
+                new_operand = first_offset - self.position - len(old_instruction_encoded)
 
             new_instruction = asm.JB(asm.operand.RIPRelativeOffset(new_operand))
             encoded = new_instruction.encode()
 
             # Need to add some NOP instruction to fill the space left from the previous longer instruction
-            if len(encoded) < len(self.instruction.encode()):
-
-                diff = len(self.instruction.encode()) - len(encoded)
-
-                for i in range(diff):
-                    encoded += asm.NOP().encode()
-            else:
+            if len(old_instruction_encoded) != len(new_instruction.encode()):
                 # If the previous instruction was a 32 bits offset, force the same length for the new one
-                encoded = bytearray(len(self.instruction.encode()))
+                encoded = bytearray(len(old_instruction_encoded))
 
                 # Force the 32 encoding of the JNE instruction
                 encoded[0] = 0x0F
