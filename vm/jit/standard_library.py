@@ -153,12 +153,9 @@ class twopy_range():
 
     # Increment the state of the iterator and returns the next value
     def twopy_next(self):
-        val1 = self.twopy_range_state
-        val2 = self.twopy_range_step
+        value = self.twopy_range_state + self.twopy_range_step
 
-        value = val1 + val2
         self.twopy_range_state = value
-
         if value >= self.twopy_range_stop:
             return False
         else:

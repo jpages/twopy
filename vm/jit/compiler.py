@@ -646,9 +646,8 @@ class JITCompiler:
                 # Save some space on the stack, we want to keep the iterator on the stack after the call
                 # Duplicate the iterator, this one will be cleaned by the callee
                 allocator.encode(asm.PUSH(asm.r10))
-                # allocator.encode(asm.PUSH(asm.r10))
+                allocator.encode(asm.PUSH(asm.r10))
 
-                allocator.encode(asm.INT(3))
                 untag_instruction = self.tags.untag_asm(asm.r10)
                 allocator.encode(untag_instruction)
 
@@ -667,9 +666,8 @@ class JITCompiler:
                 # Push the value returned on the stack
                 allocator.encode(asm.PUSH(asm.rax))
 
-                allocator.encode(asm.INT(3))
-                # The next() method returns the boolean False if the iterator is exhausted (represented by 1)
-                allocator.encode(asm.CMP(asm.rax, 1))
+                # The next() method returns the boolean False if the iterator is exhausted (represented by 2)
+                allocator.encode(asm.CMP(asm.rax, 2))
 
                 true_block = None
                 false_block = None

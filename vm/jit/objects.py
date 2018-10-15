@@ -22,8 +22,8 @@ class TagHandler:
     def untag_integer(self, value):
         return value >> 3
 
-    # 101 -> True
-    # 001 -> False
+    # 1010 -> True
+    # 0010 -> False
     def tag_bool(self, value):
         tag_value = value << 3
         tag_value = tag_value | Tags.Bool
