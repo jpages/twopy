@@ -229,9 +229,6 @@ c_code = """
         {
             uint64_t untag_address = value >> 3;            
 
-            // Read the size, then the tag
-            // int tag = ((int*)untag_address)[1];
-
             // Get the double value encoded with IEEE-754 on 64 bits
             double double_value = ((double*)untag_address)[1];
 
