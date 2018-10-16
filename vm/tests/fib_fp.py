@@ -1,8 +1,8 @@
-def fibR(n):
+def fib_fp(n):
     if n < 2.0:
         return 1.0
     else:
-        return fibR(n-1.0) + fibR(n-2.0)
+        return fib_fp(n-1.0) + fib_fp(n-2.0)
 
 
-print(fibR(1.0))
+print(fib_fp(35.0))

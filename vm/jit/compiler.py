@@ -396,11 +396,11 @@ class JITCompiler:
                     reg1 = asm.r14
 
                     # Get the two boxed values and unbox them
-                    instructions.append(asm.POP(reg0))
-                    instructions.append(self.tags.untag_asm(asm.r13))
-
                     instructions.append(asm.POP(reg1))
                     instructions.append(self.tags.untag_asm(asm.r14))
+
+                    instructions.append(asm.POP(reg0))
+                    instructions.append(self.tags.untag_asm(asm.r13))
 
                     # Move into XMM registers the unboxed values
                     instructions.append(asm.MOVQ(asm.xmm0, asm.operand.MemoryOperand(reg0+8)))

@@ -18,7 +18,7 @@ class GlobalAllocator:
         self.code_size = 20000
 
         # Size of the data section
-        self.data_size = 5000
+        self.data_size = 2000000000
 
         # The next free zone in the data section
         # Offset for static allocations for now

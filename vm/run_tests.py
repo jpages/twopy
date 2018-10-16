@@ -79,7 +79,7 @@ def show_progress():
 
     progress = ratio(bar_length)
 
-    elapsed_ms = int(time.clock() - start_clock)
+    elapsed_ms = int(time.time() - start_clock)
 
     output('\r[{}{:4d}{}|{}{:4d}{}] {}{} {:3d}% {}.{}s{}'
            .format(green_text, nb_succeed, black_text,
@@ -98,7 +98,7 @@ def run_tests(tests):
         output('NO TESTS TO RUN!\n')
         sys.exit(1)
 
-    start_clock = time.clock()
+    start_clock = time.time()
 
     nb_tests = len(tests)
     nb_succeed = 0
