@@ -2,7 +2,6 @@
 This module contains the JIT compiler core
 '''
 
-import sys
 import ctypes
 from types import *
 import struct
@@ -235,7 +234,14 @@ class JITCompiler:
             elif isinstance(instruction, model.ROT_THREE):
                 self.nyi()
             elif isinstance(instruction, model.DUP_TOP):
-                self.nyi()
+
+                # Duplicate the top of stack
+                mfunction.allocator.encode(asm.INT(3))
+                mfunction.allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
+                mfunction.allocator.encode(asm.PUSH(asm.r10))
+
+                context.push_value(context.stack[-1][0], context.stack[-1][1])
+
             elif isinstance(instruction, model.DUP_TOP_TWO):
                 self.nyi()
             elif isinstance(instruction, model.NOP):
