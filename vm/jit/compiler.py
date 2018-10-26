@@ -761,7 +761,22 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_TUPLE):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_LIST):
-                self.nyi()
+                # Construct a list with instruction.arguments elements inside
+                print(instruction.argument)
+                print(self.class_names)
+                print("\n\n")
+                print(stub_handler.primitive_addresses)
+
+                # locate list init
+                address = stub_handler.primitive_addresses["list"]
+                print("Address of the init for list " + str(address))
+                mfunction.allocator.encode(asm.INT(3))
+
+                mfunction.allocator.encode(asm.MOV(asm.r10, address))
+                mfunction.allocator.encode(asm.CALL(asm.r10))
+                mfunction.allocator.encode(asm.INT(3))
+
+                # self.nyi()
             elif isinstance(instruction, model.BUILD_SET):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_MAP):

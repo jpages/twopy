@@ -1,7 +1,8 @@
-# Standard library of twopy
+# Standard library of Twopy
 # see builtins.py
 
-# Print function
+
+# Print function, just a placeholder
 def twopy_print(objects):
     pass
 
@@ -160,3 +161,15 @@ class twopy_range():
             return False
         else:
             return value
+
+
+# Class list
+class twopy_list():
+    def __init__(self):
+        print("Creating a list")
+        # elements = []
+
+
+    # A list must be iterable
+    def twopy_iter(self):
+        return self
