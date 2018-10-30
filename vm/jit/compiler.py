@@ -1428,7 +1428,9 @@ class Allocator:
         # Restore the stack
         instructions.append(asm.MOV(asm.registers.rsp, asm.rbp))
         instructions.append(asm.POP(asm.rbp))
+        instructions.append(asm.INT(3))
         instructions.append(asm.RET())
+
 
         size = 0
         for i in instructions:

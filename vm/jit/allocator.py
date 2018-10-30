@@ -328,7 +328,7 @@ class RuntimeAllocator:
             init_offset = 4
 
             # Save the return address of the current call
-            instructions.append(asm.POP(asm.rbx))
+            instructions.append(asm.POP(asm.r9))
 
             # Saving parameter
             instructions.append(asm.POP(asm.r8))
@@ -337,7 +337,7 @@ class RuntimeAllocator:
             instructions.append(asm.ADD(asm.registers.rsp, 8))
 
             # TODO: problem stack size
-            instructions.append(asm.PUSH(asm.rbx))
+            instructions.append(asm.PUSH(asm.r9))
 
             # Push back object and parameters
             instructions.append(asm.PUSH(asm.rax))
@@ -348,9 +348,9 @@ class RuntimeAllocator:
             instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
         # Saving return address in a register
-        instructions.append(asm.POP(asm.rbx))
+        instructions.append(asm.POP(asm.r9))
 
-        instructions.append(asm.JMP(asm.rbx))
+        instructions.append(asm.JMP(asm.r9))
 
         offset = self.global_allocator.code_offset
         for i in instructions:
