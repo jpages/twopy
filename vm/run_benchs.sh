@@ -37,6 +37,23 @@ do
     printf "\n"
 done
 
+printf "\nGraal VM\n"
+for i in {0..N}
+do
+    for bench in ./benchmarks/*.py
+    do
+        # Get benchmark name from path
+        NAME=$(basename $bench)
+        NAME="${NAME%.*}"
+
+        printf "$NAME:"
+
+        # Run cpython
+        OUT=$(/usr/bin/time -f "%e" /home/julien/Téléchargements/graalvm-ce-1.0.0-rc6/bin/graalpython $bench | sed -n 1p)
+    done
+    printf "\n"
+done
+
 printf "\nPYPY3\n"
 for i in {0..N}
 do
@@ -70,3 +87,4 @@ do
     done
     printf "\n"
 done
+
