@@ -315,7 +315,7 @@ class RuntimeAllocator:
         instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation + 8), asm.r10))
 
         # Increment the allocation pointer
-        instructions.append(asm.ADD(self.register_allocation, 8*5))
+        instructions.append(asm.ADD(self.register_allocation, 8 * 5))
 
         # Finally, tag the address inside rax
         tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
@@ -327,9 +327,8 @@ class RuntimeAllocator:
         if init_function is not None:
             init_offset = 4
 
-            # Swap the return address of the previous call with the parameter of the init
             # Save the return address of the current call
-            instructions.append(asm.POP(asm.rbx))
+            instructions.append(asm.POP(asm.r9))
 
             # Saving parameter
             instructions.append(asm.POP(asm.r8))
@@ -338,19 +337,20 @@ class RuntimeAllocator:
             instructions.append(asm.ADD(asm.registers.rsp, 8))
 
             # TODO: problem stack size
-            # Push back object and parameters
-            instructions.append(asm.PUSH(asm.rbx))
+            instructions.append(asm.PUSH(asm.r9))
 
+            # Push back object and parameters
             instructions.append(asm.PUSH(asm.rax))
             instructions.append(asm.PUSH(asm.r8))
 
             # Make the call to init
-            instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10 + 8*init_offset)))
+            instructions.append(asm.ADD(asm.r10, 8 * init_offset))
+            instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
         # Saving return address in a register
-        instructions.append(asm.POP(asm.rbx))
+        instructions.append(asm.POP(asm.r9))
 
-        instructions.append(asm.JMP(asm.rbx))
+        instructions.append(asm.JMP(asm.r9))
 
         offset = self.global_allocator.code_offset
         for i in instructions:
