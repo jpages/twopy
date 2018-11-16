@@ -10,6 +10,7 @@ import struct
 import peachpy.x86_64 as asm
 
 import frontend
+# import sys
 from frontend import model
 from . import stub_handler
 from . import objects

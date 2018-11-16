@@ -121,6 +121,17 @@ def twopy_print(objects):
     # __doc__ = ''
     # __module__ = ''
 
+# Class list
+class twopy_list():
+    def __init__(self, test):
+        print("Creating a list")
+        # self.elements = None
+        elements = []
+
+    # A list must be iterable
+    def twopy_iter(self):
+        return self
+
 
 # TODO: make the base class when inheritance is supported
 # Class Range
@@ -161,15 +172,3 @@ class twopy_range():
             return False
         else:
             return value
-
-
-# Class list
-class twopy_list():
-    def __init__(self):
-        print("Creating a list")
-        # self.elements = None
-        # elements = []
-
-    # A list must be iterable
-    def twopy_iter(self):
-        return self
