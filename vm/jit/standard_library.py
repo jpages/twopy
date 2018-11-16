@@ -167,8 +167,8 @@ class twopy_range():
 class twopy_list():
     def __init__(self):
         print("Creating a list")
+        # self.elements = None
         # elements = []
-
 
     # A list must be iterable
     def twopy_iter(self):

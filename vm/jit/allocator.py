@@ -327,6 +327,7 @@ class RuntimeAllocator:
         if init_function is not None:
             init_offset = 4
 
+            # Swap the return address of the previous call with the parameter of the init
             # Save the return address of the current call
             instructions.append(asm.POP(asm.rbx))
 
@@ -337,15 +338,14 @@ class RuntimeAllocator:
             instructions.append(asm.ADD(asm.registers.rsp, 8))
 
             # TODO: problem stack size
+            # Push back object and parameters
             instructions.append(asm.PUSH(asm.rbx))
 
-            # Push back object and parameters
             instructions.append(asm.PUSH(asm.rax))
             instructions.append(asm.PUSH(asm.r8))
 
             # Make the call to init
-            instructions.append(asm.ADD(asm.r10, 8*init_offset))
-            instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
+            instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10 + 8*init_offset)))
 
         # Saving return address in a register
         instructions.append(asm.POP(asm.rbx))

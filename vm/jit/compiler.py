@@ -202,9 +202,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        # print("Compiling the block " + str(id(block)))
-        # for ins in block.instructions:
-        #     print("\t" + str(ins))
+        print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
+        for ins in block.instructions:
+            print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -762,21 +762,19 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.BUILD_LIST):
                 # Construct a list with instruction.arguments elements inside
-                print(instruction.argument)
-                print(self.class_names)
-                print("\n\n")
-                print(stub_handler.primitive_addresses)
 
                 # locate list init
-                address = stub_handler.primitive_addresses["list"]
-                print("Address of the init for list " + str(address))
-                mfunction.allocator.encode(asm.INT(3))
+                address = self.initializer_addresses["twopy_list"]
 
                 mfunction.allocator.encode(asm.MOV(asm.r10, address))
-                mfunction.allocator.encode(asm.CALL(asm.r10))
-                mfunction.allocator.encode(asm.INT(3))
 
-                # self.nyi()
+                mfunction.allocator.encode(asm.PUSH(0))
+                mfunction.allocator.encode(asm.CALL(asm.r10))
+
+                mfunction.allocator.encode(asm.INT(3))
+                # Get the list inside RAX
+                # mfunction.allocator.encode(asm.POP(asm.rax))
+
             elif isinstance(instruction, model.BUILD_SET):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_MAP):
@@ -872,7 +870,6 @@ class JITCompiler:
                         # Loading the class address
                         allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
                         allocator.encode(asm.PUSH(asm.r10))
-                        stub_handler.primitive_addresses[name]
                     else:
                         # We need to load the init address here for a future call
                         allocator.encode(asm.MOV(asm.r10, self.initializer_addresses["twopy_"+name]))
