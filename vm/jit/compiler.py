@@ -763,13 +763,22 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_LIST):
                 # Construct a list with instruction.arguments elements inside
 
+                print("Number of elements " + str(instruction.argument))
+
+                to_depop = i * 8
+                mfunction.allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
+
                 # locate list init
                 address = self.initializer_addresses["twopy_list"]
 
                 mfunction.allocator.encode(asm.MOV(asm.r10, address))
 
                 # To respect the classic convention, we need to make some space of the stack
-                mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 16))
+                mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8))
+
+                # Pass the number of elements to the constructor
+                init_param = self.tags.tag_integer(instruction.argument)
+                mfunction.allocator.encode(asm.PUSH(init_param))
                 mfunction.allocator.encode(asm.CALL(asm.r10))
 
                 # Push the returned list in rax
@@ -1728,6 +1737,10 @@ primitive_offsets_functions = {
 
 # Primitive offsets for some properties in builtins classes
 primitive_offsets_attributes = {
+
+    # List class
+    "twopy_size": 3,
+
     # Range class
     "twopy_range_start": 3,
     "twopy_range_step": 4,

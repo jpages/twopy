@@ -123,10 +123,11 @@ def twopy_print(objects):
 
 # Class list
 class twopy_list():
-    def __init__(self, test):
+    def __init__(self, size):
         print("Creating a list")
-        # self.elements = None
-        # elements = []
+
+        # Size available in the list for now
+        self.twopy_size = size
 
     # A list must be iterable
     def twopy_iter(self):
