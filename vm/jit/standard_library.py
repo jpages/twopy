@@ -126,7 +126,7 @@ class twopy_list():
     def __init__(self, test):
         print("Creating a list")
         # self.elements = None
-        elements = []
+        # elements = []
 
     # A list must be iterable
     def twopy_iter(self):

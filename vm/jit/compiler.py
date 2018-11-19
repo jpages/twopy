@@ -10,7 +10,6 @@ import struct
 import peachpy.x86_64 as asm
 
 import frontend
-# import sys
 from frontend import model
 from . import stub_handler
 from . import objects
@@ -203,9 +202,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
-        for ins in block.instructions:
-            print("\t" + str(ins))
+        # print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
+        # for ins in block.instructions:
+        #     print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -769,12 +768,12 @@ class JITCompiler:
 
                 mfunction.allocator.encode(asm.MOV(asm.r10, address))
 
-                mfunction.allocator.encode(asm.PUSH(0))
+                # To respect the classic convention, we need to make some space of the stack
+                mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 16))
                 mfunction.allocator.encode(asm.CALL(asm.r10))
 
-                mfunction.allocator.encode(asm.INT(3))
-                # Get the list inside RAX
-                # mfunction.allocator.encode(asm.POP(asm.rax))
+                # Push the returned list in rax
+                mfunction.allocator.encode(asm.PUSH(asm.rax))
 
             elif isinstance(instruction, model.BUILD_SET):
                 self.nyi()
