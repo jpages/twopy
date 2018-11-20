@@ -7,6 +7,11 @@ def twopy_print(objects):
     pass
 
 
+# Allocate a native array in the heap of given size and returns its tagged address
+def allocate_array(size):
+    pass
+
+
 # Class for base object
 # class twopy_object:
 #     pass
@@ -128,6 +133,8 @@ class twopy_list():
 
         # Size available in the list for now
         self.twopy_size = size
+
+        print(allocate_array(4))
 
     # A list must be iterable
     def twopy_iter(self):

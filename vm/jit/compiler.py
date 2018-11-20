@@ -139,6 +139,28 @@ class JITCompiler:
             mfunction.allocator.encode(asm.JMP(asm.r10))
 
             stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
+        elif mfunction.name == "allocate_array":
+
+            # Save the return address
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # Pop the size in a register
+            mfunction.allocator.encode(asm.POP(asm.r9))
+            mfunction.allocator.encode(self.tags.untag_asm(asm.r9))
+            mfunction.allocator.encode(asm.IMUL(asm.r9, asm.r9, 8))
+
+            # Push the result of the runtime allocator before increment it
+            mfunction.allocator.encode(asm.MOV(asm.rax, self.runtime_allocator.register_allocation))
+
+            # Increment the heap pointer
+            mfunction.allocator.encode(asm.ADD(self.runtime_allocator.register_allocation, asm.r9))
+
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            # Finally return
+            mfunction.allocator.encode(asm.JMP(asm.r10))
+
+            stub_handler.primitive_addresses["allocate_array"] = mfunction.allocator.code_address
         else:
             # Storing the real name of the primitive instead of the twopy name
             short_name = mfunction.name.replace("twopy_", "")
