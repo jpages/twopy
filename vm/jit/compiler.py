@@ -1049,6 +1049,53 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.BUILD_TUPLE_UNPACK_WITH_CALL):
                 self.nyi()
+            elif isinstance(instruction, model.LOAD_METHOD):
+                name = mfunction.names[instruction.argument]
+
+                if name in primitive_offsets_methods:
+                    # Pop the receiver
+                    allocator.encode(asm.POP(asm.r10))
+                    allocator.encode(self.tags.untag_asm(asm.r10))
+
+                    context.pop_value()
+
+                    # Read the class pointer
+                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
+
+                    # Fetch the method
+                    allocator.encode(asm.MOV(asm.r12, asm.operand.MemoryOperand(asm.r11 + 8 * primitive_offsets_methods[name])))
+
+                    # Retag the receiver to push it back on the stack
+                    for ins in self.tags.tag_object_asm(asm.r10):
+                        allocator.encode(ins)
+
+                    # Push the method, then the receiver as the first argument
+                    allocator.encode(asm.PUSH(asm.r12))
+                    allocator.encode(asm.PUSH(asm.r10))
+                    context.push_value("method " + str(name), objects.Types.Unknown)
+                    context.push_value("self", objects.Types.Unknown)
+                else:
+                    # General case for methods loading
+                    self.nyi()
+            elif isinstance(instruction, model.CALL_METHOD):
+
+                # Make a call to the method, add 8 bytes compared to CALL_FUNCTION because the receiver is on the stack
+                # as the first argument
+                allocator.encode(
+                    asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + 8 * instruction.argument + 8)))
+
+                # The return instruction will clean the stack
+                allocator.encode(asm.CALL(asm.r9))
+
+                for y in range(0, instruction.argument + 1):
+                    allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
+                    context.pop_value()
+
+                # The return value is in rax, push it back on the stack
+                allocator.encode(asm.PUSH(asm.rax))
+
+                # The return value is unknown
+                context.push_value("return_value", objects.Types.Unknown)
             elif isinstance(instruction, model.BINARY_TYPE_CHECK):
                 # A type-check must be performed for two operands of a binary operation
 
@@ -1762,6 +1809,7 @@ primitive_offsets_attributes = {
 
     # List class
     "twopy_size": 3,
+    "native_list": 4,
 
     # Range class
     "twopy_range_start": 3,
@@ -1772,6 +1820,11 @@ primitive_offsets_attributes = {
 
 # Primitive offsets for some methods in builtins classes
 primitive_offsets_methods = {
+    # List class
+    # "twopy_iter": 5,
+    "list_get": 6,
+    "list_put": 7,
+
     # Range class
     "twopy_iter": 5,
     "twopy_next": 6,

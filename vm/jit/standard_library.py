@@ -134,11 +134,24 @@ class twopy_list():
         # Size available in the list for now
         self.twopy_size = size
 
-        print(allocate_array(4))
+        self.native_list = allocate_array(size)
 
     # A list must be iterable
     def twopy_iter(self):
         return self
+
+    # Return the element at given index
+    # TODO: handle out of bounds errors
+    def list_get(self, index):
+        print(self)
+        print("list_get call")
+        print(index)
+
+    # Insert the given element at index
+    # TODO: handle error cases with out of bounds
+    def list_put(self, element, index):
+        print(element)
+        print(index)
 
 
 # TODO: make the base class when inheritance is supported
