@@ -12,6 +12,11 @@ def allocate_array(size):
     pass
 
 
+# Access the given native array at given index and return the element
+def array_get(array, index):
+    print(array)
+    print(index)
+
 # Class for base object
 # class twopy_object:
 #     pass
@@ -129,8 +134,6 @@ def allocate_array(size):
 # Class list
 class twopy_list():
     def __init__(self, size):
-        print("Creating a list")
-
         # Size available in the list for now
         self.twopy_size = size
 
@@ -143,9 +146,7 @@ class twopy_list():
     # Return the element at given index
     # TODO: handle out of bounds errors
     def list_get(self, index):
-        print(self)
-        print("list_get call")
-        print(index)
+        array_get(self.native_list, index)
 
     # Insert the given element at index
     # TODO: handle error cases with out of bounds

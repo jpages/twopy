@@ -161,6 +161,24 @@ class JITCompiler:
             mfunction.allocator.encode(asm.JMP(asm.r10))
 
             stub_handler.primitive_addresses["allocate_array"] = mfunction.allocator.code_address
+        elif mfunction.name == "array_get":
+            # Save the return address
+            mfunction.allocator.encode(asm.INT(3))
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # Pop the index
+            mfunction.allocator.encode(asm.POP(asm.r8))
+
+            # Pop the native array address
+            mfunction.allocator.encode(asm.POP(asm.r9))
+
+            # The 3 bits of tags allow to directly make the move inside a result
+            mfunction.allocator.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r9, asm.r8, 1, 0))))
+
+            # Depop the function address from the stack
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            mfunction.allocator.encode(asm.JMP(asm.r10))
         else:
             # Storing the real name of the primitive instead of the twopy name
             short_name = mfunction.name.replace("twopy_", "")

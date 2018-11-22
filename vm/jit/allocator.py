@@ -25,10 +25,10 @@ class GlobalAllocator:
         self.data_offset = 0
 
         # Offset for runtime allocations
-        self.runtime_offset = 1024
+        self.runtime_offset = 10000
 
-        # Offset for allocate classes in a special area
-        self.class_offset = 2048
+        # Offset for allocating classes in a special area
+        self.class_offset = 200000
 
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
