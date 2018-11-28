@@ -163,7 +163,6 @@ class JITCompiler:
             stub_handler.primitive_addresses["allocate_array"] = mfunction.allocator.code_address
         elif mfunction.name == "array_get":
             # Save the return address
-            mfunction.allocator.encode(asm.INT(3))
             mfunction.allocator.encode(asm.POP(asm.r10))
 
             # Pop the index
@@ -173,7 +172,7 @@ class JITCompiler:
             mfunction.allocator.encode(asm.POP(asm.r9))
 
             # The 3 bits of tags allow to directly make the move inside a result
-            mfunction.allocator.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r9, asm.r8, 1, 0))))
+            mfunction.allocator.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r9, asm.r8, 1))))
 
             # Depop the function address from the stack
             mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))

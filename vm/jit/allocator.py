@@ -99,7 +99,7 @@ class GlobalAllocator:
         address = self.get_current_class_address()
 
         # TODO: for the test consider only 4 values inside the class
-        size = 5 * 64
+        size = 10 * 64
 
         # SIZE    64 bits |      Array of pointers
         encoded_size = size.to_bytes(8, "little")
@@ -115,6 +115,9 @@ class GlobalAllocator:
 
         encoded_pointer = new_instance_address.to_bytes(8, "little")
         self.class_offset = self.write_data(encoded_pointer, self.class_offset)
+
+        # TODO: Reserve some room for this class
+        self.class_offset += 10
 
         return tagged_address
 

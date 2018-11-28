@@ -14,8 +14,14 @@ def allocate_array(size):
 
 # Access the given native array at given index and return the element
 def array_get(array, index):
+    pass
+
+
+# Put the given element in index in a native array
+def array_put(array, element, index):
     print(array)
     print(index)
+    print(element)
 
 # Class for base object
 # class twopy_object:
@@ -131,6 +137,7 @@ def array_get(array, index):
     # __doc__ = ''
     # __module__ = ''
 
+
 # Class list
 class twopy_list():
     def __init__(self, size):
@@ -146,13 +153,12 @@ class twopy_list():
     # Return the element at given index
     # TODO: handle out of bounds errors
     def list_get(self, index):
-        array_get(self.native_list, index)
+        print(array_get(self.native_list, index))
 
     # Insert the given element at index
     # TODO: handle error cases with out of bounds
     def list_put(self, element, index):
-        print(element)
-        print(index)
+        array_put(self.native_list, element, index)
 
 
 # TODO: make the base class when inheritance is supported
