@@ -153,7 +153,7 @@ class twopy_list():
     # Return the element at given index
     # TODO: handle out of bounds errors
     def list_get(self, index):
-        print(array_get(self.native_list, index))
+        return array_get(self.native_list, index)
 
     # Insert the given element at index
     # TODO: handle error cases with out of bounds
