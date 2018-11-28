@@ -20,8 +20,8 @@ def array_get(array, index):
 # Put the given element in index in a native array
 def array_put(array, element, index):
     print(array)
-    print(index)
     print(element)
+    print(index)
 
 # Class for base object
 # class twopy_object:

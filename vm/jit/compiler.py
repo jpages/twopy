@@ -178,6 +178,26 @@ class JITCompiler:
             mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
 
             mfunction.allocator.encode(asm.JMP(asm.r10))
+        elif mfunction.name == "array_put":
+            # Save the return address
+            mfunction.allocator.encode(asm.POP(asm.r11))
+
+            # Pop the index
+            mfunction.allocator.encode(asm.POP(asm.r8))
+
+            # Pop the element
+            mfunction.allocator.encode(asm.POP(asm.r9))
+
+            # Pop the native array address
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # The 3 bits of tags allow to directly make the move inside a result
+            mfunction.allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r10, asm.r8, 1)), asm.r9))
+
+            # Depop the function address from the stack
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            mfunction.allocator.encode(asm.JMP(asm.r11))
         else:
             # Storing the real name of the primitive instead of the twopy name
             short_name = mfunction.name.replace("twopy_", "")
