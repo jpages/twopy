@@ -10,6 +10,7 @@ To fully install Twopy, follow the next steps:
 ```bash
 git clone https://github.com/python/cpython.git
 cd cpython
+git checkout 3.7
 ./configure --without-pymalloc --with-pydebug --prefix=`pwd`/build
 make -j16
 ./python -m ensurepip
