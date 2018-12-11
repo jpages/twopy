@@ -1847,6 +1847,7 @@ primitive_offsets_attributes = {
     # List class
     "twopy_size": 3,
     "native_list": 4,
+    "index": 5,
 
     # Range class
     "twopy_range_start": 3,
@@ -1861,6 +1862,7 @@ primitive_offsets_methods = {
     # "twopy_iter": 5,
     "list_get": 6,
     "list_put": 7,
+    "append": 8,
 
     # Range class
     "twopy_iter": 5,

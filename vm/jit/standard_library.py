@@ -146,6 +146,9 @@ class twopy_list():
 
         self.native_list = allocate_array(size)
 
+        # Next free index in the list
+        self.index = 0
+
     # A list must be iterable
     def twopy_iter(self):
         return self
@@ -159,6 +162,10 @@ class twopy_list():
     # TODO: handle error cases with out of bounds
     def list_put(self, element, index):
         array_put(self.native_list, element, index)
+
+    def append(self, element):
+        print(element)
+        # print(self.index)
 
 
 # TODO: make the base class when inheritance is supported
