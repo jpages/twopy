@@ -25,10 +25,10 @@ class GlobalAllocator:
         self.data_offset = 0
 
         # Offset for runtime allocations
-        self.runtime_offset = 1024
+        self.runtime_offset = 10000
 
-        # Offset for allocate classes in a special area
-        self.class_offset = 2048
+        # Offset for allocating classes in a special area
+        self.class_offset = 200000
 
         # The offset in code_section where the code can be allocated
         self.code_offset = 0
@@ -99,7 +99,7 @@ class GlobalAllocator:
         address = self.get_current_class_address()
 
         # TODO: for the test consider only 4 values inside the class
-        size = 5 * 64
+        size = 10 * 64
 
         # SIZE    64 bits |      Array of pointers
         encoded_size = size.to_bytes(8, "little")
@@ -115,6 +115,9 @@ class GlobalAllocator:
 
         encoded_pointer = new_instance_address.to_bytes(8, "little")
         self.class_offset = self.write_data(encoded_pointer, self.class_offset)
+
+        # TODO: Reserve some room for this class
+        self.class_offset += 10
 
         return tagged_address
 
@@ -315,7 +318,7 @@ class RuntimeAllocator:
         instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation + 8), asm.r10))
 
         # Increment the allocation pointer
-        instructions.append(asm.ADD(self.register_allocation, 8*5))
+        instructions.append(asm.ADD(self.register_allocation, 8 * 5))
 
         # Finally, tag the address inside rax
         tag_instructions = self.global_allocator.jitcompiler.tags.tag_object_asm(asm.rax)
@@ -344,7 +347,7 @@ class RuntimeAllocator:
             instructions.append(asm.PUSH(asm.r8))
 
             # Make the call to init
-            instructions.append(asm.ADD(asm.r10, 8*init_offset))
+            instructions.append(asm.ADD(asm.r10, 8 * init_offset))
             instructions.append(asm.CALL(asm.operand.MemoryOperand(asm.r10)))
 
         # Saving return address in a register

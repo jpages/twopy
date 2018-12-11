@@ -2,7 +2,6 @@
 This module contains the JIT compiler core
 '''
 
-import sys
 import ctypes
 from types import *
 import struct
@@ -140,6 +139,65 @@ class JITCompiler:
             mfunction.allocator.encode(asm.JMP(asm.r10))
 
             stub_handler.primitive_addresses["print"] = mfunction.allocator.code_address
+        elif mfunction.name == "allocate_array":
+
+            # Save the return address
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # Pop the size in a register
+            mfunction.allocator.encode(asm.POP(asm.r9))
+            mfunction.allocator.encode(self.tags.untag_asm(asm.r9))
+            mfunction.allocator.encode(asm.IMUL(asm.r9, asm.r9, 8))
+
+            # Push the result of the runtime allocator before increment it
+            mfunction.allocator.encode(asm.MOV(asm.rax, self.runtime_allocator.register_allocation))
+
+            # Increment the heap pointer
+            mfunction.allocator.encode(asm.ADD(self.runtime_allocator.register_allocation, asm.r9))
+
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            # Finally return
+            mfunction.allocator.encode(asm.JMP(asm.r10))
+
+            stub_handler.primitive_addresses["allocate_array"] = mfunction.allocator.code_address
+        elif mfunction.name == "array_get":
+            # Save the return address
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # Pop the index
+            mfunction.allocator.encode(asm.POP(asm.r8))
+
+            # Pop the native array address
+            mfunction.allocator.encode(asm.POP(asm.r9))
+
+            # The 3 bits of tags allow to directly make the move inside a result
+            mfunction.allocator.encode(asm.MOV(asm.rax, asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r9, asm.r8, 1))))
+
+            # Depop the function address from the stack
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            mfunction.allocator.encode(asm.JMP(asm.r10))
+        elif mfunction.name == "array_put":
+            # Save the return address
+            mfunction.allocator.encode(asm.POP(asm.r11))
+
+            # Pop the index
+            mfunction.allocator.encode(asm.POP(asm.r8))
+
+            # Pop the element
+            mfunction.allocator.encode(asm.POP(asm.r9))
+
+            # Pop the native array address
+            mfunction.allocator.encode(asm.POP(asm.r10))
+
+            # The 3 bits of tags allow to directly make the move inside a result
+            mfunction.allocator.encode(asm.MOV(asm.operand.MemoryOperand(asm.operand.MemoryAddress(asm.r10, asm.r8, 1)), asm.r9))
+
+            # Depop the function address from the stack
+            mfunction.allocator.encode(asm.ADD(asm.registers.rsp, 8))
+
+            mfunction.allocator.encode(asm.JMP(asm.r11))
         else:
             # Storing the real name of the primitive instead of the twopy name
             short_name = mfunction.name.replace("twopy_", "")
@@ -203,7 +261,7 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        # print("Compiling the block " + str(id(block)))
+        # print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
         # for ins in block.instructions:
         #     print("\t" + str(ins))
 
@@ -235,7 +293,14 @@ class JITCompiler:
             elif isinstance(instruction, model.ROT_THREE):
                 self.nyi()
             elif isinstance(instruction, model.DUP_TOP):
-                self.nyi()
+
+                # Duplicate the top of stack
+                mfunction.allocator.encode(asm.INT(3))
+                mfunction.allocator.encode(asm.MOV(asm.r10, asm.operand.MemoryOperand(asm.registers.rsp)))
+                mfunction.allocator.encode(asm.PUSH(asm.r10))
+
+                context.push_value(context.stack[-1][0], context.stack[-1][1])
+
             elif isinstance(instruction, model.DUP_TOP_TWO):
                 self.nyi()
             elif isinstance(instruction, model.NOP):
@@ -755,7 +820,29 @@ class JITCompiler:
             elif isinstance(instruction, model.BUILD_TUPLE):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_LIST):
-                self.nyi()
+                # Construct a list with instruction.arguments elements inside
+
+                print("Number of elements " + str(instruction.argument))
+
+                to_depop = i * 8
+                mfunction.allocator.encode(asm.ADD(asm.registers.rsp, to_depop))
+
+                # locate list init
+                address = self.initializer_addresses["twopy_list"]
+
+                mfunction.allocator.encode(asm.MOV(asm.r10, address))
+
+                # To respect the classic convention, we need to make some space of the stack
+                mfunction.allocator.encode(asm.SUB(asm.registers.rsp, 8))
+
+                # Pass the number of elements to the constructor
+                init_param = self.tags.tag_integer(instruction.argument)
+                mfunction.allocator.encode(asm.PUSH(init_param))
+                mfunction.allocator.encode(asm.CALL(asm.r10))
+
+                # Push the returned list in rax
+                mfunction.allocator.encode(asm.PUSH(asm.rax))
+
             elif isinstance(instruction, model.BUILD_SET):
                 self.nyi()
             elif isinstance(instruction, model.BUILD_MAP):
@@ -851,7 +938,6 @@ class JITCompiler:
                         # Loading the class address
                         allocator.encode(asm.MOV(asm.r10, stub_handler.primitive_addresses[name]))
                         allocator.encode(asm.PUSH(asm.r10))
-                        stub_handler.primitive_addresses[name]
                     else:
                         # We need to load the init address here for a future call
                         allocator.encode(asm.MOV(asm.r10, self.initializer_addresses["twopy_"+name]))
@@ -1000,6 +1086,53 @@ class JITCompiler:
                 self.nyi()
             elif isinstance(instruction, model.BUILD_TUPLE_UNPACK_WITH_CALL):
                 self.nyi()
+            elif isinstance(instruction, model.LOAD_METHOD):
+                name = mfunction.names[instruction.argument]
+
+                if name in primitive_offsets_methods:
+                    # Pop the receiver
+                    allocator.encode(asm.POP(asm.r10))
+                    allocator.encode(self.tags.untag_asm(asm.r10))
+
+                    context.pop_value()
+
+                    # Read the class pointer
+                    allocator.encode(asm.MOV(asm.r11, asm.operand.MemoryOperand(asm.r10 + 8)))
+
+                    # Fetch the method
+                    allocator.encode(asm.MOV(asm.r12, asm.operand.MemoryOperand(asm.r11 + 8 * primitive_offsets_methods[name])))
+
+                    # Retag the receiver to push it back on the stack
+                    for ins in self.tags.tag_object_asm(asm.r10):
+                        allocator.encode(ins)
+
+                    # Push the method, then the receiver as the first argument
+                    allocator.encode(asm.PUSH(asm.r12))
+                    allocator.encode(asm.PUSH(asm.r10))
+                    context.push_value("method " + str(name), objects.Types.Unknown)
+                    context.push_value("self", objects.Types.Unknown)
+                else:
+                    # General case for methods loading
+                    self.nyi()
+            elif isinstance(instruction, model.CALL_METHOD):
+
+                # Make a call to the method, add 8 bytes compared to CALL_FUNCTION because the receiver is on the stack
+                # as the first argument
+                allocator.encode(
+                    asm.MOV(asm.r9, asm.operand.MemoryOperand(asm.registers.rsp + 8 * instruction.argument + 8)))
+
+                # The return instruction will clean the stack
+                allocator.encode(asm.CALL(asm.r9))
+
+                for y in range(0, instruction.argument + 1):
+                    allocator.versioning.current_version().get_context_for_block(block).decrease_stack_size()
+                    context.pop_value()
+
+                # The return value is in rax, push it back on the stack
+                allocator.encode(asm.PUSH(asm.rax))
+
+                # The return value is unknown
+                context.push_value("return_value", objects.Types.Unknown)
             elif isinstance(instruction, model.BINARY_TYPE_CHECK):
                 # A type-check must be performed for two operands of a binary operation
 
@@ -1710,6 +1843,12 @@ primitive_offsets_functions = {
 
 # Primitive offsets for some properties in builtins classes
 primitive_offsets_attributes = {
+
+    # List class
+    "twopy_size": 3,
+    "native_list": 4,
+    "index": 5,
+
     # Range class
     "twopy_range_start": 3,
     "twopy_range_step": 4,
@@ -1719,6 +1858,12 @@ primitive_offsets_attributes = {
 
 # Primitive offsets for some methods in builtins classes
 primitive_offsets_methods = {
+    # List class
+    # "twopy_iter": 5,
+    "list_get": 6,
+    "list_put": 7,
+    "append": 8,
+
     # Range class
     "twopy_iter": 5,
     "twopy_next": 6,

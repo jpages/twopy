@@ -116,9 +116,15 @@ class TagHandler:
         y_register = asm.r14
 
         if self.jit.interpreter.args.maxvers == 0:
-            # BBV is deactivated
+            # BBV is deactivated, replace type values with unknow in the virtual stack
             context.variable_types[0] = Types.Unknown
             context.variable_types[1] = Types.Unknown
+
+            new_tuple0 = (context.stack[-1][0], context.variable_types[0])
+            new_tuple1 = (context.stack[-2][0], context.variable_types[1])
+
+            context.stack[-1] = new_tuple0
+            context.stack[-2] = new_tuple1
         else:
             # Try to retrieve information on types in the context
             context.variable_types[0] = context.stack[-1][1]

@@ -1,10 +1,27 @@
-# Standard library of twopy
+# Standard library of Twopy
 # see builtins.py
 
-# Print function
+
+# Print function, just a placeholder
 def twopy_print(objects):
     pass
 
+
+# Allocate a native array in the heap of given size and returns its tagged address
+def allocate_array(size):
+    pass
+
+
+# Access the given native array at given index and return the element
+def array_get(array, index):
+    pass
+
+
+# Put the given element in index in a native array
+def array_put(array, element, index):
+    print(array)
+    print(element)
+    print(index)
 
 # Class for base object
 # class twopy_object:
@@ -119,6 +136,36 @@ def twopy_print(objects):
     # __dict__ = {}
     # __doc__ = ''
     # __module__ = ''
+
+
+# Class list
+class twopy_list():
+    def __init__(self, size):
+        # Size available in the list for now
+        self.twopy_size = size
+
+        self.native_list = allocate_array(size)
+
+        # Next free index in the list
+        self.index = 0
+
+    # A list must be iterable
+    def twopy_iter(self):
+        return self
+
+    # Return the element at given index
+    # TODO: handle out of bounds errors
+    def list_get(self, index):
+        return array_get(self.native_list, index)
+
+    # Insert the given element at index
+    # TODO: handle error cases with out of bounds
+    def list_put(self, element, index):
+        array_put(self.native_list, element, index)
+
+    def append(self, element):
+        print(element)
+        # print(self.index)
 
 
 # TODO: make the base class when inheritance is supported
