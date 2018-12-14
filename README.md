@@ -3,7 +3,7 @@ A Python VM based on BBV
 
 ### Building
 Twopy needs python3 to be launched.
-Twopy works on python3.5 to python 3.6. PeachPy, Capstone and cffi are required to build twopy
+PeachPy, Capstone and cffi are required to build twopy.
 
 To fully install Twopy, follow the next steps:
 
@@ -23,9 +23,16 @@ git clone https://github.com/udem-dlteam/twopy.git
 cd twopy/vm
 ```
 
+Create the twopy executable:
+```
+make
+```
+
+Now you can run the command ```./twopy``` to execute a Python file.
+
 ### Running
 
-Simple Fibonacci example:
+The simple Fibonacci example:
 ```python
 def fib(n):
     if n<2:
@@ -36,9 +43,10 @@ def fib(n):
 print(fibR(40))
 ```
 
-To launch Twopy with JIT compilation:
+To launch Twopy on this example and print the time:
 ```bash
-$time python ./twopy.py fib.py
+./twopy --time tests/fib.py
+
 165580141
 
 real	0m1,900s
