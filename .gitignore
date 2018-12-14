@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 
+# Main exec
+twopy
+
 # C extensions
 *.so
 stub_module.o
