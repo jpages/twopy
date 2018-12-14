@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 
 import argparse
 import subprocess
@@ -20,16 +20,19 @@ def main():
     # TODO: option usage
     # TODO: option time (of the subprocess)
     # TODO: print the output
-    parser.add_argument('--debug', '-gdb',
+    parser.add_argument('--gdb',
                         help='Enable gdb debugging of Twopy',
                         action='store_true')
 
     parser.add_argument("python_file", help="Python file to execute")
 
+    parser.add_argument("--time",
+                        help="Print the time of the process",
+                        action="store_true")
 
     args = parser.parse_args()
 
-    if args.debug:
+    if args.gdb:
         print("Debug mode")
 
     twopy_entry_point = "twopy.py"
@@ -41,8 +44,10 @@ def main():
     this_path += "/../../cpython/python"
 
     cmd = "PYTHONMALLOC=malloc " + this_path + " " + twopy_entry_point
+    if args.time:
+        cmd = "time " + cmd
 
-    print(cmd+"\n")
+    # print(cmd+"\n")
 
     # run Twopy
     run_cmd(cmd, args.python_file)
