@@ -9,17 +9,16 @@ import os.path
 # python_file: the python file to execute with Twopy
 def run_cmd(cmd, python_file):
 
-    subprocess.run(cmd + " " + python_file, shell=True)
+    command = cmd + " " + python_file
+    subprocess.run(command, shell=True)
 
 
 def main():
     # Argument parser
     parser = argparse.ArgumentParser(description="Twopy Python compiler")
 
-    # Intercept a debug option to run gdb
     # TODO: option usage
-    # TODO: option time (of the subprocess)
-    # TODO: print the output
+    # TODO: all additional options must be passed to twopy
     parser.add_argument('--gdb',
                         help='Enable gdb debugging of Twopy',
                         action='store_true')
@@ -32,8 +31,14 @@ def main():
 
     args = parser.parse_args()
 
+    # Contains arguments for running gdb
+    debug_string = ""
+
+    # Used to give env variables to CPython
+    env_vars = "PYTHONMALLOC=malloc "
+
     if args.gdb:
-        print("Debug mode")
+        debug_string = "gdb -ex run --args "
 
     twopy_entry_point = "twopy.py"
 
@@ -43,11 +48,10 @@ def main():
     # Make sure to have the correct absolute path, is the project was cloned as expected
     this_path += "/../../cpython/python"
 
-    cmd = "PYTHONMALLOC=malloc " + this_path + " " + twopy_entry_point
+    cmd = env_vars + debug_string + " " + this_path + " " + twopy_entry_point
+
     if args.time:
         cmd = "time " + cmd
-
-    # print(cmd+"\n")
 
     # run Twopy
     run_cmd(cmd, args.python_file)
