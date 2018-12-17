@@ -1,11 +1,9 @@
 # twopy
-A Python VM based on BBV
+A Python virtual machine with a JIT compiler based on basic block versioning.
+Twopy needs python3 to be launched. Twopy was developed and tested on Linux with x86-64 machines.
 
 ### Building
-Twopy needs python3 to be launched.
-PeachPy, Capstone and cffi are required to build twopy.
-
-To fully install Twopy, follow the next steps:
+To fully install Twopy and its dependencies, follow the next steps:
 
 ```bash
 git clone https://github.com/python/cpython.git
@@ -23,7 +21,7 @@ git clone https://github.com/udem-dlteam/twopy.git
 cd twopy/vm
 ```
 
-Create the twopy executable:
+Create the Twopy executable:
 ```
 make
 ```
@@ -43,7 +41,7 @@ def fib(n):
 print(fibR(40))
 ```
 
-To launch Twopy on this example and print the time:
+This example is already in the repo, to launch Twopy on this example and print the execution time:
 ```bash
 ./twopy --time tests/fib.py
 
