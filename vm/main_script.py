@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import os.path
+import glob
 
 # Execute the compiler with the given arguments
 # cmd: the command to execute
@@ -29,6 +30,11 @@ def main():
                         help="Print the time of the process",
                         action="store_true")
 
+    # Run benchmarks and exit
+    parser.add_argument("--benchs", "--benchmarks",
+                        help="Run all benchmarks in benchmarks/ directory and exit",
+                        action="store_true")
+
     args = parser.parse_args()
 
     # Contains arguments for running gdb
@@ -53,8 +59,22 @@ def main():
     if args.time:
         cmd = "time " + cmd
 
-    # run Twopy
-    run_cmd(cmd, args.python_file)
+    # This option launches twopy on every benchmark then exit
+    if args.benchs:
+        bench_dir = os.path.dirname(os.path.realpath(__file__)) + "/benchmarks/"
+        bench_list = glob.glob(bench_dir + "*.py")
+
+        # Automatically add the time
+        if not args.time:
+            cmd = "time " + cmd
+
+        # Execute each file
+        for file in bench_list:
+            print(file)
+            run_cmd(cmd, file)
+    else:
+        # run Twopy
+        run_cmd(cmd, args.python_file)
 
 
 if __name__ == '__main__':
