@@ -1,6 +1,6 @@
 # twopy
 A Python virtual machine with a JIT compiler based on basic block versioning.
-Twopy needs python3 to be launched. Twopy was developed and tested on Linux with x86-64 machines.
+Twopy needs python3 to be launched. Twopy is developed and tested on Linux with x86-64 machines.
 
 ### Building
 To fully install Twopy and its dependencies, follow the next steps:
@@ -17,7 +17,7 @@ make -j16
 ./python -m pip install capstone
 ./python -m pip install cffi
 cd ..
-git clone https://github.com/udem-dlteam/twopy.git
+git clone https://github.com/jpages/twopy.git
 cd twopy/
 ```
 
@@ -38,7 +38,7 @@ def fib(n):
     else:
         return fib(n-1) + fib(n-2)
 
-print(fibR(40))
+print(fib(40))
 ```
 
 This example is already in the repo, to launch Twopy on this example and print the execution time:
