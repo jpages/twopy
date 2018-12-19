@@ -52,7 +52,7 @@ def main():
     this_path = os.path.dirname(os.path.realpath(__file__))
 
     # Make sure to have the correct absolute path, is the project was cloned as expected
-    this_path += "/../../cpython/python"
+    this_path += "/../cpython/python"
 
     cmd = env_vars + debug_string + " " + this_path + " " + twopy_entry_point
 

@@ -18,7 +18,7 @@ make -j16
 ./python -m pip install cffi
 cd ..
 git clone https://github.com/udem-dlteam/twopy.git
-cd twopy/vm
+cd twopy/
 ```
 
 Create the Twopy executable:
