@@ -35,6 +35,10 @@ def main():
                         help="Run all benchmarks in benchmarks/ directory and exit",
                         action="store_true")
 
+    # This option is mandatory each time the FFI with C is modified
+    parser.add_argument("--compile_ffi", action="store_true",
+                        help="Compile the C-FFI used by Twopy")
+
     args = parser.parse_args()
 
     # Contains arguments for running gdb
@@ -47,6 +51,9 @@ def main():
         debug_string = "gdb -ex run --args "
 
     twopy_entry_point = "twopy.py"
+
+    if args.compile_ffi:
+        twopy_entry_point += " --compile_ffi"
 
     # Current path
     this_path = os.path.dirname(os.path.realpath(__file__))

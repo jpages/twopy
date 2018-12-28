@@ -3,16 +3,14 @@
 # Handle the compilation of stub functions
 import peachpy.x86_64 as asm
 from jit import objects
-from jit import ffi_definitions
-
-# Import of the generated C-FFI module
-from stub_module import ffi, lib
 
 # The instance of the JITCompiler, must be set somewhere else
 jitcompiler_instance = None
-
 stubhandler_instance = None
 
+# Will bo load by init_ffi()
+ffi = None
+lib = None
 
 # Class for handle compilation of stubs, and ffi-related operations
 class StubHandler:
@@ -33,6 +31,9 @@ class StubHandler:
 
         # Addresses of the beginning of class stubs to identify them during a callback
         self.class_stub_addresses = list()
+
+        # Initialize the ffi loading
+        init_ffi(jitcompiler)
 
     # Compile a stub which jumps without condition to a block
     # mfunction : current compiled function
@@ -243,94 +244,103 @@ class StubHandler:
             mfunction.allocator.encode_stub(asm.NOP())
 
 
-# This function is called when a stub is executed, we must compile the appropriate block and replace some code
-# rsp : The return address, use to identify which stub we must compile
-@ffi.def_extern()
-def python_callback_bb_stub(rsp):
+# Initialize and compile the whole ffi if needed
+def init_ffi(jitcompiler):
+    # Load c definitions and compile all of it
+    if jitcompiler.interpreter.args.compile_ffi:
+        from jit import ffi_definitions
 
-    # We must now trigger the compilation of the corresponding block
-    stub = stubhandler_instance.stub_dictionary[rsp]
+    global lib
+    global ffi
 
-    first_offset = 0
-    if stub.instructions_before:
-        first_offset = jitcompiler_instance.global_allocator.code_offset
-        for i in stub.instructions_before:
-            stub.block.function.allocator.encode(i)
+    # Import of the generated C-FFI module
+    from stub_module import ffi, lib
 
-        # Get the offset of the first instruction compiled in the block
-        jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
-    else:
-        # Get the offset of the first instruction compiled in the block
-        first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
+    # This function is called when a stub is executed, we must compile the appropriate block and replace some code
+    # rsp : The return address, use to identify which stub we must compile
+    @ffi.def_extern()
+    def python_callback_bb_stub(rsp):
 
-    # Patch the old code to not jump again in the stub
-    stub.patch_instruction(first_offset)
+        # We must now trigger the compilation of the corresponding block
+        stub = stubhandler_instance.stub_dictionary[rsp]
 
-    if jitcompiler_instance.interpreter.args.asm:
-        jitcompiler_instance.global_allocator.disassemble_asm()
+        first_offset = 0
+        if stub.instructions_before:
+            first_offset = jitcompiler_instance.global_allocator.code_offset
+            for i in stub.instructions_before:
+                stub.block.function.allocator.encode(i)
 
-    c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
-    rsp_address_patched = lib.get_address(c_buffer, first_offset)
-    stub.data_address = stubhandler_instance.data_addresses[rsp]
+            # Get the offset of the first instruction compiled in the block
+            jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
+        else:
+            # Get the offset of the first instruction compiled in the block
+            first_offset = jitcompiler_instance.compile_instructions(stub.block.function, stub.block)
 
-    stub.clean(rsp_address_patched)
+        # Patch the old code to not jump again in the stub
+        stub.patch_instruction(first_offset)
 
-    # Delete the entry
-    del stubhandler_instance.stub_dictionary[rsp]
+        if jitcompiler_instance.interpreter.args.asm:
+            jitcompiler_instance.global_allocator.disassemble_asm()
 
+        c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
+        rsp_address_patched = lib.get_address(c_buffer, first_offset)
+        stub.data_address = stubhandler_instance.data_addresses[rsp]
 
-# This function is called when a stub is executed, need to compile a function
-@ffi.def_extern()
-def python_callback_function_stub(name_id, code_id, return_address, canary_value):
-    # Generate the Function object in the model
-    name = jitcompiler_instance.consts[name_id]
-    code = jitcompiler_instance.consts[code_id]
+        stub.clean(rsp_address_patched)
 
-    function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
+        # Delete the entry
+        del stubhandler_instance.stub_dictionary[rsp]
 
-    # We may need to generate a class
-    if canary_value in stubhandler_instance.class_stub_addresses:
-        function.is_class = True
-        function.mclass = objects.JITClass(function, name)
+    # This function is called when a stub is executed, need to compile a function
+    @ffi.def_extern()
+    def python_callback_function_stub(name_id, code_id, return_address, canary_value):
+        # Generate the Function object in the model
+        name = jitcompiler_instance.consts[name_id]
+        code = jitcompiler_instance.consts[code_id]
 
-        # Add this class-function to the global collection
-        jitcompiler_instance.class_functions.append(function)
+        function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
 
-    # Trigger the compilation of the given function
-    jitcompiler_instance.compile_function(function)
+        # We may need to generate a class
+        if canary_value in stubhandler_instance.class_stub_addresses:
+            function.is_class = True
+            function.mclass = objects.JITClass(function, name)
 
-    if jitcompiler_instance.interpreter.args.asm:
-        jitcompiler_instance.global_allocator.disassemble_asm()
+            # Add this class-function to the global collection
+            jitcompiler_instance.class_functions.append(function)
 
-    stub = stubhandler_instance.stub_dictionary[return_address]
-    stub.data_address = stubhandler_instance.data_addresses[return_address]
+        # Trigger the compilation of the given function
+        jitcompiler_instance.compile_function(function)
 
-    stub.clean(return_address, function.allocator.code_address, canary_value)
+        if jitcompiler_instance.interpreter.args.asm:
+            jitcompiler_instance.global_allocator.disassemble_asm()
 
+        stub = stubhandler_instance.stub_dictionary[return_address]
+        stub.data_address = stubhandler_instance.data_addresses[return_address]
 
-@ffi.def_extern()
-def python_callback_type_stub(return_address, id_variable, type_value):
-    stub = stubhandler_instance.stub_dictionary[return_address]
+        stub.clean(return_address, function.allocator.code_address, canary_value)
 
-    stub.callback_function(return_address, id_variable, type_value)
+    @ffi.def_extern()
+    def python_callback_type_stub(return_address, id_variable, type_value):
+        stub = stubhandler_instance.stub_dictionary[return_address]
 
+        stub.callback_function(return_address, id_variable, type_value)
 
-@ffi.def_extern()
-def python_callback_class_stub(return_address, address_after):
-    stub = stubhandler_instance.stub_dictionary[return_address]
+    @ffi.def_extern()
+    def python_callback_class_stub(return_address, address_after):
+        stub = stubhandler_instance.stub_dictionary[return_address]
 
-    # Find the last created class to call if after this stub
-    last_function = jitcompiler_instance.class_functions[-1]
+        # Find the last created class to call if after this stub
+        last_function = jitcompiler_instance.class_functions[-1]
 
-    # Allocate the class and return its tagged values
-    class_address = jitcompiler_instance.global_allocator.allocate_class(last_function)
+        # Allocate the class and return its tagged values
+        class_address = jitcompiler_instance.global_allocator.allocate_class(last_function)
 
-    address_class_function = jitcompiler_instance.dict_compiled_functions[last_function]
+        address_class_function = jitcompiler_instance.dict_compiled_functions[last_function]
 
-    stub.return_address = address_after
+        stub.return_address = address_after
 
-    # Clean the stub and put the class address on the stack
-    stub.clean(class_address, address_class_function)
+        # Clean the stub and put the class address on the stack
+        stub.clean(class_address, address_class_function)
 
 
 # Encode a value to a byte by forcing 8 bits minimum

@@ -3,6 +3,7 @@ all: twopy
 twopy:
 	cp main_script.py twopy
 	chmod u+x twopy
+	./twopy --compile_ffi tests/empty.py
 
 # Run unit tests
 tests:

@@ -33,6 +33,9 @@ def main():
     parser.add_argument("--stats", action="store_true",
                         help="Collect statistics on execution")
 
+    parser.add_argument("--compile_ffi", action="store_true",
+                        help="Compile the C-FFI used by Twopy")
+
     args = parser.parse_args()
 
     # Compile to bytecode and get the main CodeObject
