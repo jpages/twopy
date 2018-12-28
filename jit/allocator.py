@@ -246,7 +246,7 @@ class GlobalAllocator:
         if not self.jitcompiler.interpreter.args.asm:
             return
 
-        bytes_cs = bytes(self.code_section)
+        bytes_cs = bytes(self.code_section[0:self.code_offset])
 
         print("Code section")
         md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
