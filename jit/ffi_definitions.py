@@ -100,8 +100,6 @@ c_code = """
         
         void execute_code(char* code_address)
         {
-            printf("Code address %p\\n", code_address);
-            
             ((void (*)())code_address)();
         }
         

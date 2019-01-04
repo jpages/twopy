@@ -1529,16 +1529,12 @@ class Allocator:
 
     # Call the compiled function
     def __call__(self, *args):
-
-        stub_handler.lib.execute_code(stub_handler.ffi.cast("char*", self.code_address))
-
-
         # Print the asm code
         if self.jitcompiler.interpreter.args.asm:
             self.jitcompiler.global_allocator.disassemble_asm()
 
         # Make the actual call
-        #return self.function_pointer(*args)
+        stub_handler.lib.execute_code(stub_handler.ffi.cast("char*", self.code_address))
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self):
