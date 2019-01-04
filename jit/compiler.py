@@ -2,7 +2,6 @@
 This module contains the JIT compiler core
 '''
 
-import ctypes
 from types import *
 import struct
 
@@ -1414,9 +1413,6 @@ class Allocator:
         # Association between labels and addresses to print them
         self.jump_labels = dict()
 
-        # Create a pointer to be able to call this function directly in python
-        self.create_function_pointer()
-
         # Compile a prolog only for the main function, other functions don't need that
         if self.function.is_main:
             self.compile_prolog()
@@ -1483,11 +1479,6 @@ class Allocator:
 
                 context.push_value(value, objects.Types.Unknown)
 
-    # Create a pointer to the compiled function
-    def create_function_pointer(self):
-        self.function_type = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_uint64)
-        self.function_pointer = self.function_type(self.code_address)
-
     # Used to get the class address which is on the stack from the compilation context of a class-function
     # Return the register with the value inside
     # Below is a stack representation of a frame
@@ -1538,12 +1529,16 @@ class Allocator:
 
     # Call the compiled function
     def __call__(self, *args):
+
+        stub_handler.lib.execute_code(stub_handler.ffi.cast("char*", self.code_address))
+
+
         # Print the asm code
         if self.jitcompiler.interpreter.args.asm:
             self.jitcompiler.global_allocator.disassemble_asm()
 
         # Make the actual call
-        return self.function_pointer(*args)
+        #return self.function_pointer(*args)
 
     # Compile a fraction of code to call the correct function with its parameters
     def compile_prolog(self):

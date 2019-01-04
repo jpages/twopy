@@ -25,6 +25,9 @@ ffi.cdef("""
 
         // Allocate data section and return a pointer to it
         char* allocate_data_section(int);
+        
+        // Execute the allocated JIT code
+        void execute_code(char*);
 
         // Python function callback
         extern "Python+C" void python_callback_bb_stub(uint64_t rsp);
@@ -94,7 +97,14 @@ c_code = """
             char* res = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             return res;
         }
-
+        
+        void execute_code(char* code_address)
+        {
+            printf("Code address %p\\n", code_address);
+            
+            ((void (*)())code_address)();
+        }
+        
         void bb_stub(uint64_t* rsp)
         {
             python_callback_bb_stub(rsp[-2]);
