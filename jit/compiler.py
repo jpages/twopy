@@ -260,9 +260,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        # print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
-        # for ins in block.instructions:
-        #     print("\t" + str(ins))
+        print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
+        for ins in block.instructions:
+            print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -272,6 +272,9 @@ class JITCompiler:
             if mfunction.is_class:
                 # Store its name
                 self.class_names.append(mfunction.name)
+
+        if mfunction.name == "main":
+            allocator.encode(asm.INT(3))
 
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
@@ -1032,12 +1035,20 @@ class JITCompiler:
                 # TODO : temporary, the return address will be after the call to the stub
                 address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.global_allocator.code_section), self.global_allocator.code_offset + 13)
 
-                stub_address = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
+                stub_function = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
 
-                allocator.encode(asm.MOV(asm.r10, stub_address))
-                allocator.encode(asm.CALL(asm.r10))
+                self.compile_make_function(block, i, stub_function)
 
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
+                # Clean the stack of the two TOS
+                allocator.encode(asm.ADD(asm.registers.rsp, 16))
                 context.decrease_stack_size()
+                context.decrease_stack_size()
+
+                # Push the address of the stub on the stack
+                allocator.encode(asm.MOV(asm.r10, stub_function.first_address))
+                allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, model.BUILD_SLICE):
                 self.nyi()
@@ -1175,6 +1186,32 @@ class JITCompiler:
     # Compare operators
     compare_operators = ('<', '<=', '==', '!=', '>', '>=', 'in',
                          'not in', 'is', 'is not', 'exception match', 'BAD')
+
+    # Compile the MAKE_FUNCTION instruction at given index in the block
+    # block : currently compiled basic block
+    # index : index on this instruction in the block
+    # stub_function : StubFunction instance of this stub
+    def compile_make_function(self, block, index, stub_function):
+        # This function try to analyze the IR
+        # In the normal case (no closure or default arguments) a Make_function has the following structure on the stack:
+        #   | name of function |
+        #   | code of function |
+        #
+        # The MAKE_FUNCTION is supposed to be after two LOAD_CONSTS with the code and the name of the function
+        if block.instructions[index].argument == 0 and index >= 2:
+            tos = block.instructions[index-1]
+            tos1 = block.instructions[index-2]
+
+            if isinstance(tos, model.LOAD_CONST) and isinstance(tos1, model.LOAD_CONST):
+                function_name = block.function.consts[tos.argument]
+                function_code = block.function.consts[tos1.argument]
+
+                stub_function.function_name = function_name
+                stub_function.code = function_code
+                return
+
+        # We should always be in the previous case for now
+        self.nyi()
 
     # Functions used to compile a comparison then a jump after (a if)
     # mfunction : Current compiled function
