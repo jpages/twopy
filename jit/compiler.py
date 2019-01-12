@@ -273,6 +273,9 @@ class JITCompiler:
                 # Store its name
                 self.class_names.append(mfunction.name)
 
+        if mfunction.name == "main":
+            allocator.encode(asm.INT(3))
+
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
             if i == 0:
@@ -1036,14 +1039,16 @@ class JITCompiler:
 
                 self.compile_make_function(block, i, stub_function)
 
+                allocator.encode(asm.INT(3))
+                allocator.encode(asm.INT(3))
                 # Clean the stack of the two TOS
-                # allocator.encode(asm.ADD(asm.registers.rsp, 16))
-                # context.decrease_stack_size()
-                # context.decrease_stack_size()
+                allocator.encode(asm.ADD(asm.registers.rsp, 16))
+                context.decrease_stack_size()
+                context.decrease_stack_size()
 
                 # Push the address of the stub on the stack
                 allocator.encode(asm.MOV(asm.r10, stub_function.first_address))
-                allocator.encode(asm.CALL(asm.r10))
+                allocator.encode(asm.PUSH(asm.r10))
 
             elif isinstance(instruction, model.BUILD_SLICE):
                 self.nyi()
