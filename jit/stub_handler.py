@@ -168,7 +168,7 @@ class StubHandler:
         mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
         mfunction.allocator.encode_stub(asm.CALL(asm.r10))
 
-        # Now put additional informations for the stub
+        # Now put additional information for the stub
         # Force min 8 bits encoding for this value
         nbargs_bytes = encode_bytes(nbargs)
 
