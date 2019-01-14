@@ -36,7 +36,7 @@ ffi.cdef("""
         extern "Python+C" void python_callback_function_stub(uint64_t, uint64_t, uint64_t, uint64_t);
         
        // Callback to trigger the compilation of a function with some information in the stub
-        extern "Python+C" void python_callback_function_stub_simplified(uint64_t);
+        extern "Python+C" void python_callback_function_stub_simplified(uint64_t, uint64_t);
 
         // Callback for type tests
         extern "Python+C" void python_callback_type_stub(uint64_t, int, int);
@@ -85,7 +85,7 @@ c_code = """
 
         static void python_callback_function_stub(uint64_t, uint64_t, uint64_t, uint64_t);
         
-        static void python_callback_function_stub_simplified(uint64_t);
+        static void python_callback_function_stub_simplified(uint64_t, uint64_t);
 
         static void python_callback_type_stub(uint64_t, int, int);
 
@@ -117,11 +117,13 @@ c_code = """
         // Case where the Stub is already filled with some information
         void function_stub(uint64_t* rsp)
         {
-            printf("ON est en C dans function_stub\\n");
             uint64_t return_address = rsp[-2];
+            
+            // Where to jump after the call to this stub
+            uint64_t address_after = rsp[0];
 
             // Callback to python to trigger the compilation of the function
-            python_callback_function_stub_simplified(return_address);
+            python_callback_function_stub_simplified(return_address, address_after);
         }
 
         // Handle the compilation of a function's stub
@@ -161,7 +163,7 @@ c_code = """
 
             python_callback_type_stub(return_address_aligned, id_variable, type_value);
         }
-        
+
         void class_stub(uint64_t* rsp)
         {   
             python_callback_class_stub(rsp[-1], rsp[0]);

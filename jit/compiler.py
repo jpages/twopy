@@ -260,9 +260,9 @@ class JITCompiler:
         # Offset of the first instruction compiled in the block
         return_offset = 0
 
-        print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
-        for ins in block.instructions:
-            print("\t" + str(ins))
+        # print("Compiling the block " + str(id(block)) + " in function " + str(mfunction))
+        # for ins in block.instructions:
+        #     print("\t" + str(ins))
 
         # If we are compiling the first block of the function, compile the prolog
         if block == mfunction.start_basic_block and index == 0:
@@ -272,9 +272,6 @@ class JITCompiler:
             if mfunction.is_class:
                 # Store its name
                 self.class_names.append(mfunction.name)
-
-        if mfunction.name == "main":
-            allocator.encode(asm.INT(3))
 
         for i in range(index, len(block.instructions)):
             # If its the first instruction of the block, save its offset
@@ -793,7 +790,6 @@ class JITCompiler:
 
                 context.push_value(name, objects.Types.Unknown)
 
-                print(name in stub_handler.primitive_addresses)
                 if name == "__name__":
                     self.compile_load_special(mfunction, name)
                 elif name in self.class_names:
@@ -1037,8 +1033,6 @@ class JITCompiler:
 
                 self.compile_make_function(block, i, stub_function)
 
-                allocator.encode(asm.INT(3))
-                allocator.encode(asm.INT(3))
                 # Clean the stack of the two TOS
                 allocator.encode(asm.ADD(asm.registers.rsp, 16))
                 context.decrease_stack_size()
@@ -1209,10 +1203,8 @@ class JITCompiler:
 
                 # Special case for primitive functions and addresses
                 if "standard_library.py" in block.function.filename:
-                    print("Compiling standard function")
                     short_name = function_name.replace("twopy_", "")
                     stub_handler.primitive_addresses[short_name] = stub_function.first_address
-
 
                 return
 

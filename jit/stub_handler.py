@@ -161,8 +161,8 @@ class StubHandler:
 
         # Align the stack on 16 bits
         mfunction.allocator.encode_stub(asm.MOV(asm.rax, asm.registers.rsp))
-        mfunction.allocator.encode_stub(asm.AND(asm.registers.rsp, -16))
-        mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rsp))
+        mfunction.allocator.encode_stub(asm.AND(asm.registers.rax, -16))
+        mfunction.allocator.encode_stub(asm.PUSH(asm.registers.rax))
 
         mfunction.allocator.encode_stub(asm.MOV(asm.r10, function_address))
         mfunction.allocator.encode_stub(asm.CALL(asm.r10))
@@ -327,10 +327,7 @@ def init_ffi(jitcompiler):
 
     # This function is called when a stub is executed, need to compile a function
     @ffi.def_extern()
-    def python_callback_function_stub_simplified(return_address):
-
-        print("Stub dictionary ")
-        print(stubhandler_instance.stub_dictionary)
+    def python_callback_function_stub_simplified(return_address, address_after):
         # Get the stub and its information
         stub = stubhandler_instance.stub_dictionary[return_address]
         stub.data_address = stubhandler_instance.data_addresses[return_address]
@@ -358,7 +355,7 @@ def init_ffi(jitcompiler):
         if jitcompiler_instance.interpreter.args.asm:
             jitcompiler_instance.global_allocator.disassemble_asm()
 
-        stub.clean(return_address, function.allocator.code_address)
+        stub.clean(address_after, function.allocator.code_address)
 
     @ffi.def_extern()
     def python_callback_type_stub(return_address, id_variable, type_value):
@@ -680,22 +677,21 @@ class StubFunction(Stub):
         instructions = []
 
         # restore rsp
-        instructions.append(asm.INT(3).encode())
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
         if canary_value in stubhandler_instance.class_stub_addresses:
             instructions.append(asm.ADD(asm.registers.rsp, 32).encode())
         else:
-            # Discard the three top values on the stack
-            instructions.append(asm.ADD(asm.registers.rsp, 24).encode())
+            # Discard the return value on the stack
+            instructions.append(asm.ADD(asm.registers.rsp, 8).encode())
 
-        # Now push the function address
+        # Now call the newly compiled function
         instructions.append(asm.MOV(asm.rax, function_address).encode())
-        instructions.append(asm.PUSH(asm.rax).encode())
+        instructions.append(asm.CALL(asm.rax).encode())
 
-        # Finally, jump to the correct destination
-        instructions.append(asm.MOV(asm.rax, return_address).encode())
-        instructions.append(asm.JMP(asm.rax).encode())
+        # After the call, jump to the code section with the return_address
+        instructions.append(asm.MOV(asm.r10, return_address).encode())
+        instructions.append(asm.JMP(asm.r10).encode())
 
         offset = self.data_address
         for i in instructions:
