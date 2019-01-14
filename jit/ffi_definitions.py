@@ -118,8 +118,7 @@ c_code = """
         void function_stub(uint64_t* rsp)
         {
             printf("ON est en C dans function_stub\\n");
-
-            uint64_t return_address = rsp[0];
+            uint64_t return_address = rsp[-2];
 
             // Callback to python to trigger the compilation of the function
             python_callback_function_stub_simplified(return_address);
@@ -171,7 +170,7 @@ c_code = """
         void print_stack(uint64_t* rsp)
         {
             printf("Print the stack\\n");
-            for(int i=-1; i!=7; i++)
+            for(int i=-2; i!=7; i++)
                 printf("\\t 0x%lx stack[%d] = 0x%lx\\n", (long int)&rsp[i], i, rsp[i]);
         }
 

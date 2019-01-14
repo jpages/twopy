@@ -143,8 +143,7 @@ class StubHandler:
     # Compile a stub to a function
     # mfunction: The simple_interpreter.Function
     # nbargs : number of arguments in the registers, used by C function later
-    # address_after : where to jump after the stub
-    def compile_function_stub(self, mfunction, nbargs, address_after):
+    def compile_function_stub(self, mfunction, nbargs):
         # Now encode the stub
         stub_label = asm.Label("Stub_label_" + str(mfunction.name))
 
@@ -174,6 +173,10 @@ class StubHandler:
 
         stub_function = StubFunction()
         stub_function.first_address = address
+
+        address_after = lib.get_address(ffi.from_buffer(jitcompiler_instance.global_allocator.code_section),
+                                        jitcompiler_instance.global_allocator.stub_offset)
+
         self.stub_dictionary[address_after] = stub_function
 
         self.data_addresses[address_after] = jitcompiler_instance.global_allocator.stub_offset
@@ -326,6 +329,8 @@ def init_ffi(jitcompiler):
     @ffi.def_extern()
     def python_callback_function_stub_simplified(return_address):
 
+        print("Stub dictionary ")
+        print(stubhandler_instance.stub_dictionary)
         # Get the stub and its information
         stub = stubhandler_instance.stub_dictionary[return_address]
         stub.data_address = stubhandler_instance.data_addresses[return_address]
@@ -675,6 +680,7 @@ class StubFunction(Stub):
         instructions = []
 
         # restore rsp
+        instructions.append(asm.INT(3).encode())
         instructions.append(asm.POP(asm.registers.rsp).encode())
 
         if canary_value in stubhandler_instance.class_stub_addresses:

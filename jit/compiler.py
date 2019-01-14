@@ -793,6 +793,7 @@ class JITCompiler:
 
                 context.push_value(name, objects.Types.Unknown)
 
+                print(name in stub_handler.primitive_addresses)
                 if name == "__name__":
                     self.compile_load_special(mfunction, name)
                 elif name in self.class_names:
@@ -1032,10 +1033,7 @@ class JITCompiler:
                     # default arguments
                     pass
 
-                # TODO : temporary, the return address will be after the call to the stub
-                address = stub_handler.lib.get_address(stub_handler.ffi.from_buffer(self.global_allocator.code_section), self.global_allocator.code_offset + 13)
-
-                stub_function = self.stub_handler.compile_function_stub(mfunction, nbargs, address)
+                stub_function = self.stub_handler.compile_function_stub(mfunction, nbargs)
 
                 self.compile_make_function(block, i, stub_function)
 
@@ -1208,6 +1206,14 @@ class JITCompiler:
 
                 stub_function.function_name = function_name
                 stub_function.code = function_code
+
+                # Special case for primitive functions and addresses
+                if "standard_library.py" in block.function.filename:
+                    print("Compiling standard function")
+                    short_name = function_name.replace("twopy_", "")
+                    stub_handler.primitive_addresses[short_name] = stub_function.first_address
+
+
                 return
 
         # We should always be in the previous case for now
