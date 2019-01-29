@@ -676,14 +676,11 @@ class StubFunction(Stub):
     def clean(self, return_address, function_address, canary_value=None):
         instructions = []
 
-        # restore rsp
-        instructions.append(asm.POP(asm.registers.rsp).encode())
-
         if canary_value in stubhandler_instance.class_stub_addresses:
             instructions.append(asm.ADD(asm.registers.rsp, 32).encode())
         else:
             # Discard the return value on the stack
-            instructions.append(asm.ADD(asm.registers.rsp, 8).encode())
+            instructions.append(asm.ADD(asm.registers.rsp, 16).encode())
 
         # Now call the newly compiled function
         instructions.append(asm.MOV(asm.rax, function_address).encode())

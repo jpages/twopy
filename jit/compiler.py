@@ -1035,8 +1035,10 @@ class JITCompiler:
 
                 # Clean the stack of the two TOS
                 allocator.encode(asm.ADD(asm.registers.rsp, 16))
-                context.decrease_stack_size()
-                context.decrease_stack_size()
+                context.pop_value()
+                context.pop_value()
+                # context.decrease_stack_size()
+                # context.decrease_stack_size()
 
                 # Push the address of the stub on the stack
                 allocator.encode(asm.MOV(asm.r10, stub_function.first_address))
@@ -1575,8 +1577,13 @@ class Allocator:
     def compile_prolog(self):
         offset_before = self.jitcompiler.global_allocator.code_offset
 
-        # Save rbp
+        # Save rbp and other registers
         self.encode(asm.PUSH(asm.rbp))
+        self.encode(asm.PUSH(asm.rbx))
+        self.encode(asm.PUSH(asm.r12))
+        self.encode(asm.PUSH(asm.r13))
+        self.encode(asm.PUSH(asm.r14))
+        self.encode(asm.PUSH(asm.r15))
         self.encode(asm.MOV(asm.rbp, asm.registers.rsp))
 
         # Call the function just after this prolog
@@ -1586,6 +1593,11 @@ class Allocator:
 
         # Restore the stack
         instructions.append(asm.MOV(asm.registers.rsp, asm.rbp))
+        instructions.append(asm.POP(asm.r15))
+        instructions.append(asm.POP(asm.r14))
+        instructions.append(asm.POP(asm.r13))
+        instructions.append(asm.POP(asm.r12))
+        instructions.append(asm.POP(asm.rbx))
         instructions.append(asm.POP(asm.rbp))
         instructions.append(asm.RET())
 
