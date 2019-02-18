@@ -220,9 +220,6 @@ class StubHandler:
         c_buffer = ffi.from_buffer(jitcompiler_instance.global_allocator.code_section)
         address_code = lib.get_address(c_buffer, jitcompiler_instance.global_allocator.code_offset)
 
-        # Be able to find them in the collection during the later callback
-        self.class_stub_addresses.append(address_stub)
-
         # Call the stub function
         mfunction.allocator.encode_stub(asm.MOV(asm.rdi, asm.registers.rsp))
 
@@ -238,6 +235,9 @@ class StubHandler:
         stub = StubClass()
         stub.data_address = offset
         stub.return_address = address_code
+
+        # Be able to find them in the collection during the later callback
+        self.class_stub_addresses.append(address_code)
 
         # Indicate this offset correspond to the "return address" on the stub after the call to C returned
         self.data_addresses[return_address] = offset
@@ -296,34 +296,34 @@ def init_ffi(jitcompiler):
         del stubhandler_instance.stub_dictionary[rsp]
 
     # This function is called when a stub is executed, need to compile a function
-    @ffi.def_extern()
-    def python_callback_function_stub(name_id, code_id, return_address, canary_value):
-        # Generate the Function object in the model
-        name = jitcompiler_instance.consts[name_id]
-        code = jitcompiler_instance.consts[code_id]
-
-        #TODO: find a way to get this name and code from elsewhere
-        # we could put them into the stub
-        function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
-
-        # We may need to generate a class
-        if canary_value in stubhandler_instance.class_stub_addresses:
-            function.is_class = True
-            function.mclass = objects.JITClass(function, name)
-
-            # Add this class-function to the global collection
-            jitcompiler_instance.class_functions.append(function)
-
-        # Trigger the compilation of the given function
-        jitcompiler_instance.compile_function(function)
-
-        if jitcompiler_instance.interpreter.args.asm:
-            jitcompiler_instance.global_allocator.disassemble_asm()
-
-        stub = stubhandler_instance.stub_dictionary[return_address]
-        stub.data_address = stubhandler_instance.data_addresses[return_address]
-
-        stub.clean(return_address, function.allocator.code_address, canary_value)
+    # @ffi.def_extern()
+    # def python_callback_function_stub(name_id, code_id, return_address, canary_value):
+    #     # Generate the Function object in the model
+    #     name = jitcompiler_instance.consts[name_id]
+    #     code = jitcompiler_instance.consts[code_id]
+    #
+    #     #TODO: find a way to get this name and code from elsewhere
+    #     # we could put them into the stub
+    #     function = jitcompiler_instance.interpreter.generate_function(code, name, jitcompiler_instance.interpreter.mainmodule, False)
+    #
+    #     # We may need to generate a class
+    #     if canary_value in stubhandler_instance.class_stub_addresses:
+    #         function.is_class = True
+    #         function.mclass = objects.JITClass(function, name)
+    #
+    #         # Add this class-function to the global collection
+    #         jitcompiler_instance.class_functions.append(function)
+    #
+    #     # Trigger the compilation of the given function
+    #     jitcompiler_instance.compile_function(function)
+    #
+    #     if jitcompiler_instance.interpreter.args.asm:
+    #         jitcompiler_instance.global_allocator.disassemble_asm()
+    #
+    #     stub = stubhandler_instance.stub_dictionary[return_address]
+    #     stub.data_address = stubhandler_instance.data_addresses[return_address]
+    #
+    #     stub.clean(return_address, function.allocator.code_address, canary_value)
 
     # This function is called when a stub is executed, need to compile a function
     @ffi.def_extern()
@@ -342,7 +342,8 @@ def init_ffi(jitcompiler):
 
         # TODO: handle the case where we are compiling a class
         # We may need to generate a class
-        # if canary_value in stubhandler_instance.class_stub_addresses:
+        # if address_after in stubhandler_instance.class_stub_addresses:
+        #     print("Compiling a class")
         #     function.is_class = True
         #     function.mclass = objects.JITClass(function, name)
         #

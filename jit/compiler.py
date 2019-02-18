@@ -588,6 +588,8 @@ class JITCompiler:
             elif isinstance(instruction, model.LOAD_BUILD_CLASS):
                 self.stub_handler.compile_class_stub(mfunction)
 
+                context.push_value("class_stub_address")
+
                 # Get the following class name which should be a LOAD_CONST instruction
                 const_number = block.instructions[i + 2].argument
                 name = block.function.consts[const_number]
@@ -1037,12 +1039,12 @@ class JITCompiler:
                 allocator.encode(asm.ADD(asm.registers.rsp, 16))
                 context.pop_value()
                 context.pop_value()
-                # context.decrease_stack_size()
-                # context.decrease_stack_size()
 
                 # Push the address of the stub on the stack
                 allocator.encode(asm.MOV(asm.r10, stub_function.first_address))
                 allocator.encode(asm.PUSH(asm.r10))
+
+                # context.push_value("stub_address")
 
             elif isinstance(instruction, model.BUILD_SLICE):
                 self.nyi()
