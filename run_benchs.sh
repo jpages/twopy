@@ -15,7 +15,7 @@ do
         printf "$NAME:"
 
         # Run twopy and print only the time
-        OUT=$( PYTHONMALLOC=malloc /usr/bin/time -f "%e" ../../tests/cpython/python twopy.py $bench | sed -n 1p)
+        OUT=$(PYTHONMALLOC=malloc /usr/bin/time -f "%e" ../cpython/python twopy.py  $bench | sed -n 1p)
     done
     printf "\n"
 done
@@ -32,7 +32,7 @@ do
         printf "$NAME:"
 
         # Run twopy and print only the time
-        OUT=$(PYTHONMALLOC=malloc /usr/bin/time -f "%e" ../../tests/cpython/python twopy.py --maxvers 0 $bench | sed -n 1p)
+        OUT=$(PYTHONMALLOC=malloc /usr/bin/time -f "%e" ../cpython/python twopy.py --maxvers 0 $bench | sed -n 1p)
     done
     printf "\n"
 done

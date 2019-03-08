@@ -12,11 +12,12 @@ import subprocess
 # Python interpreters used for testing
 
 ref_interp = ['python3']
-interp = ['../../twopy.py']
+interp = ['../../twopy']
 
 #------------------------------------------------------------------------------
 
 # Get list of all tests to run in specified directories
+
 
 def get_tests(dirs):
 
@@ -63,14 +64,18 @@ green_text = '\33[32;1m'
 red_text = '\33[31;1m'
 erase_to_eol = '\33[K'
 
+
 def output(text):
     sys.stdout.write(text)
+
 
 def output_flush():
     sys.stdout.flush()
 
+
 def output_line():
     output('------------------------------------------------------------------------------\n')
+
 
 def show_progress():
 
@@ -89,6 +94,7 @@ def show_progress():
                    ratio(100),
                    elapsed_ms//1000, (elapsed_ms//100)%10,
                    erase_to_eol))
+
 
 def run_tests(tests):
 
@@ -114,6 +120,7 @@ def run_tests(tests):
     output('\n')
     output_line()
 
+
 def get_expected(test):
     with open(test, 'rb') as f:
         content = f.read()
@@ -134,6 +141,7 @@ def get_expected(test):
         i -= 1
     return (content[0:pos], expected)
 
+
 def set_expected(test, expected):
     ex = get_expected(test)
     commented = b'\n#'
@@ -148,6 +156,7 @@ def set_expected(test, expected):
             return
     with open(test, 'wb') as f:
         f.write(new_content)
+
 
 def run_test(test):
 
@@ -203,6 +212,7 @@ def run_test(test):
         output_line()
         fail()
 
+
 def run(cmd, cwd):
     stdin_path = os.path.join(cwd, 'stdin')
     if os.path.exists(stdin_path):
@@ -227,6 +237,7 @@ dirs = []
 common_dir = None
 fix_expected = False
 
+
 def add_dir(path):
 
     global common_dir
@@ -242,6 +253,7 @@ def add_dir(path):
         else:
             common_prefix = os.path.commonprefix([dir, common_dir])
             common_dir = os.path.join(os.path.dirname(common_prefix), '')
+
 
 def main():
 
@@ -271,6 +283,7 @@ def main():
         add_dir(os.path.join(os.path.dirname(sys.argv[0]), 'unit_tests'))
 
     run_tests(get_tests(dirs))
+
 
 if __name__ == '__main__':
     main()
