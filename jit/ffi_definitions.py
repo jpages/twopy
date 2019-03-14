@@ -28,7 +28,7 @@ c_code = gc_source
 with open("jit/stub.c", 'r') as f:
     stub_source = f.read()
 
-c_code += stub_source
+c_code += "\n " + stub_source
 
 
 # C Sources

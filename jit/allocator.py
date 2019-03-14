@@ -267,13 +267,20 @@ class RuntimeAllocator:
         # The register where the allocation pointer is stored
         self.register_allocation = asm.r15
 
+        # Last available address in the heap, we must launch a gc phase when reached
+        self.address_end = 0
+
     # Compile a sequence of code to initialize the allocation pointer
     def init_allocation_pointer(self):
         # We need to put a value inside the designated register
         address_beginning = self.global_allocator.data_address + self.global_allocator.runtime_offset
+        self.address_end = self.global_allocator.data_address + self.global_allocator.data_size
 
         encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)
+
+        # Call a C function to allocate GC structures
+        stub_handler.lib.create_gc(stub_handler.ffi.cast("char*", address_beginning), stub_handler.ffi.cast("char*", self.address_end))
 
     # Allocate an object with a given size and return the address of the header
     # instructions: array of instructions
@@ -282,6 +289,7 @@ class RuntimeAllocator:
     def allocate_object_with_size(self, instructions, nb_words, register=asm.r10):
         # Save the next free address
         instructions.append(asm.MOV(register, self.register_allocation))
+        instructions.append(asm.INT(3))
 
         # Increment the dynamic allocator
         size = nb_words * 8
@@ -289,6 +297,13 @@ class RuntimeAllocator:
         instructions.append(asm.MOV(asm.operand.MemoryOperand(self.register_allocation), size-8))
 
         instructions.append(asm.ADD(self.register_allocation, size))
+
+        # Compare with the limit of the heap
+        instructions.append(asm.MOV(asm.r11, self.address_end))
+        instructions.append(asm.CMP(self.register_allocation, asm.r11))
+
+        # TODO: Launch a gc phase
+        # instructions.append(asm.JGE())
 
         return register
 
