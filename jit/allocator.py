@@ -302,9 +302,33 @@ class RuntimeAllocator:
         instructions.append(asm.MOV(asm.r11, self.address_end))
         instructions.append(asm.CMP(self.register_allocation, asm.r11))
 
-        # TODO: Launch a gc phase
-        # instructions.append(asm.JGE())
+        function_address = int(
+            stub_handler.ffi.cast("intptr_t", stub_handler.ffi.addressof(stub_handler.lib, "gc_phase")))
 
+        tmp = list()
+
+        # Compute the size of these instructions
+        size = 0
+        for el in tmp:
+            size += len(el.encode())
+
+        # Save rsp
+        tmp.append(asm.MOV(asm.rax, asm.registers.rsp))
+        tmp.append(asm.PUSH(asm.registers.rsp))
+
+        tmp.append(asm.MOV(asm.rdi, asm.registers.rax))
+        tmp.append(asm.MOV(asm.rsi, self.register_allocation))
+        tmp.append(asm.MOV(asm.r11, function_address))
+        tmp.append(asm.CALL(asm.r11))
+
+        # Restore rsp
+        tmp.append(asm.POP(asm.registers.rsp))
+
+        # Launch a gc phase if we reached the limit
+        instructions.append(asm.JL(asm.operand.RIPRelativeOffset(size)))
+
+        # Add following instructions
+        instructions.extend(tmp)
         return register
 
     # Allocate an Object and return its pointer
