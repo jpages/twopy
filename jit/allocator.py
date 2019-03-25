@@ -289,7 +289,6 @@ class RuntimeAllocator:
     def allocate_object_with_size(self, instructions, nb_words, register=asm.r10):
         # Save the next free address
         instructions.append(asm.MOV(register, self.register_allocation))
-        instructions.append(asm.INT(3))
 
         # Increment the dynamic allocator
         size = nb_words * 8
@@ -307,11 +306,6 @@ class RuntimeAllocator:
 
         tmp = list()
 
-        # Compute the size of these instructions
-        size = 0
-        for el in tmp:
-            size += len(el.encode())
-
         # Save rsp
         tmp.append(asm.MOV(asm.rax, asm.registers.rsp))
         tmp.append(asm.PUSH(asm.registers.rsp))
@@ -324,11 +318,17 @@ class RuntimeAllocator:
         # Restore rsp
         tmp.append(asm.POP(asm.registers.rsp))
 
+        # Compute the size of these instructions
+        size = 0
+        for el in tmp:
+            size += len(el.encode())
+
         # Launch a gc phase if we reached the limit
-        instructions.append(asm.JL(asm.operand.RIPRelativeOffset(size)))
+        instructions.append(asm.JLE(asm.operand.RIPRelativeOffset(size)))
 
         # Add following instructions
         instructions.extend(tmp)
+
         return register
 
     # Allocate an Object and return its pointer
