@@ -285,8 +285,9 @@ class RuntimeAllocator:
     # Allocate an object with a given size and return the address of the header
     # instructions: array of instructions
     # nb_words: number of 64 words to allocate
+    # context: compilation context, to get the stack size at this point
     # register: if specified, returns the result in this register, by default r10
-    def allocate_object_with_size(self, instructions, nb_words, register=asm.r10):
+    def allocate_object_with_size(self, instructions, nb_words, context, register=asm.r10):
         # Save the next free address
         instructions.append(asm.MOV(register, self.register_allocation))
 
@@ -312,6 +313,7 @@ class RuntimeAllocator:
 
         tmp.append(asm.MOV(asm.rdi, asm.registers.rax))
         tmp.append(asm.MOV(asm.rsi, self.register_allocation))
+        tmp.append(asm.MOV(asm.rdx, context.stack_size))
         tmp.append(asm.MOV(asm.r11, function_address))
         tmp.append(asm.CALL(asm.r11))
 

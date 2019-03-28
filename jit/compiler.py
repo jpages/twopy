@@ -398,7 +398,7 @@ class JITCompiler:
                     instructions.append(asm.ADDSD(asm.xmm0, asm.xmm1))
 
                     # Allocate the space for the result of the addition
-                    result_register = self.runtime_allocator.allocate_object_with_size(instructions, 2, reg0)
+                    result_register = self.runtime_allocator.allocate_object_with_size(instructions, 2, context, reg0)
                     instructions.append(asm.MOVQ(asm.operand.MemoryOperand(result_register+8), asm.xmm0))
 
                     instructions.extend(self.tags.tag_float_asm(result_register))
@@ -473,7 +473,7 @@ class JITCompiler:
                     # Make the addition and move the result to one of the operand
                     instructions.append(asm.SUBSD(asm.xmm0, asm.xmm1))
 
-                    result_register = self.runtime_allocator.allocate_object_with_size(instructions, 2, reg0)
+                    result_register = self.runtime_allocator.allocate_object_with_size(instructions, 2, context, reg0)
                     instructions.append(asm.MOVQ(asm.operand.MemoryOperand(result_register + 8), asm.xmm0))
 
                     instructions.extend(self.tags.tag_float_asm(result_register))
