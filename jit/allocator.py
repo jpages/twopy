@@ -270,11 +270,18 @@ class RuntimeAllocator:
         # Last available address in the heap, we must launch a gc phase when reached
         self.address_end = 0
 
+        # Hard limit for the allocated heap
+        self.heap_limit = 0
+
     # Compile a sequence of code to initialize the allocation pointer
     def init_allocation_pointer(self):
         # We need to put a value inside the designated register
         address_beginning = self.global_allocator.data_address + self.global_allocator.runtime_offset
-        self.address_end = self.global_allocator.data_address + self.global_allocator.data_size
+
+        self.heap_limit = self.global_allocator.data_address + self.global_allocator.data_size
+
+        # Due to the copying strategy of the GC, the free space is divided by two to allow copies
+        self.address_end = self.global_allocator.data_address + self.global_allocator.data_size//2
 
         encoded = asm.MOV(self.register_allocation, address_beginning).encode()
         self.global_allocator.code_offset = self.global_allocator.write_instruction(encoded, self.global_allocator.code_offset)

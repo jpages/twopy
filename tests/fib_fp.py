@@ -5,4 +5,4 @@ def fib_fp(n):
         return fib_fp(n-1.0) + fib_fp(n-2.0)
 
 
-print(fib_fp(40.0))
+print(fib_fp(38.0))
