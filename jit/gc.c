@@ -44,7 +44,15 @@ uint64_t copy_root(uint64_t object, char* allocPtr)
     // If o has no forwarding address
     char* new_object = allocPtr;
 
-    //allocPtr = allocPtr + size(object);
+
+    // Dereference the root to access its header and content
+    uint64_t* untag_address = object >> 3;
+    int size = untag_address[0];
+    printf("\tActual adress of the root %p\n", untag_address);
+    printf("\tSize to copy %d\n", size);
+
+    allocPtr = allocPtr + size;
+    
     //copy the contents of o to o'
     //forwarding-address(o) = o'
 
