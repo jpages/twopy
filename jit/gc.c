@@ -29,10 +29,9 @@ void create_gc(char* beginning_address, char* end_address)
 }
 
 // Copy this object in a new space
-uint64_t copy_root(uint64_t object, char* allocPtr)
+uint64_t copy_root(uint64_t object, char** allocPtr)
 {
-    printf("\tRoot to copy %p \n", (uint64_t*)object);
-
+    // TODO: forwarding addresses
     /*If o has no forwarding address
         o' = allocPtr
         allocPtr = allocPtr + size(o)
@@ -42,24 +41,22 @@ uint64_t copy_root(uint64_t object, char* allocPtr)
     return forwarding-address(o)*/
 
     // If o has no forwarding address
-    char* new_object = allocPtr;
-
+    char* new_object = *allocPtr;
 
     // Dereference the root to access its header and content
     uint64_t* untag_address = object >> 3;
-    int size = untag_address[0];
-    printf("\tActual adress of the root %p\n", untag_address);
-    printf("\tSize to copy %d\n", size);
+    int size = untag_address[0] + 8;
 
-    allocPtr = allocPtr + size;
-    
-    //copy the contents of o to o'
-    //forwarding-address(o) = o'
+    // Copy the header and the object to the new space
+    memcpy(new_object, untag_address, size);
+    *allocPtr = *allocPtr + size;
 
-    //return forwarding-address(o)
+    // Put the forwarding pointer in the old position of this object
+    untag_address[0] = new_object;
 
-
-    return object;
+    // Return the new position, with a tag
+    uint64_t new_address = ((uint64_t)new_object)<<3;
+    return new_address;
 }
 
 // Launch a gc phase
@@ -68,8 +65,7 @@ void gc_phase(uint64_t* rsp, uint64_t* register_allocation, int stack_size)
     printf("fromspace %p\n", myHeap->fromspace);
     printf("tospace %p\n", myHeap->tospace);
 
-    printf("RSP in gc_phase %p\n", rsp);
-    printf("Current allocation register %p\n", register_allocation);
+//    printf("Current allocation register %p\n", register_allocation);
 
     // Swap semi spaces
     char *tmp = myHeap->fromspace;
@@ -96,17 +92,29 @@ void gc_phase(uint64_t* rsp, uint64_t* register_allocation, int stack_size)
             roots[index++] = rsp[i];
 
             // Copy this root to the new space
-            roots[index] = copy_root(roots[index], allocPtr);
+            roots[index] = copy_root(roots[index], &allocPtr);
+            rsp[i] = roots[index];
         }
     }
 
+    printf("AllocPtr before the loop %p\n", allocPtr);
+
+    while(scanPtr < allocPtr)
+    {
+        char* object = scanPtr;
+        //int tag = (int)rsp[i] & 7;
+        printf("ScanPtr %p\n", scanPtr);
+        printf("size in object %d\n", object[0]);
+        scanPtr = scanPtr + (int)object[8] + 8;
+
+    }
 //    -- scan objects in the heap (including objects added by this loop)
 //    While scanPtr < allocPtr
 //        ForEach reference r from o (pointed to by scanPtr)
 //            r = copy(r)
 //        EndForEach
 //        scanPtr = scanPtr  + o.size() -- points to the next object in the heap, if any
-//    EndWhile
+//    EndWhilel,;n
 
     asm("INT3");
     // TODO: change the value of the allocation register to the other space

@@ -6,7 +6,7 @@
 
 void create_gc(char* beginning_address, char* end_address);
 
-uint64_t copy_root(uint64_t, char*);
+uint64_t copy_root(uint64_t, char**);
 
 void gc_phase(uint64_t*, uint64_t*, int);
 
