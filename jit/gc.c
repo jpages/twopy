@@ -65,7 +65,7 @@ void gc_phase(uint64_t* rsp, uint64_t* register_allocation, int stack_size)
     printf("fromspace %p\n", myHeap->fromspace);
     printf("tospace %p\n", myHeap->tospace);
 
-//    printf("Current allocation register %p\n", register_allocation);
+    printf("Current allocation register in the beginning %p\n", register_allocation);
 
     // Swap semi spaces
     char *tmp = myHeap->fromspace;
@@ -102,10 +102,11 @@ void gc_phase(uint64_t* rsp, uint64_t* register_allocation, int stack_size)
     while(scanPtr < allocPtr)
     {
         char* object = scanPtr;
-        //int tag = (int)rsp[i] & 7;
         printf("ScanPtr %p\n", scanPtr);
         printf("size in object %d\n", object[0]);
-        scanPtr = scanPtr + (int)object[8] + 8;
+
+        // TODO: extract tags inside objects to complete the garbage collection
+        scanPtr = scanPtr + (int)object[0] + 8;
 
     }
 //    -- scan objects in the heap (including objects added by this loop)
@@ -114,8 +115,11 @@ void gc_phase(uint64_t* rsp, uint64_t* register_allocation, int stack_size)
 //            r = copy(r)
 //        EndForEach
 //        scanPtr = scanPtr  + o.size() -- points to the next object in the heap, if any
-//    EndWhilel,;n
+//    End
 
+    printf("Current allocation register in the end %p\n", register_allocation);
+    asm("INT3");
+    asm volatile("movq %%r15, %0" : "=r"(scanPtr) :);
     asm("INT3");
     // TODO: change the value of the allocation register to the other space
 }
