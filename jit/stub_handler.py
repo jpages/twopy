@@ -697,8 +697,6 @@ class StubType(Stub):
         self.dict_stubs[return_address] = instruction
         self.dict_stubs_position[return_address] = old_position
 
-        #TODO: False branch of the test
-
         for ins in self.false_branch:
             self.mfunction.allocator.encode(ins)
 
@@ -712,7 +710,6 @@ class StubType(Stub):
         self.mfunction.allocator.encode(instruction)
         self.dict_stubs[return_address] = instruction
         self.dict_stubs_position[return_address] = old_position
-        #TODO: false branch, default case
 
     # Encode a stub to continue the test
     def encode_stub_test(self, branch, label, type_value):
